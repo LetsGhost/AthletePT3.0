@@ -8,6 +8,9 @@ export class UserEntity extends BaseModel {
     @prop({ required: true })
     password!: string;
 
+    @prop({ required: true })
+    name!: string;
+
     @prop({ default: "user" })
     role!: string;
 }

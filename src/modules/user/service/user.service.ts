@@ -18,6 +18,18 @@ export class UserService extends BaseService<UserEntity> {
       password: await bcrypt.hash(password, 10),
     });
   }
+
+  async validateUser(email: string, password: string) {
+    const user = await this.model.findOne({ email });
+    if (!user) {
+      return null;
+    }
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return null;
+    }
+    return user;
+  }
 }
 
 export const userService = new UserService();
