@@ -14,7 +14,9 @@ export function authenticate(
 ) {
   try {
     if (isAuthBypassEnabled()) {
-      req.user = getDevUser();
+      const auth = req.headers.authorization;
+      const token = auth?.split(" ")[1];
+      req.user = getDevUser(token);
       logger.warn("⚠️  Auth bypass enabled - using dev user");
       return next();
     }
