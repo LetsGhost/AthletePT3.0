@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import { BaseController } from "../../common/base/base.controller";
 import { trainingsPlanService } from "../service/trainingsplan.service";
 import { createTrainingsPlanSchema } from "../schema/trainingsplan.schema";
-import { TrainingsplanTypeEnum } from "../enum/trainingsplan-type.enum";
 import { authenticate, AuthRequest } from "../../../middleware/auth.middleware";
 
 /**
@@ -88,18 +87,13 @@ class TrainingsPlanController extends BaseController {
   private async create(req: AuthRequest, res: Response) {
     const dto = createTrainingsPlanSchema.parse(req.body);
     
-    // Get user ID from authenticated request
     const userId = req.user?.id;
     if (!userId) throw new Error("User not authenticated");
 
-    // TODO: Implement your type calculation logic here
-    const calculatedType = TrainingsplanTypeEnum.PUSH; // Replace with your calculation
-
     const plan = await trainingsPlanService.createTrainingsPlan(
-      userId,
-      calculatedType,
-      dto.trainingDays,
-      dto.warmups
+        userId,
+        dto.trainingDays,
+        dto.warmups
     );
 
     res.status(201).json(plan);

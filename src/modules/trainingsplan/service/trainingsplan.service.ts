@@ -10,13 +10,23 @@ export class TrainingsPlanService extends BaseService<TrainingsplanEntity> {
         super(TrainingsplanModel);
     }
 
+    private calculateTrainingType(
+        trainingDays: any[],
+        warmups: any[]
+    ): TrainingsplanTypeEnum {
+        // TODO: Implement your type calculation logic here
+        return TrainingsplanTypeEnum.PUSH;
+    }
+
     async createTrainingsPlan(
         userId: string,
-        type: TrainingsplanTypeEnum,
         trainingDays: any[] = [],
         warmups: any[] = []
     ) {
         return runTransaction(async (session) => {
+            // Calculate type based on business logic
+            const type = this.calculateTrainingType(trainingDays, warmups);
+
             // Create the training plan
             const plan = await this.create({
                 type,
