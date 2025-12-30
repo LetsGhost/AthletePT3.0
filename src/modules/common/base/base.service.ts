@@ -3,8 +3,9 @@ import { Model, ClientSession } from "mongoose";
 export abstract class BaseService<T> {
   protected constructor(protected readonly model: Model<T>) {}
 
-  async create(data: Partial<T>, session?: ClientSession) {
-    const result = await this.model.create([data as any], { session });
+  async create(data: Partial<T>, session?: ClientSession | null) {
+    const options = session ? { session } : {};
+    const result = await this.model.create([data as any], options);
     return result[0];
   }
 
@@ -23,15 +24,14 @@ export abstract class BaseService<T> {
   async updateById(
     id: string,
     data: Partial<T>,
-    session?: ClientSession
+    session?: ClientSession | null
   ) {
-    return this.model.findByIdAndUpdate(id, data, {
-      new: true,
-      session,
-    });
+    const options = session ? { new: true, session } : { new: true };
+    return this.model.findByIdAndUpdate(id, data, options);
   }
 
-  async deleteById(id: string, session?: ClientSession) {
-    return this.model.findByIdAndDelete(id, { session });
+  async deleteById(id: string, session?: ClientSession | null) {
+    const options = session ? { session } : {};
+    return this.model.findByIdAndDelete(id, options);
   }
 }

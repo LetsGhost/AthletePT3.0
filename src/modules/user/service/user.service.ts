@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+
 import { BaseService } from "../../common/base/base.service";
 import { UserModel } from "../model/user.model";
 import { UserEntity } from "../entity/user.entity";

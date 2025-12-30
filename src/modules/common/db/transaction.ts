@@ -1,17 +1,31 @@
 import mongoose from "mongoose";
 
 export async function runTransaction<T>(
-  fn: (session: mongoose.ClientSession) => Promise<T>
+  fn: (session: mongoose.ClientSession | null) => Promise<T>
 ) {
   const session = await mongoose.startSession();
-  session.startTransaction();
 
   try {
-    const result = await fn(session);
-    await session.commitTransaction();
-    return result;
+    // Check if the deployment supports transactions
+    const serverStatus = await mongoose.connection.getClient().db("admin").admin().serverStatus();
+    const supportsTransactions = !!(serverStatus.replicaSet || serverStatus.msg === "isdbgrid");
+
+    if (supportsTransactions) {
+      session.startTransaction();
+      const result = await fn(session);
+      await session.commitTransaction();
+      return result;
+    } else {
+      // Fallback: run without transaction
+      const result = await fn(null);
+      return result;
+    }
   } catch (err) {
-    await session.abortTransaction();
+    try {
+      await session.abortTransaction();
+    } catch (abortErr) {
+      // Session might not have active transaction
+    }
     throw err;
   } finally {
     session.endSession();
