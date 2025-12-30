@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+
 import { verifyToken } from "../modules/common/auth/jwt";
 import { isAuthBypassEnabled, getDevUser } from "../utils/auth/auth-bypass.utils";
 import { logger } from "../modules/common/logger/logger";
