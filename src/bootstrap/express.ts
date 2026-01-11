@@ -9,6 +9,7 @@ import { errorHandler } from "../middleware/error.middleware";
 import { registerControllers } from "../modules/common/registry/controller/registry.controller";
 import { registerEventHandlers } from "../modules/common/messaging/event-handler-registry";
 import { swaggerSpec } from "../config/swagger";
+import { env } from "../config/env";
 
 export async function createApp() {
   const app = express();
@@ -19,15 +20,14 @@ export async function createApp() {
 
   app.use(httpLogger);
 
-  // Register event handlers
-  await registerEventHandlers();
-
-  // Swagger documentation
-  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-  app.get("/api-docs.json", (_req, res) => {
-    res.setHeader("Content-Type", "application/json");
-    res.send(swaggerSpec);
-  });
+  // Swagger documentation (only in development)
+  if (env.NODE_ENV === "development") {
+    app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+    app.get("/api-docs.json", (_req, res) => {
+      res.setHeader("Content-Type", "application/json");
+      res.send(swaggerSpec);
+    });
+  }
 
   registerControllers(app);
 

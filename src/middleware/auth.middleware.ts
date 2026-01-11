@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+
 import { verifyToken } from "../modules/common/auth/jwt";
 import { isAuthBypassEnabled, getDevUser } from "../utils/auth/auth-bypass.utils";
 import { logger } from "../modules/common/logger/logger";
@@ -14,7 +15,9 @@ export function authenticate(
 ) {
   try {
     if (isAuthBypassEnabled()) {
-      req.user = getDevUser();
+      const auth = req.headers.authorization;
+      const token = auth?.split(" ")[1];
+      req.user = getDevUser(token);
       logger.warn("⚠️  Auth bypass enabled - using dev user");
       return next();
     }
