@@ -30,6 +30,7 @@ export async function createApp() {
   }
 
   registerControllers(app);
+  await registerEventHandlers();
 
   app.use(errorHandler);
 
