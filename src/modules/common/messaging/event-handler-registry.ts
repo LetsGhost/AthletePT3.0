@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { pathToFileURL } from "url";
 import { eventBus } from "./event-bus";
 import { EventHandler } from "./event-handler";
 import { logger } from "../logger/logger";
@@ -34,31 +35,42 @@ export async function registerEventHandlers() {
 
         try {
           const handlerPath = path.join(eventsDir, file);
-          const module = await import(handlerPath);
+
+          // Prefer dynamic import with file URL (works in ESM/CommonJS under Node16 semantics)
+          let module: any;
+          try {
+            const fileUrl = pathToFileURL(handlerPath).href;
+            module = await import(fileUrl);
+          } catch (importErr) {
+            // Fallback to require for CommonJS/ts-node-dev environments
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            module = require(handlerPath);
+          }
 
           // Find the handler instance in the module exports
           const handler = Object.values(module).find(
             (exp: any) =>
-              exp instanceof EventHandler || 
+              exp instanceof EventHandler ||
               (typeof exp === "object" && exp !== null && "handle" in exp && "getEventType" in exp)
           ) as EventHandler | undefined;
 
           if (handler) {
             const eventType = handler.getEventType();
             eventBus.subscribeToEvent(eventType, handler);
-            logger.info(
-              `Registered event handler: ${file} -> ${eventType}`,
-              { module: moduleName }
-            );
+            logger.info(`Registered event handler: ${file} -> ${eventType}`, {
+              module: moduleName,
+            });
+          } else {
+            logger.warn(`No handler instance exported by: ${file}`, {
+              module: moduleName,
+              exports: Object.keys(module),
+            });
           }
         } catch (error) {
-          logger.error(
-            `Failed to register event handler: ${file}`,
-            {
-              module: moduleName,
-              error: error instanceof Error ? error.message : String(error),
-            }
-          );
+          logger.error(`Failed to register event handler: ${file}`, {
+            module: moduleName,
+            error: error instanceof Error ? error.stack ?? error.message : String(error),
+          });
         }
       }
     }
