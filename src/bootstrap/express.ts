@@ -7,9 +7,10 @@ import "express-async-errors";
 import { httpLogger } from "../modules/common/logger/http.logger";
 import { errorHandler } from "../middleware/error.middleware";
 import { registerControllers } from "../modules/common/registry/controller/registry.controller";
+import { registerEventHandlers } from "../modules/common/messaging/event-handler-registry";
 import { swaggerSpec } from "../config/swagger";
 
-export function createApp() {
+export async function createApp() {
   const app = express();
 
   app.use(cors());
@@ -17,6 +18,9 @@ export function createApp() {
   app.use(express.json());
 
   app.use(httpLogger);
+
+  // Register event handlers
+  await registerEventHandlers();
 
   // Swagger documentation
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
