@@ -8,6 +8,7 @@ import {
 } from "../../common/auth/jwt";
 import { env } from "../../../config/env";
 import { LoginInput } from "../schema/auth.schema";
+import { logger } from "../../common/logger/logger";
 
 export class AuthService {
   async login(data: LoginInput) {
@@ -21,6 +22,14 @@ export class AuthService {
     const payload: JwtPayload = { sub: user._id.toString(), role: user.role };
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken(payload);
+
+    if (env.NODE_ENV === "development") {
+      logger.info("Dev login token issued", {
+        userId: user._id.toString(),
+        accessToken,
+        refreshToken,
+      });
+    }
 
     return {
       user: {
