@@ -10,9 +10,6 @@ export class ExerciseEntity extends BaseModel {
     @prop({ required: true })
     type!: string;
 
-    @prop({ default: false })
-    isSkipped!: boolean;
-
     @prop({ type: () => [SetEntity], default: [] })
     sets!: SetEntity[];
 

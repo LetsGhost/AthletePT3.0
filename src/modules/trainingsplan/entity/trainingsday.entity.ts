@@ -11,9 +11,6 @@ export class TrainingsdayEntity extends BaseModel {
     @prop()
     img?: string;
 
-    @prop({ default: false })
-    isSkipped!: boolean;
-
     @prop({ type: () => [ExerciseEntity], default: [] })
     exercises!: ExerciseEntity[];
 

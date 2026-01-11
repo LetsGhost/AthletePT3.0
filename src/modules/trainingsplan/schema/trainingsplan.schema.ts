@@ -30,9 +30,6 @@ import { TrainingsplanTypeEnum } from "../enum/trainingsplan-type.enum";
  *         type:
  *           type: string
  *           example: compound
- *         isSkipped:
- *           type: boolean
- *           default: false
  *         sets:
  *           type: array
  *           items:
@@ -64,9 +61,6 @@ import { TrainingsplanTypeEnum } from "../enum/trainingsplan-type.enum";
  *         img:
  *           type: string
  *           example: push-day.jpg
- *         isSkipped:
- *           type: boolean
- *           default: false
  *         exercises:
  *           type: array
  *           items:
@@ -128,7 +122,6 @@ export const setSchema = z.object({
 export const exerciseSchema = z.object({
   name: z.string().min(1).max(100),
   type: z.string().min(1),
-  isSkipped: z.boolean().optional().default(false),
   sets: z.array(setSchema).optional().default([]),
   warmupSets: z.array(setSchema).optional().default([]),
 });
@@ -141,7 +134,6 @@ export const warmupSchema = z.object({
 export const trainingDaySchema = z.object({
   name: z.string().min(1).max(100),
   img: z.string().optional(),
-  isSkipped: z.boolean().optional().default(false),
   exercises: z.array(exerciseSchema).optional().default([]),
   warmups: z.array(warmupSchema).optional().default([]),
   finishedAt: z.date().optional(),
