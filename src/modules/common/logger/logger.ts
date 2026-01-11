@@ -1,15 +1,25 @@
 import winston from "winston";
 import { requestContext } from "./request-context";
 
-const { combine, timestamp, printf, errors, json, colorize } =
+const { combine, timestamp, printf, errors, json, colorize, metadata, splat } =
   winston.format;
 
 const isProd = process.env.NODE_ENV === "production";
 
-const devFormat = printf(({ level, message, timestamp, stack, requestId }) => {
-  return `[${timestamp}] ${level} [${requestId ?? "no-req"}]: ${
-    stack || message
-  }`;
+const devFormat = printf((info) => {
+  const { level, message, timestamp, stack, requestId, label, ...rest } = info as any;
+  // Extract remaining metadata excluding Winston internals
+  const meta: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(rest)) {
+    if (typeof v === "undefined") continue;
+    if (["level", "message", "timestamp"].includes(k)) continue;
+    meta[k] = v;
+  }
+
+  const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : "";
+  const labelStr = label ? `[${label}] ` : "";
+  const reqStr = `[${requestId ?? "no-req"}]`;
+  return `[${timestamp}] ${level} ${labelStr}${reqStr}: ${stack || message}${metaStr}`;
 });
 
 const addRequestId = winston.format((info) => {
@@ -25,6 +35,8 @@ export const logger = winston.createLogger({
 
   format: combine(
     addRequestId(),
+    splat(),
+    metadata(),
     errors({ stack: true }),
     timestamp(),
     isProd ? json() : devFormat

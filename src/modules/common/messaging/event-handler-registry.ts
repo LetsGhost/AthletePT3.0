@@ -6,6 +6,7 @@ import { EventHandler } from "./event-handler";
 import { logger } from "../logger/logger";
 
 export async function registerEventHandlers() {
+  const log = logger.child({ label: "events" });
   const modulesPath = path.join(__dirname, "../../");
 
   try {
@@ -57,17 +58,17 @@ export async function registerEventHandlers() {
           if (handler) {
             const eventType = handler.getEventType();
             eventBus.subscribeToEvent(eventType, handler);
-            logger.info(`Registered event handler: ${file} -> ${eventType}`, {
+            log.info(`Registered event handler: ${file} -> ${eventType}`, {
               module: moduleName,
             });
           } else {
-            logger.warn(`No handler instance exported by: ${file}`, {
+            log.warn(`No handler instance exported by: ${file}`, {
               module: moduleName,
               exports: Object.keys(module),
             });
           }
         } catch (error) {
-          logger.error(`Failed to register event handler: ${file}`, {
+          log.error(`Failed to register event handler: ${file}`, {
             module: moduleName,
             error: error instanceof Error ? error.stack ?? error.message : String(error),
           });
@@ -75,9 +76,9 @@ export async function registerEventHandlers() {
       }
     }
 
-    logger.info("Event handler registration completed");
+    log.info("Event handler registration completed");
   } catch (error) {
-    logger.error(
+    log.error(
       `Error registering event handlers: ${
         error instanceof Error ? error.message : String(error)
       }`
