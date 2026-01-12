@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { Express, Router } from "express";
+
 import { logger } from "../../logger/logger";
 
 export function registerControllers(app: Express) {
@@ -26,7 +27,7 @@ export function registerControllers(app: Express) {
     for (const file of controllerFiles) {
       const controllerPath = path.join(controllerDir, file);
       const controller = require(controllerPath);
-      const instance = Object.values(controller)[0] as any;
+      const instance = Object.values(controller)[0];
 
       if (instance?.router) {
         const basePath = `/api/${moduleName}s`;
@@ -46,7 +47,7 @@ export function registerControllers(app: Express) {
 function getRoutes(router: Router): Array<{ method: string; path: string }> {
   const routes: Array<{ method: string; path: string }> = [];
 
-  router.stack.forEach((layer: any) => {
+  router.stack.forEach((layer) => {
     if (layer.route) {
       const methods = Object.keys(layer.route.methods);
       methods.forEach(method => {
