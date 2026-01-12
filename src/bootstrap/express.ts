@@ -8,8 +8,11 @@ import { httpLogger } from "../modules/common/logger/http.logger";
 import { errorHandler } from "../middleware/error.middleware";
 import { registerControllers } from "../modules/common/registry/controller/registry.controller";
 import { registerEventHandlers } from "../modules/common/messaging/event-handler-registry";
+import { registerScheduledJobs } from "../modules/common/scheduler/scheduler-registry";
+import { jobScheduler } from "../modules/common/scheduler/scheduler";
 import { swaggerSpec } from "../config/swagger";
 import { env } from "../config/env";
+import { logger } from "../modules/common/logger/logger";
 
 export async function createApp() {
   const app = express();
@@ -31,6 +34,15 @@ export async function createApp() {
 
   registerControllers(app);
   await registerEventHandlers();
+  await registerScheduledJobs();
+  await jobScheduler.startScheduler();
+
+  // Graceful shutdown
+  process.on("SIGTERM", async () => {
+    logger.info("SIGTERM signal received: closing HTTP server");
+    await jobScheduler.stopScheduler();
+    process.exit(0);
+  });
 
   app.use(errorHandler);
 
