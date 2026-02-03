@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
 import { createRequire } from "module";
-
 import { Express, Router } from "express";
 
 import { logger } from "../../logger/logger";
