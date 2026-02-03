@@ -1,9 +1,25 @@
 import * as fs from "fs";
 import * as path from "path";
-import { pathToFileURL } from "url";
+import { createRequire } from "module";
+
 import { eventBus } from "./event-bus";
 import { EventHandler } from "./event-handler";
 import { logger } from "../logger/logger";
+
+const requireModule = createRequire(__filename);
+
+const isEventHandler = (value: unknown): value is EventHandler => {
+  if (value instanceof EventHandler) {
+    return true;
+  }
+
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const candidate = value as { handle?: unknown; getEventType?: unknown };
+  return typeof candidate.handle === "function" && typeof candidate.getEventType === "function";
+};
 
 export async function registerEventHandlers() {
   const log = logger.child({ label: "events" });
@@ -38,22 +54,10 @@ export async function registerEventHandlers() {
           const handlerPath = path.join(eventsDir, file);
 
           // Prefer dynamic import with file URL (works in ESM/CommonJS under Node16 semantics)
-          let module: any;
-          try {
-            const fileUrl = pathToFileURL(handlerPath).href;
-            module = await import(fileUrl);
-          } catch (importErr) {
-            // Fallback to require for CommonJS/ts-node-dev environments
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            module = require(handlerPath);
-          }
+          const module = requireModule(handlerPath) as Record<string, unknown>;
 
           // Find the handler instance in the module exports
-          const handler = Object.values(module).find(
-            (exp: any) =>
-              exp instanceof EventHandler ||
-              (typeof exp === "object" && exp !== null && "handle" in exp && "getEventType" in exp)
-          ) as EventHandler | undefined;
+          const handler = Object.values(module).find((exp) => isEventHandler(exp));
 
           if (handler) {
             const eventType = handler.getEventType();

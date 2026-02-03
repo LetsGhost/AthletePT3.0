@@ -1,4 +1,5 @@
 import figlet from "figlet";
+
 import packageJson from "../../../../package.json";
 import { env } from "../../../config/env";
 import { logger } from "./logger";

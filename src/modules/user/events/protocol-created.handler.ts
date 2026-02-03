@@ -1,8 +1,9 @@
+import { Types } from "mongoose";
+
+import { logger } from "../../common/logger/logger";
 import { EventHandler } from "../../common/messaging/event-handler";
 import { ProtocolCreatedEvent } from "../../protocol/events/protocol-created.event";
 import { userService } from "../service/user.service";
-import { logger } from "../../common/logger/logger";
-import { Types } from "mongoose";
 
 export class UserProtocolCreatedHandler extends EventHandler<ProtocolCreatedEvent> {
   getEventType(): string {

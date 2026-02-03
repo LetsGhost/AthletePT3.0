@@ -5,7 +5,7 @@ export abstract class BaseService<T> {
 
   async create(data: Partial<T>, session?: ClientSession | null) {
     const options = session ? { session } : {};
-    const result = await this.model.create([data as any], options);
+    const result = await this.model.create([data as T], options);
     return result[0];
   }
 

@@ -24,6 +24,7 @@ export async function runTransaction<T>(
     try {
       await session.abortTransaction();
     } catch (abortErr) {
+      void abortErr;
       // Session might not have active transaction
     }
     throw err;

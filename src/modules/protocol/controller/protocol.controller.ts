@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 
 import { BaseController } from "../../common/base/base.controller";
 import { protocolService } from "../service/protocol.service";

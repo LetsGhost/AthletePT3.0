@@ -1,8 +1,9 @@
+import { Types } from "mongoose";
+
+import { logger } from "../../common/logger/logger";
 import { EventHandler } from "../../common/messaging/event-handler";
 import { TrainingsplanCreatedEvent } from "../../trainingsplan/events/trainingsplan-created.event";
 import { userService } from "../service/user.service";
-import { logger } from "../../common/logger/logger";
-import { Types } from "mongoose";
 
 export class UserTrainingsplanCreatedHandler extends EventHandler<TrainingsplanCreatedEvent> {
   getEventType(): string {

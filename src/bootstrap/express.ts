@@ -39,7 +39,7 @@ export async function createApp() {
     });
   }
 
-  registerControllers(app);
+  await registerControllers(app);
   await registerEventHandlers();
   await registerScheduledJobs();
   await jobScheduler.startScheduler();

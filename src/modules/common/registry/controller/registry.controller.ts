@@ -1,10 +1,14 @@
 import fs from "fs";
 import path from "path";
+import { createRequire } from "module";
+
 import { Express, Router } from "express";
 
 import { logger } from "../../logger/logger";
 
-export function registerControllers(app: Express) {
+const requireModule = createRequire(__filename);
+
+export async function registerControllers(app: Express) {
   const modulesPath = path.join(__dirname, "../../../");
 
   for (const moduleName of fs.readdirSync(modulesPath)) {
@@ -26,8 +30,8 @@ export function registerControllers(app: Express) {
 
     for (const file of controllerFiles) {
       const controllerPath = path.join(controllerDir, file);
-      const controller = require(controllerPath);
-      const instance = Object.values(controller)[0];
+      const controller = requireModule(controllerPath) as Record<string, unknown>;
+      const instance = Object.values(controller)[0] as { router?: Router } | undefined;
 
       if (instance?.router) {
         const basePath = `/api/${moduleName}s`;

@@ -1,4 +1,5 @@
 import { BaseService } from "../../common/base/base.service";
+import { ProtocolDayEntity } from "../entity/protocol-day.entity";
 import { ProtocolEntity } from "../entity/protocol.entity";
 import { ProtocolModel } from "../model/protocol.model";
 import { ProtocolCreatedEvent } from "../events/protocol-created.event";
@@ -9,7 +10,7 @@ export class ProtocolService extends BaseService<ProtocolEntity> {
         super(ProtocolModel);
     }
 
-    async createProtocol(userId: string, protocolDays: any[] = []) {
+    async createProtocol(userId: string, protocolDays: ProtocolDayEntity[] = []) {
         const protocol = await this.create({
             protocolDays,
         });

@@ -11,6 +11,7 @@ export const getDevUser = (token?: string) => {
       const payload = verifyToken(token);
       return { id: payload.sub, role: payload.role };
     } catch {
+      void 0;
     }
   }
   

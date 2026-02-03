@@ -1,4 +1,4 @@
-import rateLimit, { Store } from "express-rate-limit";
+import rateLimit, { Store, ipKeyGenerator } from "express-rate-limit";
 
 import { env } from "../config/env";
 import { logger } from "../modules/common/logger/logger";
@@ -53,9 +53,6 @@ export const createRateLimiter = () => {
   const isDev = env.NODE_ENV === "development";
 
   return rateLimit({
-    // Skip rate limiting in development
-    skip: (_req, _res) => isDev,
-
     store: new LoggingStore(),
 
     // 15 minutes window
@@ -71,7 +68,11 @@ export const createRateLimiter = () => {
     standardHeaders: true,
 
     // Log only on violations
-    skip: (_req, _res) => isDev,
+    skip: (_req, _res) => {
+      void _req;
+      void _res;
+      return isDev;
+    },
 
     // Custom handler with logging
     handler: (req, res, _next, options) => {
@@ -91,17 +92,9 @@ export const createRateLimiter = () => {
       });
     },
 
-    // Log successful requests at debug level if you want to track rate limiting
-    onLimitReached: (_req, res, options) => {
-      logger.debug("Rate limit window reached", {
-        limit: options.max,
-        windowMs: options.windowMs,
-      });
-    },
-
     keyGenerator: (req, _res) => {
-      // Use IP address as the key, or forward headers if behind proxy
-      return req.ip || req.socket.remoteAddress || "unknown";
+      void _res;
+      return ipKeyGenerator(req, _res);
     },
   });
 };
@@ -114,7 +107,11 @@ export const createAuthRateLimiter = () => {
   const isDev = env.NODE_ENV === "development";
 
   return rateLimit({
-    skip: (_req, _res) => isDev,
+    skip: (_req, _res) => {
+      void _req;
+      void _res;
+      return isDev;
+    },
 
     store: new LoggingStore(),
 
@@ -129,6 +126,7 @@ export const createAuthRateLimiter = () => {
     standardHeaders: true,
 
     handler: (req, res, _next, options) => {
+      void _next;
       const ip = req.ip || "unknown";
 
       logger.warn("Authentication rate limit exceeded", {
@@ -146,7 +144,8 @@ export const createAuthRateLimiter = () => {
     },
 
     keyGenerator: (req, _res) => {
-      return req.ip || req.socket.remoteAddress || "unknown";
+      void _res;
+      return ipKeyGenerator(req, _res);
     },
   });
 };

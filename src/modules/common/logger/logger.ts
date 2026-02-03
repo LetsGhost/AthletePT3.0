@@ -1,4 +1,5 @@
 import winston from "winston";
+
 import { requestContext } from "./request-context";
 
 const { combine, timestamp, printf, errors, json, colorize, metadata, splat } =
@@ -7,7 +8,8 @@ const { combine, timestamp, printf, errors, json, colorize, metadata, splat } =
 const isProd = process.env.NODE_ENV === "production";
 
 const devFormat = printf((info) => {
-  const { level, message, timestamp, stack, requestId, label, ...rest } = info as any;
+  const { level, message, timestamp, stack, requestId, label, ...rest } =
+    info as winston.Logform.TransformableInfo;
   // Extract remaining metadata excluding Winston internals
   const meta: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(rest)) {

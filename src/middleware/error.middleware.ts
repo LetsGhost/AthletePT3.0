@@ -8,6 +8,7 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ) => {
+  void _next;
   logger.error(err.message, {
     method: req.method,
     path: req.path,

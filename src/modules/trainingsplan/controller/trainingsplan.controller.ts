@@ -1,8 +1,10 @@
 import { Request, Response } from "express";
+
 import { BaseController } from "../../common/base/base.controller";
 import { trainingsPlanService } from "../service/trainingsplan.service";
 import { createTrainingsPlanSchema } from "../schema/trainingsplan.schema";
 import { authenticate, AuthRequest } from "../../../middleware/auth.middleware";
+import { authorize } from "../../../middleware/role.middleware";
 
 /**
  * @openapi
@@ -15,6 +17,7 @@ class TrainingsPlanController extends BaseController {
     super();
     this.create = this.create.bind(this);
     this.getById = this.getById.bind(this);
+    this.getMuscleGroups = this.getMuscleGroups.bind(this);
   }
 
   protected routes(): void {
@@ -48,7 +51,29 @@ class TrainingsPlanController extends BaseController {
      *       401:
      *         description: Unauthorized
      */
-    this.router.post("/", authenticate, this.create);
+    this.router.post("/", authenticate, authorize("admin"), this.create);
+
+    /**
+     * @openapi
+     * /api/trainingsplans/muscle-groups:
+     *   get:
+     *     summary: Get all muscle group types
+     *     tags: [TrainingPlans]
+     *     security:
+     *       - bearerAuth: []
+     *     responses:
+     *       200:
+     *         description: Muscle group types list
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: array
+     *               items:
+     *                 type: string
+     *       403:
+     *         description: Forbidden - Admin access required
+     */
+    this.router.get("/muscle-groups", authenticate, authorize("admin"),  this.getMuscleGroups);
 
     /**
      * @openapi
@@ -104,6 +129,11 @@ class TrainingsPlanController extends BaseController {
     if (!plan) throw new Error("Training plan not found");
 
     res.json(plan);
+  }
+
+  private async getMuscleGroups(req: Request, res: Response) {
+    const types = trainingsPlanService.getMuscleGroupTypes();
+    res.json(types);
   }
 }
 

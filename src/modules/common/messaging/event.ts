@@ -1,5 +1,6 @@
-import { Message } from "./message";
 import { randomUUID } from "crypto";
+
+import { Message } from "./message";
 
 export interface DomainEvent extends Message {
   aggregateId: string;
@@ -15,7 +16,7 @@ export abstract class BaseDomainEvent implements DomainEvent {
   constructor(
     public type: string,
     public aggregateId: string,
-    public payload: Record<string, any>
+    public payload: Record<string, unknown>
   ) {
     this.id = randomUUID();
     this.timestamp = new Date();

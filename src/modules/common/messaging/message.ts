@@ -1,7 +1,7 @@
 export interface Message {
   id: string;
   type: string;
-  payload: Record<string, any>;
+  payload: Record<string, unknown>;
   timestamp: Date;
   correlationId?: string;
 }

@@ -1,7 +1,10 @@
 import { BaseService } from "../../common/base/base.service";
+import { TrainingsdayEntity } from "../entity/trainingsday.entity";
 import { TrainingsplanEntity } from "../entity/trainingsplan.entity";
 import { TrainingsplanModel } from "../model/trainingsplan.model";
 import { TrainingsplanTypeEnum } from "../enum/trainingsplan-type.enum";
+import { WarmupEntity } from "../entity/warmup.entity";
+import { TrainingsplanTypeUtil } from "../utils/trainingsplan-type.util";
 import { TrainingsplanCreatedEvent } from "../events/trainingsplan-created.event";
 import { eventBus } from "../../common/messaging/event-bus";
 
@@ -11,17 +14,17 @@ export class TrainingsPlanService extends BaseService<TrainingsplanEntity> {
     }
 
     private calculateTrainingType(
-        trainingDays: any[],
-        warmups: any[]
+        trainingDays: TrainingsdayEntity[],
+        warmups: WarmupEntity[]
     ): TrainingsplanTypeEnum {
-        // TODO: Implement your type calculation logic here
-        return TrainingsplanTypeEnum.PUSH;
+        void warmups;
+        return TrainingsplanTypeUtil.calculateType(trainingDays);
     }
 
     async createTrainingsPlan(
         userId: string,
-        trainingDays: any[] = [],
-        warmups: any[] = []
+        trainingDays: TrainingsdayEntity[] = [],
+        warmups: WarmupEntity[] = []
     ) {
         // Calculate type based on business logic
         const type = this.calculateTrainingType(trainingDays, warmups);
@@ -48,6 +51,10 @@ export class TrainingsPlanService extends BaseService<TrainingsplanEntity> {
 
     async findByIdWithPopulate(id: string) {
         return this.model.findById(id).exec();
+    }
+
+    getMuscleGroupTypes() {
+        return TrainingsplanTypeUtil.getMuscleGroupTypes();
     }
 }
 

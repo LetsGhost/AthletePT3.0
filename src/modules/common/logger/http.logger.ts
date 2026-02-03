@@ -1,4 +1,5 @@
 import morgan from "morgan";
+
 import { logger } from "./logger";
 
 // Structured HTTP logs with level based on status code and clear metadata
