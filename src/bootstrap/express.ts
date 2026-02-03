@@ -6,6 +6,7 @@ import "express-async-errors";
 
 import { httpLogger } from "../modules/common/logger/http.logger";
 import { errorHandler } from "../middleware/error.middleware";
+import { createRateLimiter, createAuthRateLimiter } from "../middleware/rate-limit.middleware";
 import { registerControllers } from "../modules/common/registry/controller/registry.controller";
 import { registerEventHandlers } from "../modules/common/messaging/event-handler-registry";
 import { registerScheduledJobs } from "../modules/common/scheduler/scheduler-registry";
@@ -20,6 +21,12 @@ export async function createApp() {
   app.use(cors());
   app.use(helmet());
   app.use(express.json());
+
+  // Apply rate limiting to all API routes (disabled in dev mode)
+  app.use("/api/", createRateLimiter());
+
+  // More strict rate limiting for authentication endpoints
+  app.use("/api/auth/", createAuthRateLimiter());
 
   app.use(httpLogger);
 
