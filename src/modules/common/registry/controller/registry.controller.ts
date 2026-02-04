@@ -4,6 +4,7 @@ import { createRequire } from "module";
 import { Express, Router } from "express";
 
 import { logger } from "../../logger/logger";
+import { backendStateService } from "../../../redis/service/backend-state.service";
 
 const requireModule = createRequire(__filename);
 
@@ -41,6 +42,15 @@ export async function registerControllers(app: Express) {
         logger.info(`Registered controller: ${moduleName.toUpperCase()}`);
         routes.forEach(route => {
           logger.info(`  ${route.method.toUpperCase().padEnd(6)} ${basePath}${route.path}`);
+          
+          // Track routes in Redis for monitoring
+          backendStateService.registerRoute(
+            route.method.toUpperCase(),
+            `${basePath}${route.path}`,
+            moduleName
+          ).catch(err => {
+            logger.debug(`Failed to track route in Redis: ${err.message}`);
+          });
         });
       }
     }

@@ -12,15 +12,25 @@ import { registerEventHandlers } from "../modules/common/messaging/event-handler
 import { registerScheduledJobs } from "../modules/common/scheduler/scheduler-registry";
 import { jobScheduler } from "../modules/common/scheduler/scheduler";
 import { swaggerSpec } from "../config/swagger";
+import { corsConfig } from "../config/cors";
 import { env } from "../config/env";
 import { logger } from "../modules/common/logger/logger";
+import { redisService } from "../modules/redis/service/redis.service";
+import { backendStateService } from "../modules/redis/service/backend-state.service";
 
 export async function createApp() {
   const app = express();
 
-  app.use(cors());
+  // Initialize Redis (non-blocking, logs warnings if fails)
+  redisService
+    .connect()
+    .catch((err) => logger.warn("Redis initialization failed", { error: err.message }));
+
+  // Security and parsing middleware
+  app.use(cors(corsConfig));
   app.use(helmet());
   app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
 
   // Apply rate limiting to all API routes (disabled in dev mode)
   app.use("/api/", createRateLimiter());
@@ -39,19 +49,36 @@ export async function createApp() {
     });
   }
 
+  // Health check endpoint
+  app.get("/health", async (_req, res) => {
+    const isRedisReady = redisService.isReady();
+    await backendStateService.recordHealthCheck();
+    
+    res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      redis: isRedisReady ? "connected" : "disconnected",
+      environment: env.NODE_ENV,
+    });
+  });
+
+  // Register all controllers, event handlers, and scheduled jobs
   await registerControllers(app);
   await registerEventHandlers();
   await registerScheduledJobs();
   await jobScheduler.startScheduler();
 
+  // Error handler (must be last)
+  app.use(errorHandler);
+
   // Graceful shutdown
   process.on("SIGTERM", async () => {
     logger.info("SIGTERM signal received: closing HTTP server");
     await jobScheduler.stopScheduler();
+    await redisService.disconnect();
     process.exit(0);
   });
-
-  app.use(errorHandler);
 
   return app;
 }
