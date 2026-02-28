@@ -1,26 +1,19 @@
-version: "3.9"
-
 services:
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: npm run dev
+    image: ${IMAGE_TAG}
+    container_name: athletept3-api
     ports:
       - "3000:3000"
     env_file:
       - .env
-    volumes:
-      - .:/app
-      - /app/node_modules
+    restart: unless-stopped
     depends_on:
       - mongo
 
   mongo:
     image: mongo:7
+    container_name: athletept3-mongo
     restart: unless-stopped
-    ports:
-      - "27017:27017"
     volumes:
       - mongo-data:/data/db
 

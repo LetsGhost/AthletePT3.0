@@ -1,20 +1,24 @@
-# Dev-only image
+# -------- Build Stage --------
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# -------- Production Stage --------
 FROM node:20-alpine
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci --only=production
 
-COPY tsconfig*.json ./
-COPY nodemon.json ./
-COPY src ./src
+COPY --from=builder /app/dist ./dist
 
-ENV NODE_ENV=development
-ENV PORT=3000
-
-# Expose app port
 EXPOSE 3000
 
-# Run with ts-node-dev for live reload
-CMD ["npm", "run", "dev"]
+CMD ["node", "dist/server.js"]
