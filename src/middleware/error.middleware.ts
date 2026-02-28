@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+
 import { logger } from "../modules/common/logger/logger";
 
 export const errorHandler = (
@@ -7,6 +8,7 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ) => {
+  void _next;
   logger.error(err.message, {
     method: req.method,
     path: req.path,

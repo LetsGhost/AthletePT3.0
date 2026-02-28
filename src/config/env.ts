@@ -11,4 +11,13 @@ export const env = {
   MONGO_USER: process.env.MONGO_USER,
   MONGO_PASSWORD: process.env.MONGO_PASSWORD,
   MONGO_AUTH_SOURCE: process.env.MONGO_AUTH_SOURCE || "admin",
+
+  // Redis config
+  REDIS_HOST: process.env.REDIS_HOST || "localhost",
+  REDIS_PORT: process.env.REDIS_PORT || "6379",
+  REDIS_PASSWORD: process.env.REDIS_PASSWORD,
+  REDIS_DB: process.env.REDIS_DB || "0",
+
+  // CORS
+  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
 };

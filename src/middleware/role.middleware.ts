@@ -1,4 +1,5 @@
 import { NextFunction, Response } from "express";
+
 import { AuthRequest } from "./auth.middleware";
 
 export const authorize =

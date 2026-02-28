@@ -1,9 +1,14 @@
 import fs from "fs";
 import path from "path";
+import { createRequire } from "module";
 import { Express, Router } from "express";
-import { logger } from "../../logger/logger";
 
-export function registerControllers(app: Express) {
+import { logger } from "../../logger/logger";
+import { backendStateService } from "../../../redis/service/backend-state.service";
+
+const requireModule = createRequire(__filename);
+
+export async function registerControllers(app: Express) {
   const modulesPath = path.join(__dirname, "../../../");
 
   for (const moduleName of fs.readdirSync(modulesPath)) {
@@ -25,8 +30,8 @@ export function registerControllers(app: Express) {
 
     for (const file of controllerFiles) {
       const controllerPath = path.join(controllerDir, file);
-      const controller = require(controllerPath);
-      const instance = Object.values(controller)[0] as any;
+      const controller = requireModule(controllerPath) as Record<string, unknown>;
+      const instance = Object.values(controller)[0] as { router?: Router } | undefined;
 
       if (instance?.router) {
         const basePath = `/api/${moduleName}s`;
@@ -37,6 +42,15 @@ export function registerControllers(app: Express) {
         logger.info(`Registered controller: ${moduleName.toUpperCase()}`);
         routes.forEach(route => {
           logger.info(`  ${route.method.toUpperCase().padEnd(6)} ${basePath}${route.path}`);
+          
+          // Track routes in Redis for monitoring
+          backendStateService.registerRoute(
+            route.method.toUpperCase(),
+            `${basePath}${route.path}`,
+            moduleName
+          ).catch(err => {
+            logger.debug(`Failed to track route in Redis: ${err.message}`);
+          });
         });
       }
     }
@@ -46,7 +60,7 @@ export function registerControllers(app: Express) {
 function getRoutes(router: Router): Array<{ method: string; path: string }> {
   const routes: Array<{ method: string; path: string }> = [];
 
-  router.stack.forEach((layer: any) => {
+  router.stack.forEach((layer) => {
     if (layer.route) {
       const methods = Object.keys(layer.route.methods);
       methods.forEach(method => {

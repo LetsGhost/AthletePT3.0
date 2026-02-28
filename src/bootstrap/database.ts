@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+
 import { logger } from "../modules/common/logger/logger";
 import { env } from "../config/env";
 

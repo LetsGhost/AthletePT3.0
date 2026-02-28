@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+
 import { BaseController } from "../../common/base/base.controller";
 import { userService } from "../service/user.service";
 import { createUserSchema } from "../schema/user.schema";

@@ -14,6 +14,9 @@ import { z } from "zod";
  *           type: string
  *           format: email
  *           example: user@example.com
+ *         name:
+ *          type: string
+ *          example: John Doe
  *         password:
  *           type: string
  *           minLength: 8
@@ -42,6 +45,7 @@ import { z } from "zod";
 export const createUserSchema = z.object({
   email: z.email(),
   password: z.string().min(8),
+  name: z.string().min(1).max(100),
 });
 
 export type CreateUserDTO = z.infer<typeof createUserSchema>;
