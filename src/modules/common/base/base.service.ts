@@ -1,12 +1,25 @@
-import { Model, ClientSession } from "mongoose";
+import {
+  ClientSession,
+  HydratedDocument,
+  Model,
+  UpdateQuery,
+} from "mongoose";
 
-export abstract class BaseService<T> {
+export abstract class BaseService<T extends object> {
   protected constructor(protected readonly model: Model<T>) {}
 
-  async create(data: Partial<T>, session?: ClientSession | null) {
-    const options = session ? { session } : {};
-    const result = await this.model.create([data as T], options);
-    return result[0];
+  async create(
+    data: Partial<T>,
+    session?: ClientSession | null
+  ): Promise<HydratedDocument<T>> {
+    const document = new this.model(data as T);
+    if (session) {
+      await document.save({ session });
+      return document;
+    }
+
+    await document.save();
+    return document;
   }
 
   async findById(id: string) {
@@ -23,7 +36,7 @@ export abstract class BaseService<T> {
 
   async updateById(
     id: string,
-    data: Partial<T>,
+    data: UpdateQuery<T> | Partial<T>,
     session?: ClientSession | null
   ) {
     const options = session ? { new: true, session } : { new: true };

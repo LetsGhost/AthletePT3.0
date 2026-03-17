@@ -1,7 +1,7 @@
-export interface Message {
+export interface Message<TPayload = Record<string, unknown>> {
   id: string;
   type: string;
-  payload: Record<string, unknown>;
+  payload: TPayload;
   timestamp: Date;
   correlationId?: string;
 }

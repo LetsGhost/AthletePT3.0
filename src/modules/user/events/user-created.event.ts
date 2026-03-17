@@ -1,12 +1,14 @@
 import { BaseDomainEvent } from "../../common/messaging/event";
 
-export class UserCreatedEvent extends BaseDomainEvent {
+type UserCreatedPayload = {
+  email: string;
+  role: string;
+};
+
+export class UserCreatedEvent extends BaseDomainEvent<UserCreatedPayload> {
   constructor(
     aggregateId: string,
-    payload: {
-      email: string;
-      role: string;
-    }
+    payload: UserCreatedPayload
   ) {
     super("user.created", aggregateId, payload);
   }

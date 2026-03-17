@@ -1,4 +1,8 @@
-import { getModelForClass, modelOptions } from "@typegoose/typegoose";
+import {
+  getModelForClass,
+  modelOptions,
+  ReturnModelType,
+} from "@typegoose/typegoose";
 
 import { BaseEntity } from "./base.entity";
 
@@ -10,6 +14,10 @@ import { BaseEntity } from "./base.entity";
 })
 export abstract class BaseModel extends BaseEntity {}
 
-export function createModel<T extends typeof BaseModel>(cls: T) {
-  return getModelForClass(cls as unknown as typeof BaseModel);
+type ModelConstructor<T> = new (...args: unknown[]) => T;
+
+export function createModel<TClass extends ModelConstructor<BaseModel>>(
+  cls: TClass
+): ReturnModelType<TClass> {
+  return getModelForClass(cls);
 }

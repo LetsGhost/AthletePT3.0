@@ -1,12 +1,14 @@
 import { BaseDomainEvent } from "../../common/messaging/event";
 
-export class TrainingsplanCreatedEvent extends BaseDomainEvent {
+type TrainingsplanCreatedPayload = {
+  userId: string;
+  type: string;
+};
+
+export class TrainingsplanCreatedEvent extends BaseDomainEvent<TrainingsplanCreatedPayload> {
   constructor(
     aggregateId: string,
-    payload: {
-      userId: string;
-      type: string;
-    }
+    payload: TrainingsplanCreatedPayload
   ) {
     super("trainingsplan.created", aggregateId, payload);
   }

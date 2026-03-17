@@ -94,7 +94,7 @@ export const createRateLimiter = () => {
 
     keyGenerator: (req, _res) => {
       void _res;
-      return ipKeyGenerator(req, _res);
+      return ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? "unknown");
     },
   });
 };
@@ -145,7 +145,7 @@ export const createAuthRateLimiter = () => {
 
     keyGenerator: (req, _res) => {
       void _res;
-      return ipKeyGenerator(req, _res);
+      return ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? "unknown");
     },
   });
 };
