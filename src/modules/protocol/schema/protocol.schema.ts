@@ -49,11 +49,15 @@ import { exerciseSchema } from "../../trainingsplan/schema/trainingsplan.schema"
  *           format: date-time
  */
 
+export const protocolExerciseSchema = exerciseSchema.extend({
+  isSkipped: z.boolean().optional().default(false),
+});
+
 export const protocolDaySchema = z.object({
   isSkipped: z.boolean().optional().default(false),
   name: z.string().min(1).max(100),
   img: z.string().optional(),
-  exercises: z.array(exerciseSchema).optional().default([]),
+  exercises: z.array(protocolExerciseSchema).optional().default([]),
 });
 
 export const createProtocolSchema = z.object({

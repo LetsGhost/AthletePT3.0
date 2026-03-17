@@ -59,17 +59,26 @@ export async function registerControllers(app: Express) {
 
 function getRoutes(router: Router): Array<{ method: string; path: string }> {
   const routes: Array<{ method: string; path: string }> = [];
+  type RouteLayer = {
+    route?: {
+      path: string;
+      methods?: Record<string, boolean>;
+    };
+  };
 
   router.stack.forEach((layer) => {
-    if (layer.route) {
-      const methods = Object.keys(layer.route.methods);
-      methods.forEach(method => {
-        routes.push({
-          method,
-          path: layer.route.path,
-        });
-      });
+    const route = (layer as unknown as RouteLayer).route;
+    if (!route?.methods) {
+      return;
     }
+
+    const methods = Object.keys(route.methods);
+    methods.forEach(method => {
+      routes.push({
+        method,
+        path: route.path,
+      });
+    });
   });
 
   return routes;
