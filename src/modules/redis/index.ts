@@ -6,4 +6,4 @@ export {
   RegisteredJob,
   BackendState,
 } from "./service/backend-state.service";
-export { redisConfig } from "./config/redis.config";
+export { redisConfig } from "../../config/redis.config";

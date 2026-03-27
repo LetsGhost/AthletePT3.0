@@ -15,16 +15,12 @@ import { swaggerSpec } from "../config/swagger";
 import { corsConfig } from "../config/cors";
 import { env } from "../config/env";
 import { logger } from "../modules/common/logger/logger";
-import { redisService } from "../modules/redis/service/redis.service";
+import { redisBootstrap } from "./redis";
 import { backendStateService } from "../modules/redis/service/backend-state.service";
 
 export async function createApp() {
   const app = express();
-
-  // Initialize Redis (non-blocking, logs warnings if fails)
-  redisService
-    .connect()
-    .catch((err) => logger.warn("Redis initialization failed", { error: err.message }));
+  let isShuttingDown = false;
 
   // Security and parsing middleware
   app.use(cors(corsConfig));
@@ -51,7 +47,7 @@ export async function createApp() {
 
   // Health check endpoint
   app.get("/health", async (_req, res) => {
-    const isRedisReady = redisService.isReady();
+    const isRedisReady = redisBootstrap.isReady();
     await backendStateService.recordHealthCheck();
     
     res.json({
@@ -72,12 +68,32 @@ export async function createApp() {
   // Error handler (must be last)
   app.use(errorHandler);
 
+  const handleShutdown = async (signal: "SIGTERM" | "SIGINT") => {
+    if (isShuttingDown) {
+      return;
+    }
+
+    isShuttingDown = true;
+    logger.info(`${signal} signal received: shutting down gracefully`);
+
+    try {
+      await jobScheduler.stopScheduler();
+      await redisBootstrap.disconnect();
+      process.exit(0);
+    } catch (error) {
+      logger.error("Graceful shutdown failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      process.exit(1);
+    }
+  };
+
   // Graceful shutdown
-  process.on("SIGTERM", async () => {
-    logger.info("SIGTERM signal received: closing HTTP server");
-    await jobScheduler.stopScheduler();
-    await redisService.disconnect();
-    process.exit(0);
+  process.on("SIGTERM", () => {
+    void handleShutdown("SIGTERM");
+  });
+  process.on("SIGINT", () => {
+    void handleShutdown("SIGINT");
   });
 
   return app;
