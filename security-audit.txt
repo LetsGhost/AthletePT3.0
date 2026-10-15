@@ -1,0 +1,6 @@
+Alles liegt in C:\Users\Ehrling\security-audit-skill\AthletePT3.0\run-1\:
+- REPORT.md
+- FINDINGS-DETAIL.md
+- NEEDS-VALIDATION.md
+- findings.json
+- coverage-ledger.json
