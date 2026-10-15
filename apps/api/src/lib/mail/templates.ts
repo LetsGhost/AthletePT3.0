@@ -1,0 +1,82 @@
+import type { UserRole } from "@athletept/shared";
+
+import type { Mail } from "./mailer";
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+/** Schlichtes, mailclient-taugliches Layout (Tabellen, Inline-Styles). */
+function layout(heading: string, paragraphs: string[], button: { label: string; url: string }) {
+  const body = paragraphs
+    .map((p) => `<p style="margin:0 0 16px;line-height:1.5">${p}</p>`)
+    .join("");
+  return `<!doctype html>
+<html lang="de"><body style="margin:0;background:#f4f2f2;font-family:Arial,Helvetica,sans-serif;color:#101010">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:12px;padding:32px">
+<tr><td>
+<p style="margin:0 0 24px;font-weight:bold;font-size:18px">AthletePT</p>
+<h1 style="margin:0 0 16px;font-size:22px;font-weight:600">${heading}</h1>
+${body}
+<p style="margin:24px 0"><a href="${escapeHtml(button.url)}" style="display:inline-block;background:#035671;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:12px;font-weight:bold">${button.label}</a></p>
+<p style="margin:0;font-size:13px;color:#595959;line-height:1.5">Funktioniert der Button nicht? Kopiere diesen Link in deinen Browser:<br><span style="word-break:break-all">${escapeHtml(button.url)}</span></p>
+</td></tr></table>
+</td></tr></table>
+</body></html>`;
+}
+
+const roleText: Record<UserRole, string> = {
+  athlete: "dein Coaching",
+  coach: "AthletePT als Coach",
+  sysadmin: "die Administration von AthletePT",
+};
+
+export function invitationMail(params: {
+  to: string;
+  name: string;
+  role: UserRole;
+  inviterName: string;
+  url: string;
+  validDays: number;
+}): Mail {
+  const { to, name, role, inviterName, url, validDays } = params;
+  const subject = "Deine Einladung zu AthletePT";
+  const intro = `${inviterName} hat dich zu AthletePT eingeladen. Lege jetzt dein Passwort fest, um ${roleText[role]} zu starten.`;
+  const validity = `Der Link ist ${validDays} Tage gültig.`;
+  return {
+    to,
+    subject,
+    html: layout(`Hallo ${escapeHtml(name)}!`, [escapeHtml(intro), escapeHtml(validity)], {
+      label: "Passwort festlegen",
+      url,
+    }),
+    text: `Hallo ${name}!\n\n${intro}\n\n${url}\n\n${validity}`,
+  };
+}
+
+export function passwordResetMail(params: {
+  to: string;
+  name: string;
+  url: string;
+  validMinutes: number;
+}): Mail {
+  const { to, name, url, validMinutes } = params;
+  const intro = "Du hast ein neues Passwort für AthletePT angefordert.";
+  const validity = `Der Link ist ${validMinutes} Minuten gültig. Wenn du das nicht warst, kannst du diese Mail ignorieren. Dein Passwort bleibt dann unverändert.`;
+  return {
+    to,
+    subject: "Passwort zurücksetzen",
+    html: layout(`Hallo ${escapeHtml(name)}!`, [escapeHtml(intro), escapeHtml(validity)], {
+      label: "Neues Passwort festlegen",
+      url,
+    }),
+    text: `Hallo ${name}!\n\n${intro}\n\n${url}\n\n${validity}`,
+  };
+}

@@ -1,4 +1,14 @@
 node_modules/
 dist/
-.env
+coverage/
 logs/
+.env
+.env.*
+!.env.example
+*.local
+playwright-report/
+test-results/
+.DS_Store
+
+# Deployment-Dateien (Compose, nginx, Build-Skript) bleiben lokal, nicht im Repo
+deploy/

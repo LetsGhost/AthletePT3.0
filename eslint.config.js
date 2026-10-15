@@ -1,59 +1,48 @@
-const eslint = require('@eslint/js');
-const tseslint = require('typescript-eslint');
-const importPlugin = require('eslint-plugin-import');
-const eslintConfigPrettier = require('eslint-config-prettier');
+import js from "@eslint/js";
+import prettier from "eslint-config-prettier";
+import jsxA11y from "eslint-plugin-jsx-a11y";
+import reactHooks from "eslint-plugin-react-hooks";
+import reactRefresh from "eslint-plugin-react-refresh";
+import globals from "globals";
+import tseslint from "typescript-eslint";
 
-module.exports = [
-  eslint.configs.recommended,
+export default tseslint.config(
+  {
+    ignores: ["**/dist/**", "**/coverage/**", "**/node_modules/**", "**/playwright-report/**"],
+  },
+  js.configs.recommended,
   ...tseslint.configs.recommended,
-  eslintConfigPrettier,
   {
-    languageOptions: {
-      ecmaVersion: 2022,
-      sourceType: 'commonjs',
-      parser: tseslint.parser,
-      parserOptions: {
-        project: './tsconfig.json',
-      },
-      globals: {
-        console: 'readonly',
-        process: 'readonly',
-        __dirname: 'readonly',
-        __filename: 'readonly',
-        module: 'readonly',
-        require: 'readonly',
-        exports: 'readonly',
-        Buffer: 'readonly',
-        setTimeout: 'readonly',
-        clearTimeout: 'readonly',
-        setInterval: 'readonly',
-        clearInterval: 'readonly',
-      },
-    },
-    plugins: {
-      '@typescript-eslint': tseslint.plugin,
-      import: importPlugin,
-    },
     rules: {
-      'import/order': [
-        'error',
-        {
-          groups: [['builtin', 'external'], ['internal'], ['parent', 'sibling']],
-          'newlines-between': 'always',
-        },
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
       ],
-    },
-    settings: {
-      'import/resolver': {
-        typescript: true,
-        node: true,
-      },
+      "@typescript-eslint/consistent-type-imports": ["error", { fixStyle: "inline-type-imports" }],
+      eqeqeq: ["error", "always"],
+      "no-console": "warn",
     },
   },
   {
-    files: ['**/*.ts'],
+    files: ["apps/api/**/*.ts", "packages/**/*.ts", "*.js"],
+    languageOptions: { globals: globals.node },
   },
   {
-    ignores: ['node_modules/**', 'dist/**', 'logs/**', 'eslint.config.js'],
+    files: ["apps/web/**/*.{ts,tsx}"],
+    languageOptions: { globals: globals.browser },
+    plugins: { "react-hooks": reactHooks, "react-refresh": reactRefresh },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+    },
   },
-];
+  {
+    files: ["apps/web/**/*.tsx"],
+    ...jsxA11y.flatConfigs.recommended,
+  },
+  {
+    files: ["apps/api/src/scripts/**", "apps/api/scripts/**", "**/*.test.{ts,tsx}", "**/test/**"],
+    rules: { "no-console": "off" },
+  },
+  prettier,
+);

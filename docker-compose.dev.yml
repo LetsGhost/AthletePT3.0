@@ -1,0 +1,34 @@
+# Lokale Entwicklung:
+#   - MongoDB als Single-Node-Replica-Set (nötig für Transaktionen)
+#   - Mailpit als Test-Postfach: fängt alle Mails ab, Weboberfläche unter http://localhost:8025
+#
+#   docker compose -f docker-compose.dev.yml up -d
+# API und Web laufen lokal über `npm run dev`.
+services:
+  mongo:
+    image: mongo:7
+    container_name: athletept-dev-mongo
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-dev-data:/data/db
+    healthcheck:
+      # Initialisiert das Replica Set beim ersten Start.
+      test: >
+        mongosh --quiet --eval "try { rs.status().ok } catch (e) {
+        rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] }).ok }"
+      interval: 5s
+      timeout: 10s
+      start_period: 10s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:v1.31
+    container_name: athletept-dev-mailpit
+    ports:
+      - "127.0.0.1:1025:1025" # SMTP
+      - "127.0.0.1:8025:8025" # Weboberfläche
+
+volumes:
+  mongo-dev-data:

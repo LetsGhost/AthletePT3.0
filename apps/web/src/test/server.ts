@@ -1,0 +1,299 @@
+import type {
+  AuthResponse,
+  Exercise,
+  ExerciseStatsDetail,
+  ExerciseStatsListResponse,
+  ExerciseStatsSummary,
+  Plan,
+  PlanExerciseInfo,
+  PlanListResponse,
+  Problem,
+  User,
+  WeekView,
+  WorkoutLog,
+  WorkoutLogListResponse,
+  WorkoutLogSummary,
+} from "@athletept/shared";
+import { http, HttpResponse } from "msw";
+import { setupServer } from "msw/node";
+
+/** MSW-Handler-URLs. jsdom löst relative Pfade gegen http://localhost:3000 auf. */
+export const apiUrl = (path: string) => `http://localhost:3000/api/v1${path}`;
+
+/** Standard-Antworten, die Tests bei Bedarf mit `server.use` überschreiben. */
+export const server = setupServer(
+  http.get(apiUrl("/athletes/:id/plans"), () =>
+    HttpResponse.json({ items: [] } satisfies PlanListResponse),
+  ),
+  http.get(apiUrl("/athletes/:id/week"), () => HttpResponse.json(buildWeekView())),
+  http.get(apiUrl("/me/week"), () => HttpResponse.json(buildWeekView())),
+  http.get(apiUrl("/athletes/:id/exercise-stats"), () =>
+    HttpResponse.json({ items: [], records: [] } satisfies ExerciseStatsListResponse),
+  ),
+  http.get(apiUrl("/athletes/:id/workout-logs"), () =>
+    HttpResponse.json({ items: [], total: 0 } satisfies WorkoutLogListResponse),
+  ),
+);
+
+export function buildUser(overrides: Partial<User> = {}): User {
+  return {
+    id: "6acd3920c0072ec254663bd8",
+    email: "max@example.com",
+    name: "Max Muster",
+    role: "athlete",
+    status: "active",
+    coachId: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+export function buildExercise(overrides: Partial<Exercise> = {}): Exercise {
+  return {
+    id: "6acd3920c0072ec254663c01",
+    name: "Bankdrücken",
+    aliases: [],
+    category: "compound",
+    equipment: "barbell",
+    primaryMuscles: ["chest"],
+    secondaryMuscles: ["triceps"],
+    description: null,
+    executionNotes: null,
+    videoUrl: null,
+    scope: "global",
+    archived: false,
+    createdAt: "2026-10-01T00:00:00.000Z",
+    updatedAt: "2026-10-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+export function authResponse(user = buildUser(), accessToken = "access-1"): AuthResponse {
+  return { accessToken, expiresIn: 900, user };
+}
+
+export function problem(status: number, code: string, detail = code) {
+  const body: Problem = { type: "about:blank", title: "Error", status, code, detail };
+  return HttpResponse.json(body, {
+    status,
+    headers: { "Content-Type": "application/problem+json" },
+  });
+}
+
+export function buildPlanExerciseInfo(overrides: Partial<PlanExerciseInfo> = {}): PlanExerciseInfo {
+  const { id, name, category, equipment, primaryMuscles, secondaryMuscles } = buildExercise();
+  return {
+    id,
+    name,
+    category,
+    equipment,
+    primaryMuscles,
+    secondaryMuscles,
+    description: null,
+    executionNotes: null,
+    videoUrl: null,
+    archived: false,
+    selectable: true,
+    ...overrides,
+  };
+}
+
+/** Entwurf mit einem Tag und Bankdrücken (1 Aufwärmsatz, 3 Arbeitssätze). */
+export function buildPlan(overrides: Partial<Plan> = {}): Plan {
+  const info = buildPlanExerciseInfo();
+  return {
+    id: "6acd3920c0072ec254663d01",
+    athleteId: "6acd3920c0072ec254663bd9",
+    status: "draft",
+    name: "Block 1",
+    notes: null,
+    type: "UPPER",
+    revision: 3,
+    days: [
+      {
+        id: "6acd3920c0072ec254663d11",
+        name: "Oberkörper A",
+        weekday: 1,
+        type: "UPPER",
+        warmup: [
+          { id: "6acd3920c0072ec254663d31", exerciseId: null, name: "Rudern", details: "5 min" },
+        ],
+        exercises: [
+          {
+            id: "6acd3920c0072ec254663d21",
+            exerciseId: info.id,
+            exerciseName: info.name,
+            restSeconds: 120,
+            notes: null,
+            sets: [
+              {
+                kind: "warmup",
+                repsMin: 10,
+                repsMax: 10,
+                durationSeconds: null,
+                weightKg: 40,
+                rir: null,
+              },
+              ...Array.from({ length: 3 }, () => ({
+                kind: "working" as const,
+                repsMin: 6,
+                repsMax: 8,
+                durationSeconds: null,
+                weightKg: 80,
+                rir: 2,
+              })),
+            ],
+          },
+        ],
+      },
+    ],
+    exercises: [info],
+    activatedAt: null,
+    archivedAt: null,
+    createdAt: "2026-10-01T00:00:00.000Z",
+    updatedAt: "2026-10-02T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+/**
+ * Laufendes Training zu `buildPlan` (Oberkörper A, Bankdrücken mit 1 Aufwärm- und 3 Arbeitssätzen),
+ * vorbefüllt mit den Vorgaben.
+ */
+export function buildWorkoutLog(overrides: Partial<WorkoutLog> = {}): WorkoutLog {
+  const [day] = buildPlan().days;
+  const entry = day!.exercises[0]!;
+  return {
+    id: "6acd3920c0072ec254663e01",
+    athleteId: "6acd3920c0072ec254663bd8",
+    planId: "6acd3920c0072ec254663d01",
+    planRevision: 3,
+    dayId: day!.id,
+    dayName: day!.name,
+    dayType: day!.type,
+    date: "2026-10-13",
+    status: "in_progress",
+    exercises: [
+      {
+        id: "6acd3920c0072ec254663e11",
+        planExerciseId: entry.id,
+        exerciseId: entry.exerciseId,
+        exerciseName: entry.exerciseName,
+        restSeconds: entry.restSeconds,
+        planNotes: "Schulterblätter zusammen",
+        targets: entry.sets,
+        skipped: false,
+        notes: null,
+        sets: entry.sets.map((set) => ({
+          kind: set.kind,
+          weightKg: set.weightKg,
+          reps: set.repsMax,
+          durationSeconds: null,
+          done: false,
+        })),
+        previous: {
+          date: "2026-10-06",
+          sets: [{ kind: "working", weightKg: 77.5, reps: 8, durationSeconds: null, done: true }],
+        },
+      },
+    ],
+    rating: null,
+    notes: null,
+    revision: 0,
+    startedAt: "2026-10-13T16:00:00.000Z",
+    completedAt: null,
+    editableUntil: null,
+    editable: true,
+    createdAt: "2026-10-13T16:00:00.000Z",
+    updatedAt: "2026-10-13T16:00:00.000Z",
+    ...overrides,
+  };
+}
+
+export function buildWorkoutSummary(overrides: Partial<WorkoutLogSummary> = {}): WorkoutLogSummary {
+  return {
+    id: "6acd3920c0072ec254663e01",
+    planId: "6acd3920c0072ec254663d01",
+    dayId: "6acd3920c0072ec254663d11",
+    dayName: "Oberkörper A",
+    dayType: "UPPER",
+    date: "2026-10-12",
+    status: "completed",
+    rating: 8,
+    notes: null,
+    exerciseCount: 1,
+    doneSetCount: 4,
+    completedAt: "2026-10-12T18:00:00.000Z",
+    ...overrides,
+  };
+}
+
+/** KW 42/2026 (Mo 12.10. bis So 18.10.), heute Dienstag, ohne Plan und Protokolle. */
+export function buildWeekView(overrides: Partial<WeekView> = {}): WeekView {
+  return {
+    week: "2026-W42",
+    startDate: "2026-10-12",
+    endDate: "2026-10-18",
+    today: "2026-10-13",
+    plan: null,
+    days: [],
+    otherLogs: [],
+    activities: [null, null, null, null, null, null, null],
+    completedCount: 0,
+    plannedCount: 0,
+    inProgress: null,
+    ...overrides,
+  };
+}
+
+/** Bankdrücken: zwei Einheiten, geschätztes Maximum von 100 auf 105 kg. */
+export function buildExerciseStatsSummary(
+  overrides: Partial<ExerciseStatsSummary> = {},
+): ExerciseStatsSummary {
+  return {
+    exerciseId: "6acd3920c0072ec254663c01",
+    exerciseName: "Bankdrücken",
+    metric: "estimated1rm",
+    sessionCount: 2,
+    lastDate: "2026-10-12",
+    best: {
+      estimated1rm: { value: 105, date: "2026-10-12", logId: "6acd3920c0072ec254663e02" },
+      topWeightKg: { value: 82.5, date: "2026-10-12", logId: "6acd3920c0072ec254663e02" },
+      maxReps: { value: 8, date: "2026-10-05", logId: "6acd3920c0072ec254663e01" },
+      maxDurationSeconds: null,
+    },
+    change: { from: 100, to: 105, fromDate: "2026-10-05", percent: 5 },
+    ...overrides,
+  };
+}
+
+export function buildExerciseStatsDetail(
+  overrides: Partial<ExerciseStatsDetail> = {},
+): ExerciseStatsDetail {
+  return {
+    ...buildExerciseStatsSummary(),
+    sessions: [
+      {
+        date: "2026-10-05",
+        logId: "6acd3920c0072ec254663e01",
+        topWeightKg: 80,
+        estimated1rm: 100,
+        volumeKg: 1920,
+        maxReps: 8,
+        maxDurationSeconds: null,
+        setCount: 3,
+      },
+      {
+        date: "2026-10-12",
+        logId: "6acd3920c0072ec254663e02",
+        topWeightKg: 82.5,
+        estimated1rm: 105,
+        volumeKg: 1980,
+        maxReps: 8,
+        maxDurationSeconds: null,
+        setCount: 3,
+      },
+    ],
+    ...overrides,
+  };
+}
