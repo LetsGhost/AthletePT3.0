@@ -19,6 +19,17 @@ const userSchema = new Schema(
      */
     quotaLock: { type: Number, default: 0, select: false },
     lastLoginAt: { type: Date, default: null },
+    /** Nur bei Athleten: was der Coach dem Athleten selbst erlaubt (siehe `getAccessibleAthlete`). */
+    athletePermissions: {
+      type: new Schema(
+        {
+          ownPlan: { type: Boolean, default: false },
+          ownWeek: { type: Boolean, default: false },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
     /** Nur bei Athleten: Einwilligung in die Verarbeitung von Gesundheitsdaten (Art. 9 DSGVO). */
     healthDataConsent: {
       type: new Schema(

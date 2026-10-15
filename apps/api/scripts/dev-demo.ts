@@ -115,6 +115,8 @@ const secondAthlete = await UserModel.create({
   role: "athlete",
   status: "active",
   coachId: secondCoach._id,
+  // Lea darf ihre Pläne und ihren Wochenplan selbst pflegen.
+  athletePermissions: { ownPlan: true, ownWeek: true },
   passwordHash,
   healthDataConsent: { grantedAt: new Date(), privacyPolicyVersion: PRIVACY_POLICY_VERSION },
 });
@@ -221,9 +223,11 @@ const upperLower = plan({
     },
   ],
 });
-const maxPlan = await planService.createPlan(coach.id, athlete.id, upperLower);
-await planService.activatePlan(coach.id, athlete.id, maxPlan.id);
-await planService.createPlan(coach.id, athlete.id, plan({ name: "Block 2 (Entwurf)", days: [] }));
+const asCoach = { userId: coach.id as string, role: "coach" } as const;
+const asSecondCoach = { userId: secondCoach.id as string, role: "coach" } as const;
+const maxPlan = await planService.createPlan(asCoach, athlete.id, upperLower);
+await planService.activatePlan(asCoach, athlete.id, maxPlan.id);
+await planService.createPlan(asCoach, athlete.id, plan({ name: "Block 2 (Entwurf)", days: [] }));
 
 const fullBody = plan({
   name: "Ganzkörper 3× pro Woche",
@@ -239,8 +243,8 @@ const fullBody = plan({
     ],
   })),
 });
-const leaPlan = await planService.createPlan(secondCoach.id, secondAthlete.id, fullBody);
-await planService.activatePlan(secondCoach.id, secondAthlete.id, leaPlan.id);
+const leaPlan = await planService.createPlan(asSecondCoach, secondAthlete.id, fullBody);
+await planService.activatePlan(asSecondCoach, secondAthlete.id, leaPlan.id);
 await templateService.createTemplate(coach.id, { ...fullBody, name: "Ganzkörper Einsteiger" });
 
 // Trainingsprotokolle für Max: sechs Wochen mit steigenden Gewichten (für den Fortschritt), in der
@@ -302,7 +306,7 @@ for (const [i, day] of maxPlan.days.entries()) {
 for (const day of maxPlan.days.filter((d) => addDays(monday, d.weekday! - 1) < today)) {
   await logWorkout(day.id, addDays(monday, day.weekday! - 1), 8);
 }
-await weekService.updateWeeklyActivities(coach.id, athlete.id, [
+await weekService.updateWeeklyActivities(asCoach, athlete.id, [
   null,
   null,
   "Laufen 30 min",

@@ -15,14 +15,15 @@ import { useAthleteWeek, useAthleteWorkouts, useUpdateWeeklyActivities } from ".
 import { WeekNavigation, WeekOverview } from "./week-overview";
 import { WorkoutList } from "./workout-list";
 
-function WeeklyActivitiesDialog({
+/** Wochenplan bearbeiten: vom Coach oder vom Athleten selbst (`athleteName` fehlt dann). */
+export function WeeklyActivitiesDialog({
   athleteId,
   athleteName,
   activities,
   onOpenChange,
 }: {
   athleteId: string;
-  athleteName: string;
+  athleteName?: string;
   activities: (string | null)[];
   onOpenChange: (open: boolean) => void;
 }) {
@@ -34,7 +35,7 @@ function WeeklyActivitiesDialog({
       open
       onOpenChange={onOpenChange}
       title="Wochenplan bearbeiten"
-      description={`Was macht ${athleteName} außer dem Krafttraining, z. B. Laufen oder Fußball? Gilt jede Woche, unabhängig vom Trainingsplan.`}
+      description={`Was ${athleteName ? `macht ${athleteName}` : "machst du"} außer dem Krafttraining, z. B. Laufen oder Fußball? Gilt jede Woche, unabhängig vom Trainingsplan.`}
     >
       <form
         className="flex flex-col gap-3"

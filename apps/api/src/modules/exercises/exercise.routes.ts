@@ -14,6 +14,8 @@ import * as exerciseService from "./exercise.service";
 const exercises = createModuleRouter("/exercises", "Übungen");
 const idParams = z.object({ id: objectIdSchema });
 const roles = ["coach", "sysadmin"] as const;
+/** Lesen dürfen auch Athleten mit eigenem Trainingsplan (Katalog ihres Coaches). */
+const readRoles = ["coach", "sysadmin", "athlete"] as const;
 
 exercises.route({
   method: "get",
@@ -21,8 +23,9 @@ exercises.route({
   summary: "Übungen suchen",
   description:
     "Coaches sehen den globalen Katalog und ihre eigenen Übungen, der Sysadmin nur den globalen " +
-    "Katalog. Treffer, deren Name mit dem Suchbegriff beginnt, stehen vorne.",
-  auth: roles,
+    "Katalog, Athleten mit eigenem Trainingsplan den Katalog ihres Coaches (sonst 403). Treffer, " +
+    "deren Name mit dem Suchbegriff beginnt, stehen vorne.",
+  auth: readRoles,
   query: exerciseListQuerySchema,
   response: exerciseListResponseSchema,
   handler: ({ auth, query }) => exerciseService.listExercises(auth, query),
@@ -32,7 +35,7 @@ exercises.route({
   method: "get",
   path: "/:id",
   summary: "Übung abrufen",
-  auth: roles,
+  auth: readRoles,
   params: idParams,
   response: exerciseSchema,
   errors: [404],

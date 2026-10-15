@@ -17,7 +17,9 @@ import * as templateService from "./plan-template.service";
 import * as planService from "./plan.service";
 
 // Pläne hängen am Athleten: /athletes/:athleteId/plans (Owner-Prüfung über den Athleten).
+// Athleten mit der Berechtigung `ownPlan` nutzen dieselben Routen mit ihrer eigenen ID.
 const plans = createModuleRouter("/athletes", "Trainingspläne");
+const roles = ["coach", "athlete"] as const;
 const athleteParams = z.object({ athleteId: objectIdSchema });
 const planParams = athleteParams.extend({ planId: objectIdSchema });
 
@@ -26,11 +28,11 @@ plans.route({
   path: "/:athleteId/plans",
   summary: "Pläne eines Athleten auflisten",
   description: "Aktiver Plan zuerst, dann Entwürfe, dann archivierte.",
-  auth: ["coach"],
+  auth: roles,
   params: athleteParams,
   response: planListResponseSchema,
   errors: [404],
-  handler: ({ auth, params }) => planService.listPlans(auth.userId, params.athleteId),
+  handler: ({ auth, params }) => planService.listPlans(auth, params.athleteId),
 });
 
 plans.route({
@@ -38,15 +40,15 @@ plans.route({
   path: "/:athleteId/plans",
   summary: "Plan anlegen",
   description:
-    "Legt einen Entwurf an. Übungen müssen für den Coach sichtbar und aktiv sein. Übungsnamen " +
-    "und Plan-Typ setzt der Server.",
-  auth: ["coach"],
+    "Legt einen Entwurf an. Übungen müssen für den Coach sichtbar und aktiv sein (bei Athleten: " +
+    "für ihren Coach). Übungsnamen und Plan-Typ setzt der Server.",
+  auth: roles,
   params: athleteParams,
   body: createPlanRequestSchema,
   status: 201,
   response: planSchema,
   errors: [404],
-  handler: ({ auth, params, body }) => planService.createPlan(auth.userId, params.athleteId, body),
+  handler: ({ auth, params, body }) => planService.createPlan(auth, params.athleteId, body),
 });
 
 plans.route({
@@ -54,11 +56,11 @@ plans.route({
   path: "/:athleteId/plans/:planId",
   summary: "Plan abrufen",
   description: "Inklusive Details aller verwendeten Übungen (`exercises`).",
-  auth: ["coach"],
+  auth: roles,
   params: planParams,
   response: planSchema,
   errors: [404],
-  handler: ({ auth, params }) => planService.getPlan(auth.userId, params.athleteId, params.planId),
+  handler: ({ auth, params }) => planService.getPlan(auth, params.athleteId, params.planId),
 });
 
 plans.route({
@@ -69,13 +71,13 @@ plans.route({
     "Ersetzt den Inhalt. `revision` muss dem zuletzt geladenen Stand entsprechen, sonst 409 " +
     "`plan_conflict`. Bei aktiven Plänen wird der bisherige Stand als Version gesichert. " +
     "Archivierte Pläne: 409 `plan_archived`.",
-  auth: ["coach"],
+  auth: roles,
   params: planParams,
   body: updatePlanRequestSchema,
   response: planSchema,
   errors: [404, 409],
   handler: ({ auth, params, body }) =>
-    planService.updatePlan(auth.userId, params.athleteId, params.planId, body),
+    planService.updatePlan(auth, params.athleteId, params.planId, body),
 });
 
 plans.route({
@@ -85,24 +87,22 @@ plans.route({
   description:
     "Gibt den Plan für den Athleten frei und archiviert den bisher aktiven. Unvollständige " +
     "Pläne: 400 `plan_incomplete`.",
-  auth: ["coach"],
+  auth: roles,
   params: planParams,
   response: planSchema,
   errors: [404],
-  handler: ({ auth, params }) =>
-    planService.activatePlan(auth.userId, params.athleteId, params.planId),
+  handler: ({ auth, params }) => planService.activatePlan(auth, params.athleteId, params.planId),
 });
 
 plans.route({
   method: "post",
   path: "/:athleteId/plans/:planId/archive",
   summary: "Plan archivieren",
-  auth: ["coach"],
+  auth: roles,
   params: planParams,
   response: planSchema,
   errors: [404],
-  handler: ({ auth, params }) =>
-    planService.archivePlan(auth.userId, params.athleteId, params.planId),
+  handler: ({ auth, params }) => planService.archivePlan(auth, params.athleteId, params.planId),
 });
 
 plans.route({
@@ -110,12 +110,12 @@ plans.route({
   path: "/:athleteId/plans/:planId",
   summary: "Entwurf löschen",
   description: "Nur Entwürfe, sonst 409 `plan_not_draft`.",
-  auth: ["coach"],
+  auth: roles,
   params: planParams,
   status: 204,
   errors: [404, 409],
   handler: async ({ auth, params }) => {
-    await planService.deletePlan(auth.userId, params.athleteId, params.planId);
+    await planService.deletePlan(auth, params.athleteId, params.planId);
   },
 });
 
@@ -123,24 +123,23 @@ plans.route({
   method: "get",
   path: "/:athleteId/plans/:planId/versions",
   summary: "Frühere Versionen eines Plans",
-  auth: ["coach"],
+  auth: roles,
   params: planParams,
   response: planVersionListResponseSchema,
   errors: [404],
-  handler: ({ auth, params }) =>
-    planService.listVersions(auth.userId, params.athleteId, params.planId),
+  handler: ({ auth, params }) => planService.listVersions(auth, params.athleteId, params.planId),
 });
 
 plans.route({
   method: "get",
   path: "/:athleteId/plans/:planId/versions/:revision",
   summary: "Frühere Version abrufen",
-  auth: ["coach"],
+  auth: roles,
   params: planParams.extend({ revision: z.coerce.number().int().min(0) }),
   response: planVersionSchema,
   errors: [404],
   handler: ({ auth, params }) =>
-    planService.getVersion(auth.userId, params.athleteId, params.planId, params.revision),
+    planService.getVersion(auth, params.athleteId, params.planId, params.revision),
 });
 
 export const planRouter = plans;

@@ -1,4 +1,6 @@
 import type {
+  ActivityResponse,
+  AthletePermissions,
   AuthResponse,
   Exercise,
   ExerciseStatsDetail,
@@ -26,10 +28,17 @@ export const server = setupServer(
     HttpResponse.json({ items: [] } satisfies PlanListResponse),
   ),
   http.get(apiUrl("/athletes/:id/week"), () => HttpResponse.json(buildWeekView())),
+  // Vorschläge im Plan-Editor fragen den Katalog ab; Tests mit Übungen setzen eigene Antworten.
+  http.get(apiUrl("/exercises"), () => HttpResponse.json({ items: [], total: 0 })),
   http.get(apiUrl("/me/week"), () => HttpResponse.json(buildWeekView())),
+  http.get(apiUrl("/me/permissions"), () =>
+    HttpResponse.json({ ownPlan: false, ownWeek: false } satisfies AthletePermissions),
+  ),
   http.get(apiUrl("/athletes/:id/exercise-stats"), () =>
     HttpResponse.json({ items: [], records: [] } satisfies ExerciseStatsListResponse),
   ),
+  http.get(apiUrl("/athletes/:id/activity"), () => HttpResponse.json(buildActivity())),
+  http.get(apiUrl("/me/activity"), () => HttpResponse.json(buildActivity())),
   http.get(apiUrl("/athletes/:id/workout-logs"), () =>
     HttpResponse.json({ items: [], total: 0 } satisfies WorkoutLogListResponse),
   ),
@@ -105,6 +114,7 @@ export function buildPlan(overrides: Partial<Plan> = {}): Plan {
     id: "6acd3920c0072ec254663d01",
     athleteId: "6acd3920c0072ec254663bd9",
     status: "draft",
+    createdBy: "coach",
     name: "Block 1",
     notes: null,
     type: "UPPER",
@@ -294,6 +304,56 @@ export function buildExerciseStatsDetail(
         setCount: 3,
       },
     ],
+    ...overrides,
+  };
+}
+
+/** Oktober 2026, heute Do., 15.10. (KW 42): zwei Wochen erfüllt, KW 40 verpasst. */
+export function buildActivity(overrides: Partial<ActivityResponse> = {}): ActivityResponse {
+  const week = (
+    number: number,
+    startDate: string,
+    status: ActivityResponse["weeks"][number]["status"],
+    completedCount = 0,
+  ) => ({
+    week: `2026-W${number}`,
+    startDate,
+    status,
+    completedCount,
+    plannedCount: 2,
+  });
+  return {
+    month: "2026-10",
+    today: "2026-10-15",
+    streakWeeks: 2,
+    weeks: [
+      week(40, "2026-09-28", "missed", 1),
+      week(41, "2026-10-05", "fulfilled", 2),
+      week(42, "2026-10-12", "fulfilled", 2),
+      week(43, "2026-10-19", "upcoming"),
+      week(44, "2026-10-26", "upcoming"),
+    ],
+    days: [
+      {
+        date: "2026-10-05",
+        workouts: [{ id: "6acd3920c0072ec254663e01", dayName: "Tag A", durationMinutes: 50 }],
+      },
+      {
+        date: "2026-10-07",
+        workouts: [{ id: "6acd3920c0072ec254663e05", dayName: "Tag B", durationMinutes: 70 }],
+      },
+      {
+        date: "2026-10-12",
+        workouts: [{ id: "6acd3920c0072ec254663e02", dayName: "Tag A", durationMinutes: 65 }],
+      },
+      {
+        date: "2026-10-14",
+        workouts: [{ id: "6acd3920c0072ec254663e06", dayName: "Tag B", durationMinutes: null }],
+      },
+    ],
+    workoutCount: 4,
+    totalMinutes: 185,
+    averageMinutes: 62,
     ...overrides,
   };
 }

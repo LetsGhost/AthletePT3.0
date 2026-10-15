@@ -13,6 +13,7 @@ import { formatDate } from "@/lib/format";
 import { usePlans } from "./api";
 import { NewPlanDialog } from "./plan-dialogs";
 import { PlanTypeBadge } from "./plan-type-badge";
+import { planPath, usePlanViewer, type PlanViewer } from "./viewer";
 
 const statusTone: Record<PlanStatus, "success" | "warning" | "neutral"> = {
   active: "success",
@@ -24,7 +25,18 @@ export function PlanStatusBadge({ status }: { status: PlanStatus }) {
   return <Badge tone={statusTone[status]}>{planStatusLabels[status]}</Badge>;
 }
 
-function PlanItem({ athleteId, plan }: { athleteId: string; plan: PlanSummary }) {
+/** Zeigt an, wenn der Plan von der jeweils anderen Seite stammt. */
+const creatorLabel: Record<PlanViewer, string> = { coach: "vom Athleten", athlete: "vom Coach" };
+
+function PlanItem({
+  athleteId,
+  plan,
+  viewer,
+}: {
+  athleteId: string;
+  plan: PlanSummary;
+  viewer: PlanViewer;
+}) {
   const date =
     plan.status === "active" && plan.activatedAt
       ? `aktiv seit ${formatDate(plan.activatedAt)}`
@@ -34,7 +46,7 @@ function PlanItem({ athleteId, plan }: { athleteId: string; plan: PlanSummary })
   return (
     <li>
       <Link
-        to={`/coach/athletes/${athleteId}/plans/${plan.id}`}
+        to={planPath(viewer, athleteId, plan.id)}
         className="bg-inset hover:border-border-strong flex items-center gap-3 rounded-card border border-transparent p-3 transition-colors"
       >
         <span className="min-w-0 flex-1">
@@ -42,6 +54,7 @@ function PlanItem({ athleteId, plan }: { athleteId: string; plan: PlanSummary })
             <span className="font-medium">{plan.name}</span>
             <PlanStatusBadge status={plan.status} />
             <PlanTypeBadge type={plan.type} />
+            {plan.createdBy !== viewer && <Badge tone="neutral">{creatorLabel[viewer]}</Badge>}
           </span>
           <span className="text-muted block text-sm">
             {plan.dayCount} {plan.dayCount === 1 ? "Trainingstag" : "Trainingstage"} · {date}
@@ -53,15 +66,19 @@ function PlanItem({ athleteId, plan }: { athleteId: string; plan: PlanSummary })
   );
 }
 
-/** Pläne eines Athleten auf seiner Detailseite. */
+/**
+ * Pläne eines Athleten: für den Coach auf der Detailseite des Athleten, für den Athleten mit
+ * der Berechtigung „Eigener Trainingsplan“ auf seiner Trainingsseite.
+ */
 export function PlansCard({ athleteId, athleteName }: { athleteId: string; athleteName: string }) {
+  const viewer = usePlanViewer();
   const plans = usePlans(athleteId);
   const [creating, setCreating] = useState(false);
 
   return (
     <Card>
       <CardHeader
-        title="Trainingspläne"
+        title={viewer === "athlete" ? "Meine Trainingspläne" : "Trainingspläne"}
         icon={Dumbbell}
         iconClassName="text-module-records"
         action={
@@ -77,7 +94,11 @@ export function PlansCard({ athleteId, athleteName }: { athleteId: string; athle
               <EmptyState
                 icon={Dumbbell}
                 title="Noch kein Trainingsplan"
-                description={`Lege einen Plan an und aktiviere ihn, damit ${athleteName} ihn sieht.`}
+                description={
+                  viewer === "athlete"
+                    ? "Lege einen Plan an und aktiviere ihn, um danach zu trainieren."
+                    : `Lege einen Plan an und aktiviere ihn, damit ${athleteName} ihn sieht.`
+                }
                 action={
                   <Button onClick={() => setCreating(true)}>
                     <Plus aria-hidden="true" className="size-4" /> Ersten Plan anlegen
@@ -85,9 +106,16 @@ export function PlansCard({ athleteId, athleteName }: { athleteId: string; athle
                 }
               />
             ) : (
-              <ul className="flex flex-col gap-2" aria-label={`Trainingspläne von ${athleteName}`}>
+              <ul
+                className="flex flex-col gap-2"
+                aria-label={
+                  viewer === "athlete"
+                    ? "Meine Trainingspläne"
+                    : `Trainingspläne von ${athleteName}`
+                }
+              >
                 {items.map((plan) => (
-                  <PlanItem key={plan.id} athleteId={athleteId} plan={plan} />
+                  <PlanItem key={plan.id} athleteId={athleteId} plan={plan} viewer={viewer} />
                 ))}
               </ul>
             )

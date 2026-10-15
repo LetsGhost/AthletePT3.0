@@ -71,3 +71,19 @@ export function parseDecimal(value: string) {
 export function decimalToText(value: number | null) {
   return value === null ? "" : String(value).replace(".", ",");
 }
+
+/** Stoppuhr: „1:45“, „1:02:09“. */
+export function formatClock(totalSeconds: number) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = String(seconds % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+}
+
+/** Trainingsdauer: „48 min“, „1 h 05 min“. */
+export function formatWorkoutDuration(totalSeconds: number) {
+  const minutes = Math.max(0, Math.round(totalSeconds / 60));
+  const h = Math.floor(minutes / 60);
+  return h > 0 ? `${h} h ${String(minutes % 60).padStart(2, "0")} min` : `${minutes} min`;
+}

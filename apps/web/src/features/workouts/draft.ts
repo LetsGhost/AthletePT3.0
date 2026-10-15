@@ -124,11 +124,28 @@ export function draftToRequest(
   return { body, errors };
 }
 
-/** Nicht abgehakte Sätze in nicht ausgelassenen Übungen. */
-export function openSetCount(draft: WorkoutDraft) {
+/** Erledigte und alle Sätze in nicht ausgelassenen Übungen. */
+export function setProgress(draft: WorkoutDraft) {
   return draft.exercises
     .filter((x) => !x.skipped)
-    .reduce((sum, x) => sum + x.sets.filter((s) => !s.done).length, 0);
+    .reduce(
+      (sum, x) => ({
+        done: sum.done + x.sets.filter((s) => s.done).length,
+        total: sum.total + x.sets.length,
+      }),
+      { done: 0, total: 0 },
+    );
+}
+
+/** Nicht abgehakte Sätze in nicht ausgelassenen Übungen. */
+export function openSetCount(draft: WorkoutDraft) {
+  const { done, total } = setProgress(draft);
+  return total - done;
+}
+
+/** Alle Sätze abgehakt (eine Übung ohne Sätze gilt als offen). */
+export function isExerciseComplete(exercise: DraftExercise) {
+  return exercise.sets.length > 0 && exercise.sets.every((s) => s.done);
 }
 
 interface StoredDraft {

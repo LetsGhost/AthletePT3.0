@@ -1,10 +1,11 @@
-import { KeyRound, Palette, UserRound } from "lucide-react";
+import { KeyRound, Palette, Timer, UserRound } from "lucide-react";
 
 import { roleLabel } from "@/app/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { useSession } from "@/features/auth/session";
 import { ChangePasswordForm } from "@/features/settings/change-password-form";
+import { RestTimerSettings } from "@/features/settings/rest-timer-settings";
 import { ThemePicker } from "@/features/settings/theme-picker";
 
 export default function SettingsPage() {
@@ -35,6 +36,15 @@ export default function SettingsPage() {
             <ThemePicker />
           </CardBody>
         </Card>
+
+        {user.role === "athlete" && (
+          <Card>
+            <CardHeader title="Training" icon={Timer} iconClassName="text-module-week" />
+            <CardBody>
+              <RestTimerSettings />
+            </CardBody>
+          </Card>
+        )}
 
         <Card>
           <CardHeader title="Passwort ändern" icon={KeyRound} iconClassName="text-module-checkin" />

@@ -50,6 +50,38 @@ export const athleteProfileSchema = z.object({
   coachNotes: text(2000).optional(),
 });
 
+/**
+ * Was der Coach dem Athleten selbst erlaubt. Standardmäßig ist alles aus.
+ * - `ownPlan`: Trainingspläne selbst anlegen und bearbeiten (dieselben Rechte wie der Coach)
+ * - `ownWeek`: den Wochenplan selbst bearbeiten
+ */
+export const athletePermissionsSchema = z.object({
+  ownPlan: z.boolean(),
+  ownWeek: z.boolean(),
+});
+
+export type AthletePermissions = z.infer<typeof athletePermissionsSchema>;
+export type AthletePermission = keyof AthletePermissions;
+
+export const athletePermissionKeys = [
+  "ownPlan",
+  "ownWeek",
+] as const satisfies readonly AthletePermission[];
+
+export const athletePermissionLabels: Record<
+  AthletePermission,
+  { label: string; description: string }
+> = {
+  ownPlan: {
+    label: "Eigener Trainingsplan",
+    description: "Kann Trainingspläne selbst anlegen, bearbeiten und aktivieren.",
+  },
+  ownWeek: {
+    label: "Eigene Trainingswoche",
+    description: "Kann den Wochenplan (Aktivitäten neben dem Krafttraining) selbst bearbeiten.",
+  },
+};
+
 export const athleteSummarySchema = z.object({
   id: objectIdSchema,
   name: z.string(),
@@ -63,6 +95,7 @@ export const athleteSummarySchema = z.object({
 
 export const athleteDetailSchema = athleteSummarySchema.extend({
   profile: athleteProfileSchema,
+  permissions: athletePermissionsSchema,
 });
 
 export const athleteQuotaInfoSchema = z.object({
@@ -81,11 +114,15 @@ export const createAthleteRequestSchema = z.object({
   profile: athleteProfileSchema.default({}),
 });
 
-/** `profile` ersetzt die Anamnese vollständig (nicht angegebene Felder werden geleert). */
+/**
+ * `profile` ersetzt die Anamnese vollständig (nicht angegebene Felder werden geleert).
+ * `permissions` ändert nur die angegebenen Berechtigungen.
+ */
 export const updateAthleteRequestSchema = z
   .object({
     name: personNameSchema,
     profile: athleteProfileSchema,
+    permissions: athletePermissionsSchema.partial(),
   })
   .partial()
   .refine((data) => Object.keys(data).length > 0, "Keine Änderungen angegeben");

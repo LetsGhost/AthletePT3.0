@@ -11,7 +11,7 @@ import { API_PREFIX, getOpenApiDocument } from "./lib/openapi";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { apiLimiter } from "./middleware/rate-limit";
 import { requestId } from "./middleware/request-id";
-import { athleteRouter } from "./modules/athletes/athlete.routes";
+import { athleteRouter, myPermissionsRouter } from "./modules/athletes/athlete.routes";
 import { authRouter } from "./modules/auth/auth.routes";
 import { coachRouter } from "./modules/coaches/coach.routes";
 import { exerciseRouter } from "./modules/exercises/exercise.routes";
@@ -24,6 +24,7 @@ const modules = [
   authRouter,
   coachRouter,
   athleteRouter,
+  myPermissionsRouter,
   exerciseRouter,
   planRouter,
   planTemplateRouter,

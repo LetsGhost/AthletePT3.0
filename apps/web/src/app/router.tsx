@@ -6,7 +6,8 @@ import { PageSpinner } from "@/components/ui/spinner";
 import { LoginPage } from "@/pages/login-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
 
-import { HomeRedirect, PublicOnly, RequireAuth, RequireRole } from "./guards";
+import type { RouteHandle } from "./navigation";
+import { HomeRedirect, PublicOnly, RenamedPath, RequireAuth, RequireRole } from "./guards";
 import { RootLayout } from "./root-layout";
 
 /**
@@ -17,6 +18,11 @@ const page = (load: () => Promise<{ default: ComponentType }>) => ({
   lazy: async () => ({ Component: (await load()).default }),
   HydrateFallback: PageSpinner,
 });
+
+/** Seiten mit breitem Inhalt (z. B. Plan-Editor mit Seitenspalte). */
+const wide = { handle: { wide: true } satisfies RouteHandle };
+
+const renamedProgress = <RenamedPath from="/progress" to="/entwicklung" />;
 
 export const routes: RouteObject[] = [
   {
@@ -48,10 +54,20 @@ export const routes: RouteObject[] = [
                   { path: "/dashboard", ...page(() => import("@/pages/athlete/dashboard-page")) },
                   { path: "/plan", ...page(() => import("@/pages/athlete/plan-page")) },
                   { path: "/plan/:dayId", ...page(() => import("@/pages/athlete/plan-day-page")) },
-                  { path: "/workouts", ...page(() => import("@/pages/athlete/workouts-page")) },
-                  { path: "/progress", ...page(() => import("@/pages/athlete/progress-page")) },
                   {
-                    path: "/progress/:exerciseId",
+                    path: "/plans/:planId",
+                    ...page(() => import("@/pages/athlete/manage-plan-page")),
+                    ...wide,
+                  },
+                  { path: "/workouts", ...page(() => import("@/pages/athlete/workouts-page")) },
+                  {
+                    path: "/entwicklung",
+                    ...page(() => import("@/pages/athlete/progress-page")),
+                  },
+                  { path: "/progress/*", element: renamedProgress },
+                  { path: "/progress", element: renamedProgress },
+                  {
+                    path: "/entwicklung/:exerciseId",
                     ...page(() => import("@/pages/athlete/exercise-progress-page")),
                   },
                   {
@@ -78,9 +94,10 @@ export const routes: RouteObject[] = [
                     ...page(() => import("@/pages/coach/athlete-detail-page")),
                   },
                   {
-                    path: "/coach/athletes/:id/progress/:exerciseId",
+                    path: "/coach/athletes/:id/entwicklung/:exerciseId",
                     ...page(() => import("@/pages/coach/exercise-progress-page")),
                   },
+                  { path: "/coach/athletes/:id/progress/*", element: renamedProgress },
                   {
                     path: "/coach/athletes/:id/workouts/:logId",
                     ...page(() => import("@/pages/coach/workout-page")),
@@ -88,6 +105,7 @@ export const routes: RouteObject[] = [
                   {
                     path: "/coach/athletes/:id/plans/:planId",
                     ...page(() => import("@/pages/coach/plan-page")),
+                    ...wide,
                   },
                   {
                     path: "/coach/templates",
@@ -96,6 +114,7 @@ export const routes: RouteObject[] = [
                   {
                     path: "/coach/templates/:id",
                     ...page(() => import("@/pages/coach/template-page")),
+                    ...wide,
                   },
                 ],
               },

@@ -1,6 +1,7 @@
 import type {
   AthleteDetail,
   AthleteListResponse,
+  AthletePermissions,
   AthleteProfile,
   AthleteSummary,
   UpdateAthleteRequest,
@@ -15,7 +16,7 @@ import { COUNTED_ATHLETE_STATUSES, lockCoachQuota } from "../coaches/quota";
 import { createInvitationToken, resendInvitation, sendInvitationMail } from "../users/invitations";
 import { UserModel, type UserDocument } from "../users/user.model";
 import { UserTokenModel } from "../users/user-token.model";
-import { getAthleteOfCoach } from "./athlete-access";
+import { getAthleteOfCoach, toPermissionsDto } from "./athlete-access";
 import { deleteAllAthleteData } from "./athlete-data";
 import {
   AthleteProfileModel,
@@ -39,7 +40,11 @@ function toSummary(athlete: UserDocument, profile: ProfileHeadline): AthleteSumm
 }
 
 function toDetail(athlete: UserDocument, profile: AthleteProfileDocument | null): AthleteDetail {
-  return { ...toSummary(athlete, profile), profile: toProfileDto(profile) };
+  return {
+    ...toSummary(athlete, profile),
+    profile: toProfileDto(profile),
+    permissions: toPermissionsDto(athlete),
+  };
 }
 
 async function getCoach(coachId: string, session?: ClientSession) {
@@ -117,10 +122,11 @@ export async function updateAthlete(
   input: UpdateAthleteRequest,
 ) {
   const athlete = await getAthleteOfCoach(coachId, athleteId);
-  if (input.name !== undefined) {
-    athlete.name = input.name;
-    await athlete.save();
+  if (input.name !== undefined) athlete.name = input.name;
+  if (input.permissions !== undefined) {
+    athlete.athletePermissions = { ...toPermissionsDto(athlete), ...input.permissions };
   }
+  if (athlete.isModified()) await athlete.save();
   let profile = await AthleteProfileModel.findOne({ athleteId: athlete._id });
   if (input.profile !== undefined) {
     // Ersetzen statt mergen: Felder, die im Formular geleert wurden, verschwinden.
@@ -131,6 +137,13 @@ export async function updateAthlete(
     );
   }
   return toDetail(athlete, profile);
+}
+
+/** Berechtigungen des angemeldeten Athleten, damit die Oberfläche passende Aktionen zeigt. */
+export async function getMyPermissions(athleteId: string): Promise<AthletePermissions> {
+  const athlete = await UserModel.findOne({ _id: athleteId, role: "athlete" });
+  if (!athlete) throw new NotFoundError("Athlet nicht gefunden");
+  return athlete.coachId ? toPermissionsDto(athlete) : { ownPlan: false, ownWeek: false };
 }
 
 /** Archivieren: Zugang sperren, Daten behalten, Platz im Kontingent freigeben. */

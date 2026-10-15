@@ -1,5 +1,6 @@
 import type { ExerciseStatsListResponse } from "@athletept/shared";
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 
@@ -7,6 +8,7 @@ import { useSession } from "@/features/auth/session";
 import { renderApp } from "@/test/render";
 import {
   apiUrl,
+  buildActivity,
   buildExerciseStatsDetail,
   buildExerciseStatsSummary,
   buildUser,
@@ -42,15 +44,28 @@ function mockStats(response: ExerciseStatsListResponse, path = "/me/exercise-sta
   server.use(http.get(apiUrl(path), () => HttpResponse.json(response)));
 }
 
-describe("Fortschritt (Athlet)", () => {
-  it("zeigt Rekorde und alle Übungen mit Veränderung", async () => {
+describe("Entwicklung (Athlet)", () => {
+  it("zeigt eingeklappt nur die Rekorde, aufgeklappt alle Übungen", async () => {
     signIn("athlete");
     mockStats({ items: [bench, pullUps], records: [bench] });
-    renderApp("/progress");
+    renderApp("/entwicklung");
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Entwicklung" }),
+    ).toBeInTheDocument();
+    await screen.findByRole("region", { name: "Rekorde" });
+    expect(screen.queryByRole("region", { name: "Alle Übungen" })).not.toBeInTheDocument();
+    const toggle = screen.getByRole("button", { name: "Alle 2 Übungen anzeigen" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(toggle);
+    expect(screen.getByRole("button", { name: "Weniger anzeigen" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
 
     const records = await screen.findByRole("region", { name: "Rekorde" });
     const record = within(records).getByRole("link", { name: /Bankdrücken/ });
-    expect(record).toHaveAttribute("href", `/progress/${bench.exerciseId}`);
+    expect(record).toHaveAttribute("href", `/entwicklung/${bench.exerciseId}`);
     expect(record).toHaveTextContent("105 kg");
     expect(record).toHaveTextContent("max. 82,5 kg");
     expect(record).toHaveTextContent("+5 % seit Mo., 5. Okt.");
@@ -65,7 +80,7 @@ describe("Fortschritt (Athlet)", () => {
   it("erklärt, dass es noch keine Daten gibt", async () => {
     signIn("athlete");
     mockStats({ items: [], records: [] });
-    renderApp("/progress");
+    renderApp("/entwicklung");
 
     expect(await screen.findByText("Noch keine Daten")).toBeInTheDocument();
   });
@@ -77,7 +92,7 @@ describe("Fortschritt (Athlet)", () => {
         HttpResponse.json(buildExerciseStatsDetail()),
       ),
     );
-    renderApp(`/progress/${bench.exerciseId}`);
+    renderApp(`/entwicklung/${bench.exerciseId}`);
 
     expect(
       await screen.findByRole("heading", { level: 1, name: "Bankdrücken" }),
@@ -101,16 +116,74 @@ describe("Fortschritt (Athlet)", () => {
   it("meldet eine Übung ohne Trainings", async () => {
     signIn("athlete");
     server.use(http.get(apiUrl("/me/exercise-stats/:id"), () => problem(404, "not_found")));
-    renderApp("/progress/6acd3920c0072ec254663fff");
+    renderApp("/entwicklung/6acd3920c0072ec254663fff");
 
     expect(await screen.findByText("Keine Daten zu dieser Übung")).toBeInTheDocument();
   });
 });
 
-describe("Fortschritt (Coach)", () => {
+describe("Streak", () => {
+  it("zeigt Streak, Trainingszeit und Kalender mit Wochenstatus", async () => {
+    signIn("athlete");
+    mockStats({ items: [], records: [] });
+    renderApp("/entwicklung");
+
+    expect(await screen.findByRole("heading", { name: "Oktober" })).toBeInTheDocument();
+    expect(screen.getByText("2 Wochen")).toBeInTheDocument();
+    expect(screen.getByText("3 h 5 min")).toBeInTheDocument();
+    expect(screen.getByText("Trainingszeit · Ø 1 h 2 min")).toBeInTheDocument();
+
+    const calendar = screen.getByRole("table", { name: "Trainingskalender Oktober" });
+    expect(within(calendar).getAllByRole("button")).toHaveLength(4);
+    expect(within(calendar).getByText("KW 40: Plan nicht erfüllt (1 von 2)")).toBeInTheDocument();
+    expect(within(calendar).getByText("KW 41: Plan erfüllt (2 von 2)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Nächster Monat" })).toBeDisabled();
+
+    await userEvent.click(
+      within(calendar).getByRole("button", { name: /Montag, 12. Oktober 2026: 1 Training/ }),
+    );
+    expect(screen.getByRole("link", { name: /Tag A.*1 h 5 min/ })).toHaveAttribute(
+      "href",
+      "/workouts/6acd3920c0072ec254663e02",
+    );
+  });
+
+  it("blättert in den Vormonat", async () => {
+    signIn("athlete");
+    mockStats({ items: [], records: [] });
+    server.use(
+      http.get(apiUrl("/me/activity"), ({ request }) =>
+        HttpResponse.json(
+          new URL(request.url).searchParams.get("month") === "2026-09"
+            ? buildActivity({ month: "2026-09", days: [], workoutCount: 0 })
+            : buildActivity(),
+        ),
+      ),
+    );
+    renderApp("/entwicklung");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Vorheriger Monat" }));
+    expect(await screen.findByRole("heading", { name: "September" })).toBeInTheDocument();
+    expect(
+      screen.getByText("In diesem Monat noch kein abgeschlossenes Training."),
+    ).toBeInTheDocument();
+  });
+
+  it("leitet alte Links auf /entwicklung um", async () => {
+    signIn("athlete");
+    mockStats({ items: [], records: [] });
+    renderApp("/progress");
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Entwicklung" }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("Entwicklung (Coach)", () => {
   const athleteId = "6acd3920c0072ec254663bd9";
 
-  it("zeigt den Fortschritt auf der Athletenseite und verlinkt den Verlauf", async () => {
+  it("zeigt Streak und Gewichtsanalyse auf der Athletenseite", async () => {
     signIn("coach");
     server.use(
       http.get(apiUrl(`/athletes/${athleteId}`), () =>
@@ -124,6 +197,7 @@ describe("Fortschritt (Coach)", () => {
           lastLoginAt: null,
           createdAt: "2026-10-01T00:00:00.000Z",
           profile: {},
+          permissions: { ownPlan: false, ownWeek: false },
         }),
       ),
     );
@@ -133,8 +207,9 @@ describe("Fortschritt (Coach)", () => {
     const records = await screen.findByRole("region", { name: "Rekorde" });
     expect(within(records).getByRole("link", { name: /Bankdrücken/ })).toHaveAttribute(
       "href",
-      `/coach/athletes/${athleteId}/progress/${bench.exerciseId}`,
+      `/coach/athletes/${athleteId}/entwicklung/${bench.exerciseId}`,
     );
+    expect(screen.getByRole("heading", { name: "Streak" })).toBeInTheDocument();
   });
 
   it("verlinkt im Verlauf die Protokolle des Athleten", async () => {
@@ -144,7 +219,7 @@ describe("Fortschritt (Coach)", () => {
         HttpResponse.json(buildExerciseStatsDetail()),
       ),
     );
-    renderApp(`/coach/athletes/${athleteId}/progress/${bench.exerciseId}`);
+    renderApp(`/coach/athletes/${athleteId}/entwicklung/${bench.exerciseId}`);
 
     const table = await screen.findByRole("table", { name: "Einheiten" });
     expect(within(table).getAllByRole("link")[0]).toHaveAttribute(

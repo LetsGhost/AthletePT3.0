@@ -1,4 +1,4 @@
-import { CalendarDays, Play } from "lucide-react";
+import { CalendarDays, Pencil, Play } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 
@@ -8,19 +8,35 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryState, SkeletonList } from "@/components/ui/query-state";
+import { useMyPermissions } from "@/features/athletes/api";
 import { useSession } from "@/features/auth/session";
+import { WeeklyActivitiesDialog } from "@/features/workouts/athlete-training-cards";
 import { useMyWeek } from "@/features/workouts/api";
 import { formatWeekdayDate } from "@/features/workouts/format";
-import { NewRecordsAlert } from "@/features/workouts/new-records";
 import { WeekNavigation, WeekOverview } from "@/features/workouts/week-overview";
 
 function WeekCard() {
   const [selected, setSelected] = useState<string | null>(null);
   const week = useMyWeek(selected);
+  const [editing, setEditing] = useState(false);
+  const permissions = useMyPermissions().data;
+  const userId = useSession((state) => state.user?.id);
 
   return (
     <Card>
-      <CardHeader title="Trainingswoche" icon={CalendarDays} iconClassName="text-module-week" />
+      <CardHeader
+        title="Trainingswoche"
+        icon={CalendarDays}
+        iconClassName="text-module-week"
+        action={
+          permissions?.ownWeek &&
+          week.data && (
+            <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+              <Pencil aria-hidden="true" className="size-4" /> Wochenplan
+            </Button>
+          )
+        }
+      />
       <CardBody>
         <QueryState query={week} loading={<SkeletonList rows={4} className="h-12" />}>
           {(data) => (
@@ -48,7 +64,18 @@ function WeekCard() {
                 <EmptyState
                   icon={CalendarDays}
                   title="Noch kein Trainingsplan"
-                  description="Sobald dein Coach einen Plan freigibt, siehst du hier deine Woche."
+                  description={
+                    permissions?.ownPlan
+                      ? "Lege unter „Training“ einen Plan an, oder warte, bis dein Coach einen freigibt."
+                      : "Sobald dein Coach einen Plan freigibt, siehst du hier deine Woche."
+                  }
+                  action={
+                    permissions?.ownPlan && (
+                      <Button asChild>
+                        <Link to="/plan">Zum Training</Link>
+                      </Button>
+                    )
+                  }
                 />
               ) : (
                 <WeekOverview
@@ -58,6 +85,13 @@ function WeekCard() {
                     return running ? `/workouts/${running.id}` : `/plan/${day.dayId}`;
                   }}
                   logHref={(log) => `/workouts/${log.id}`}
+                />
+              )}
+              {editing && userId && (
+                <WeeklyActivitiesDialog
+                  athleteId={userId}
+                  activities={data.activities}
+                  onOpenChange={setEditing}
                 />
               )}
             </div>
@@ -78,7 +112,6 @@ export default function DashboardPage() {
         title={`Hallo ${firstName}!`}
         description="Hier siehst du deine Woche auf einen Blick."
       />
-      <NewRecordsAlert />
       <WeekCard />
     </>
   );

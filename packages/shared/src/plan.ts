@@ -317,10 +317,16 @@ const planContentOutput = {
   exercises: z.array(planExerciseInfoSchema),
 };
 
+/** Wer den Plan angelegt hat: der Coach oder der Athlet selbst (Berechtigung `ownPlan`). */
+export const planCreators = ["coach", "athlete"] as const;
+export const planCreatorSchema = z.enum(planCreators);
+export type PlanCreator = z.infer<typeof planCreatorSchema>;
+
 export const planSchema = z.object({
   id: objectIdSchema,
   athleteId: objectIdSchema,
   status: planStatusSchema,
+  createdBy: planCreatorSchema,
   ...planContentOutput,
   activatedAt: z.string().nullable(),
   archivedAt: z.string().nullable(),
@@ -333,6 +339,7 @@ export const planSummarySchema = z.object({
   name: z.string(),
   status: planStatusSchema,
   type: planTypeSchema,
+  createdBy: planCreatorSchema,
   dayCount: z.number().int(),
   activatedAt: z.string().nullable(),
   archivedAt: z.string().nullable(),

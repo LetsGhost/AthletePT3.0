@@ -31,20 +31,28 @@ interface StatsOverviewProps {
   href: (exerciseId: string) => string;
   /** Überschriften-Ebene der Abschnitte. */
   level?: "h2" | "h3";
+  /** Eingeklappt: nur die zwei besten Rekorde (ohne Rekorde die ersten drei Übungen). */
+  preview?: boolean;
 }
 
+const PREVIEW_RECORDS = 2;
+const PREVIEW_ITEMS = 3;
+
 /** Rekorde (Top 4) und alle trainierten Übungen mit Bestwert und Veränderung. */
-export function StatsOverview({ data, href, level = "h2" }: StatsOverviewProps) {
+export function StatsOverview({ data, href, level = "h2", preview = false }: StatsOverviewProps) {
   const Heading = level;
+  const records = preview ? data.records.slice(0, PREVIEW_RECORDS) : data.records;
+  const showItems = !preview || records.length === 0;
+  const items = preview ? data.items.slice(0, PREVIEW_ITEMS) : data.items;
   return (
     <div className="flex flex-col gap-6">
-      {data.records.length > 0 && (
+      {records.length > 0 && (
         <section aria-labelledby="stats-records" className="flex flex-col gap-3">
           <Heading id="stats-records" className="flex items-center gap-2 font-medium">
             <Trophy aria-hidden="true" className="text-module-records size-5" /> Rekorde
           </Heading>
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {data.records.map((record) => (
+            {records.map((record) => (
               <li key={record.exerciseId}>
                 <Link
                   to={href(record.exerciseId)}
@@ -67,34 +75,36 @@ export function StatsOverview({ data, href, level = "h2" }: StatsOverviewProps) 
         </section>
       )}
 
-      <section aria-labelledby="stats-all" className="flex flex-col gap-3">
-        <Heading id="stats-all" className="font-medium">
-          Alle Übungen
-        </Heading>
-        <ul className="flex flex-col gap-2">
-          {data.items.map((item) => (
-            <li key={item.exerciseId}>
-              <Link
-                to={href(item.exerciseId)}
-                className="bg-inset hover:border-border-strong flex items-center gap-3 rounded-card border border-transparent p-3 transition-colors"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block font-medium">{item.exerciseName}</span>
-                  <span className="text-muted block text-sm">
-                    {item.sessionCount} {item.sessionCount === 1 ? "Einheit" : "Einheiten"} ·
-                    zuletzt {formatWeekdayDate(item.lastDate)}
+      {showItems && (
+        <section aria-labelledby="stats-all" className="flex flex-col gap-3">
+          <Heading id="stats-all" className="font-medium">
+            Alle Übungen
+          </Heading>
+          <ul className="flex flex-col gap-2">
+            {items.map((item) => (
+              <li key={item.exerciseId}>
+                <Link
+                  to={href(item.exerciseId)}
+                  className="bg-inset hover:border-border-strong flex items-center gap-3 rounded-card border border-transparent p-3 transition-colors"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">{item.exerciseName}</span>
+                    <span className="text-muted block text-sm">
+                      {item.sessionCount} {item.sessionCount === 1 ? "Einheit" : "Einheiten"} ·
+                      zuletzt {formatWeekdayDate(item.lastDate)}
+                    </span>
                   </span>
-                </span>
-                <span className="flex flex-col items-end gap-0.5">
-                  <span className="font-medium tabular-nums">{mainBest(item)}</span>
-                  <ChangeBadge summary={item} />
-                </span>
-                <ChevronRight aria-hidden="true" className="text-muted size-5 shrink-0" />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
+                  <span className="flex flex-col items-end gap-0.5">
+                    <span className="font-medium tabular-nums">{mainBest(item)}</span>
+                    <ChangeBadge summary={item} />
+                  </span>
+                  <ChevronRight aria-hidden="true" className="text-muted size-5 shrink-0" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

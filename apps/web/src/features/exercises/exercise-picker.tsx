@@ -18,8 +18,19 @@ interface ExercisePickerProps {
   excludeIds?: readonly string[];
   /** Bietet am Ende der Liste „Neue Übung anlegen“ mit dem eingegebenen Namen an. */
   onCreate?: (name: string) => void;
+  /** Text der „Anlegen“-Option. Standard: „„Name“ als neue Übung anlegen“. */
+  createLabel?: (name: string) => string;
   placeholder?: string;
+  /** Beschriftung nur für Screenreader (das Feld steht für sich, z. B. in einer Zeile). */
+  hideLabel?: boolean;
+  /**
+   * Gesteuerter Text: Mit `value` bleibt der Text nach der Auswahl stehen, die Seite setzt ihn
+   * selbst (z. B. auf den Namen der gewählten Übung).
+   */
+  value?: string;
+  onValueChange?: (value: string) => void;
   className?: string;
+  inputClassName?: string;
 }
 
 /**
@@ -31,13 +42,24 @@ export function ExercisePicker({
   onSelect,
   excludeIds = [],
   onCreate,
+  createLabel = (name) => `„${name}“ als neue Übung anlegen`,
   placeholder = "Übung suchen, z. B. Kniebeuge",
+  hideLabel = false,
+  value,
+  onValueChange,
   className,
+  inputClassName,
 }: ExercisePickerProps) {
   const id = useId();
   const listId = `${id}-list`;
   const statusId = `${id}-status`;
-  const [input, setInput] = useState("");
+  const [ownInput, setOwnInput] = useState("");
+  const controlled = value !== undefined;
+  const input = controlled ? value : ownInput;
+  const setInput = (next: string) => {
+    if (!controlled) setOwnInput(next);
+    onValueChange?.(next);
+  };
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
 
@@ -63,7 +85,7 @@ export function ExercisePicker({
     } else {
       return;
     }
-    setInput("");
+    if (!controlled) setInput("");
     close();
   };
 
@@ -101,7 +123,7 @@ export function ExercisePicker({
 
   return (
     <div className={cn("relative flex flex-col gap-1.5", className)}>
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className={cn("text-sm font-medium", hideLabel && "sr-only")}>
         {label}
       </label>
       <div className="relative">
@@ -129,7 +151,7 @@ export function ExercisePicker({
           onClick={() => setOpen(true)}
           onKeyDown={onKeyDown}
           onBlur={close}
-          className={cn(inputClasses, "pl-10")}
+          className={cn(inputClasses, "pl-10", inputClassName)}
         />
         {open && search.isFetching && (
           <Spinner className="absolute top-1/2 right-3 size-4 -translate-y-1/2" />
@@ -139,7 +161,7 @@ export function ExercisePicker({
         {status}
       </p>
       {open && (
-        <div className="bg-surface border-border absolute top-full right-0 left-0 z-30 mt-1 overflow-hidden rounded-card border shadow-xl">
+        <div className="bg-surface border-border absolute top-full right-0 left-0 z-30 mt-1 min-w-64 overflow-hidden rounded-card border shadow-xl">
           <ul
             id={listId}
             role="listbox"
@@ -184,8 +206,8 @@ export function ExercisePicker({
                   activeIndex === items.length && "bg-inset",
                 )}
               >
-                <Plus aria-hidden="true" className="size-4" />„{input.trim()}“ als neue Übung
-                anlegen
+                <Plus aria-hidden="true" className="size-4" />
+                {createLabel(input.trim())}
               </li>
             )}
           </ul>

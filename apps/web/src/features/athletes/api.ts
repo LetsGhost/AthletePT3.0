@@ -1,6 +1,7 @@
 import type {
   AthleteDetail,
   AthleteListResponse,
+  AthletePermissions,
   CreateAthleteRequest,
   UpdateAthleteRequest,
 } from "@athletept/shared";
@@ -12,12 +13,22 @@ export const athleteKeys = {
   all: ["athletes"] as const,
   list: () => [...athleteKeys.all, "list"] as const,
   detail: (id: string) => [...athleteKeys.all, "detail", id] as const,
+  myPermissions: () => [...athleteKeys.all, "my-permissions"] as const,
 };
 
-export function useAthletes() {
+export function useAthletes({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: athleteKeys.list(),
     queryFn: () => api<AthleteListResponse>("/athletes"),
+    enabled,
+  });
+}
+
+/** Was der Coach dem angemeldeten Athleten erlaubt (eigener Plan, eigene Woche). */
+export function useMyPermissions() {
+  return useQuery({
+    queryKey: athleteKeys.myPermissions(),
+    queryFn: () => api<AthletePermissions>("/me/permissions"),
   });
 }
 

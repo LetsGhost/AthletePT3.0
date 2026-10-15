@@ -1,5 +1,19 @@
-import type { AthleteDetail } from "@athletept/shared";
-import { Archive, ArrowLeft, ClipboardList, Mail, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import {
+  athletePermissionKeys,
+  athletePermissionLabels,
+  type AthleteDetail,
+  type AthletePermission,
+} from "@athletept/shared";
+import {
+  Archive,
+  ArrowLeft,
+  ClipboardList,
+  KeyRound,
+  Mail,
+  Pencil,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
@@ -7,6 +21,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { CheckboxField } from "@/components/ui/checkbox-field";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { QueryState } from "@/components/ui/query-state";
 import { toast } from "@/components/ui/toast-store";
@@ -21,7 +36,8 @@ import {
 import { AthleteForm } from "@/features/athletes/athlete-form";
 import { ProfileSummary } from "@/features/athletes/profile-summary";
 import { PlansCard } from "@/features/plans/plans-card";
-import { AthleteProgressCard } from "@/features/stats/progress-card";
+import { AthleteWeightAnalysisCard } from "@/features/stats/progress-card";
+import { AthleteStreakCard } from "@/features/stats/streak-card";
 import { AthleteWeekCard, AthleteWorkoutsCard } from "@/features/workouts/athlete-training-cards";
 import { StatusBadge } from "@/features/users/status-badge";
 import { formatDate } from "@/lib/format";
@@ -143,6 +159,43 @@ function AthleteActions({ athlete }: { athlete: AthleteDetail }) {
   );
 }
 
+/** Was der Athlet selbst bearbeiten darf. Wirkt sofort, auch bei laufender Sitzung. */
+function PermissionsCard({ athlete }: { athlete: AthleteDetail }) {
+  const update = useUpdateAthlete(athlete.id);
+  const [pending, setPending] = useState<AthletePermission | null>(null);
+
+  const toggle = (permission: AthletePermission, enabled: boolean) => {
+    setPending(permission);
+    update
+      .mutateAsync({ permissions: { [permission]: enabled } })
+      .then(() =>
+        toast(
+          `„${athletePermissionLabels[permission].label}“ ${enabled ? "aktiviert" : "deaktiviert"}.`,
+        ),
+      )
+      .catch((error: unknown) => toast(errorMessage(error), "error"))
+      .finally(() => setPending(null));
+  };
+
+  return (
+    <Card>
+      <CardHeader title="Berechtigungen" icon={KeyRound} iconClassName="text-module-records" />
+      <CardBody className="flex flex-col gap-2">
+        {athletePermissionKeys.map((permission) => (
+          <CheckboxField
+            key={permission}
+            label={athletePermissionLabels[permission].label}
+            description={athletePermissionLabels[permission].description}
+            checked={athlete.permissions[permission]}
+            disabled={pending !== null}
+            onChange={(e) => toggle(permission, e.target.checked)}
+          />
+        ))}
+      </CardBody>
+    </Card>
+  );
+}
+
 function ProfileCard({ athlete }: { athlete: AthleteDetail }) {
   const [editing, setEditing] = useState(false);
   const update = useUpdateAthlete(athlete.id);
@@ -215,9 +268,11 @@ export default function AthleteDetailPage() {
             <div className="flex flex-col gap-4">
               <AthleteWeekCard athleteId={data.id} athleteName={data.name} />
               <AthleteWorkoutsCard athleteId={data.id} athleteName={data.name} />
-              <AthleteProgressCard athleteId={data.id} athleteName={data.name} />
+              <AthleteStreakCard athleteId={data.id} />
+              <AthleteWeightAnalysisCard athleteId={data.id} athleteName={data.name} />
               <PlansCard athleteId={data.id} athleteName={data.name} />
               <ProfileCard athlete={data} />
+              <PermissionsCard athlete={data} />
               <AthleteActions athlete={data} />
             </div>
           </>

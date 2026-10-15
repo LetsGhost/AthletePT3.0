@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
-import { NavLink, Outlet, useLocation } from "react-router";
+import { NavLink, Outlet, useLocation, useMatches } from "react-router";
 
-import { navigation, type NavItem } from "@/app/navigation";
+import { navigation, type NavItem, type RouteHandle } from "@/app/navigation";
 import { useSession } from "@/features/auth/session";
 import { cn } from "@/lib/cn";
 
@@ -63,6 +63,7 @@ export function AppShell() {
   const items = role ? navigation[role] : [];
   const mainRef = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
+  const wide = useMatches().some((match) => (match.handle as RouteHandle | undefined)?.wide);
   const previousPath = useRef(pathname);
 
   // Nach einem Seitenwechsel den Fokus auf den Inhalt setzen, damit Screenreader dort
@@ -105,7 +106,8 @@ export function AppShell() {
           ref={mainRef}
           tabIndex={-1}
           className={cn(
-            "mx-auto w-full max-w-5xl flex-1 px-4 pt-4 pb-8 outline-none lg:px-8 lg:pt-8",
+            "mx-auto w-full flex-1 px-4 pt-4 pb-8 outline-none lg:px-8 lg:pt-8",
+            wide ? "max-w-7xl" : "max-w-5xl",
             items.length > 1 && "pb-28 lg:pb-8",
           )}
         >

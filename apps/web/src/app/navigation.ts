@@ -9,6 +9,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+/** `handle` einer Route. `wide`: Seite nutzt die volle Breite (z. B. Plan-Editor). */
+export interface RouteHandle {
+  wide?: boolean;
+}
+
 export interface NavItem {
   to: string;
   label: string;
@@ -30,7 +35,7 @@ export const navigation: Record<UserRole, NavItem[]> = {
     { to: "/dashboard", label: "Übersicht", icon: House },
     { to: "/plan", label: "Training", icon: Dumbbell },
     { to: "/workouts", label: "Verlauf", icon: History },
-    { to: "/progress", label: "Fortschritt", icon: TrendingUp },
+    { to: "/entwicklung", label: "Entwicklung", icon: TrendingUp },
   ],
   coach: [
     { to: "/coach/athletes", label: "Athleten", icon: Users },

@@ -17,7 +17,8 @@ export const WORKOUT_PAGE_SIZE = 10;
 
 export const workoutKeys = {
   all: ["workouts"] as const,
-  myWeek: (week: string | null) => [...workoutKeys.all, "my-week", week] as const,
+  myWeeks: () => [...workoutKeys.all, "my-week"] as const,
+  myWeek: (week: string | null) => [...workoutKeys.myWeeks(), week] as const,
   myList: (page: number) => [...workoutKeys.all, "my-list", page] as const,
   mine: (id: string) => [...workoutKeys.all, "mine", id] as const,
   athlete: (athleteId: string) => [...workoutKeys.all, "athlete", athleteId] as const,
@@ -150,6 +151,10 @@ export function useUpdateWeeklyActivities(athleteId: string) {
         body,
       }),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: [...workoutKeys.athlete(athleteId), "week"] }),
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: [...workoutKeys.athlete(athleteId), "week"] }),
+        // Bearbeitet der Athlet seinen Wochenplan selbst (Berechtigung „Eigene Trainingswoche“).
+        queryClient.invalidateQueries({ queryKey: workoutKeys.myWeeks() }),
+      ]),
   });
 }

@@ -9,7 +9,8 @@ import {
 } from "@athletept/shared";
 import type { Types } from "mongoose";
 
-import { getAthleteOfCoach } from "../athletes/athlete-access";
+import type { AuthContext } from "../../types/express";
+import { getAccessibleAthlete, getAthleteOfCoach } from "../athletes/athlete-access";
 import { TrainingPlanModel, type StoredPlan } from "../plans/plan.model";
 import { WeeklyActivitiesModel, WorkoutLogModel, type StoredWorkoutLog } from "./workout-log.model";
 import { toSummary } from "./workout.service";
@@ -93,12 +94,13 @@ export async function getAthleteWeek(coachId: string, athleteId: string, week: s
   return buildWeek(athleteId, week, "coach");
 }
 
+/** Coach oder der Athlet selbst mit der Berechtigung `ownWeek`. */
 export async function updateWeeklyActivities(
-  coachId: string,
+  auth: AuthContext,
   athleteId: string,
   activities: (string | null)[],
 ): Promise<WeeklyActivitiesResponse> {
-  const athlete = await getAthleteOfCoach(coachId, athleteId);
+  const athlete = await getAccessibleAthlete(auth, athleteId, "ownWeek");
   await WeeklyActivitiesModel.updateOne(
     { athleteId: athlete._id },
     { $set: { activities } },

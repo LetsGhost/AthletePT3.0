@@ -37,6 +37,7 @@
   --module-hints: #2b7d28;
   --module-weight: #00739a;
   --module-records: #8a6400;
+  --module-streak: #b4530a;
 }
 
 [data-theme="dark"] {
@@ -62,6 +63,7 @@
   --module-hints: #81eb7d;
   --module-weight: #29b0dd;
   --module-records: #f7dc6f;
+  --module-streak: #f28c38;
 }
 
 @theme inline {
@@ -88,6 +90,7 @@
   --color-module-hints: var(--module-hints);
   --color-module-weight: var(--module-weight);
   --color-module-records: var(--module-records);
+  --color-module-streak: var(--module-streak);
 
   --radius-card: 0.75rem;
   --radius-tile: 1.25rem;

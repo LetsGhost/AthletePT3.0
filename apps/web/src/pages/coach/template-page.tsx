@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
 import { PageHeader } from "@/components/layout/page-header";
-import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { QueryState, SkeletonList } from "@/components/ui/query-state";
@@ -35,8 +34,12 @@ export default function TemplatePage() {
             <PageHeader
               title={data.name}
               description={
-                <span className="flex flex-wrap items-center gap-2">
-                  Vorlage <PlanTypeBadge type={data.type} />
+                <span className="flex flex-wrap items-center gap-2 text-sm">
+                  <PlanTypeBadge type={data.type} />
+                  <span>
+                    Vorlage · Änderungen wirken sich nicht auf Pläne aus, die schon daraus
+                    entstanden sind
+                  </span>
                 </span>
               }
               actions={
@@ -54,12 +57,6 @@ export default function TemplatePage() {
               content={data}
               onSave={(values) => update.mutateAsync(values)}
               onReload={() => void template.refetch()}
-              notice={
-                <Alert variant="info">
-                  Änderungen an der Vorlage wirken sich nicht auf Pläne aus, die schon daraus
-                  entstanden sind.
-                </Alert>
-              }
             />
             <ConfirmDialog
               open={confirmDelete}

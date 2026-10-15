@@ -45,3 +45,9 @@ export function HomeRedirect() {
   const user = useSession((state) => state.user);
   return <Navigate to={user ? homePath[user.role] : "/login"} replace />;
 }
+
+/** Umbenannte Pfade: alte Links (z. B. Lesezeichen) auf den neuen Pfad umleiten. */
+export function RenamedPath({ from, to }: { from: string; to: string }) {
+  const { pathname, search } = useLocation();
+  return <Navigate to={pathname.replace(from, to) + search} replace />;
+}

@@ -18,6 +18,7 @@ import { applyApiErrors } from "@/lib/form";
 
 import { templateKeys, useCreatePlan, useCreateTemplate, useTemplates } from "./api";
 import { copyContent, type EditorValues } from "./editor-values";
+import { planPath, usePlanViewer } from "./viewer";
 
 const nameSchema = planContentSchema.shape.name;
 
@@ -36,7 +37,9 @@ export function NewPlanDialog({
 }: DialogBaseProps & { athleteId: string }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const templates = useTemplates();
+  const viewer = usePlanViewer();
+  // Vorlagen gehören dem Coach, Athleten starten immer leer.
+  const templates = useTemplates({ enabled: viewer === "coach" });
   const createPlan = useCreatePlan();
   const [formError, setFormError] = useState<string | null>(null);
   const {
@@ -65,7 +68,7 @@ export function NewPlanDialog({
       const plan = await createPlan.mutateAsync({ athleteId, ...body });
       toast(`Entwurf „${plan.name}“ angelegt.`);
       onOpenChange(false);
-      navigate(`/coach/athletes/${athleteId}/plans/${plan.id}`);
+      navigate(planPath(viewer, athleteId, plan.id));
     } catch (error) {
       setFormError(applyApiErrors(error, setError, ["name"]));
     }
@@ -81,29 +84,35 @@ export function NewPlanDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="Neuer Plan"
-      description="Neue Pläne sind Entwürfe. Der Athlet sieht sie erst, wenn du sie aktivierst."
+      description={
+        viewer === "athlete"
+          ? "Neue Pläne sind Entwürfe. Zum Trainieren aktivierst du den Plan."
+          : "Neue Pläne sind Entwürfe. Der Athlet sieht sie erst, wenn du sie aktivierst."
+      }
     >
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         {formError && <Alert variant="error">{formError}</Alert>}
-        <SelectField
-          label="Vorlage"
-          placeholder="Leerer Plan"
-          options={templateOptions}
-          disabled={templates.isPending}
-          hint={
-            templates.isError
-              ? "Vorlagen konnten nicht geladen werden. Du kannst trotzdem leer starten."
-              : templates.data?.items.length === 0
-                ? "Du hast noch keine Vorlagen."
-                : undefined
-          }
-          {...register("templateId", {
-            onChange: (event: { target: { value: string } }) => {
-              const template = templates.data?.items.find((t) => t.id === event.target.value);
-              if (template && !getValues("name")) setValue("name", template.name);
-            },
-          })}
-        />
+        {viewer === "coach" && (
+          <SelectField
+            label="Vorlage"
+            placeholder="Leerer Plan"
+            options={templateOptions}
+            disabled={templates.isPending}
+            hint={
+              templates.isError
+                ? "Vorlagen konnten nicht geladen werden. Du kannst trotzdem leer starten."
+                : templates.data?.items.length === 0
+                  ? "Du hast noch keine Vorlagen."
+                  : undefined
+            }
+            {...register("templateId", {
+              onChange: (event: { target: { value: string } }) => {
+                const template = templates.data?.items.find((t) => t.id === event.target.value);
+                if (template && !getValues("name")) setValue("name", template.name);
+              },
+            })}
+          />
+        )}
         <TextField
           label="Name"
           required
@@ -144,7 +153,9 @@ export function DuplicatePlanDialog({
   onOpenChange,
 }: DialogBaseProps & { source: CopySource; athleteId: string }) {
   const navigate = useNavigate();
-  const athletes = useAthletes();
+  const viewer = usePlanViewer();
+  // Nur der Coach kann für andere Athleten kopieren.
+  const athletes = useAthletes({ enabled: viewer === "coach" });
   const createPlan = useCreatePlan();
   const [formError, setFormError] = useState<string | null>(null);
   const {
@@ -166,7 +177,7 @@ export function DuplicatePlanDialog({
       });
       toast(`Entwurf „${plan.name}“ angelegt.`);
       onOpenChange(false);
-      navigate(`/coach/athletes/${values.athleteId}/plans/${plan.id}`);
+      navigate(planPath(viewer, values.athleteId, plan.id));
     } catch (error) {
       setFormError(applyApiErrors(error, setError, ["name"]));
     }
@@ -185,13 +196,17 @@ export function DuplicatePlanDialog({
     >
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         {formError && <Alert variant="error">{formError}</Alert>}
-        <SelectField
-          label="Für Athlet"
-          required
-          options={options.length > 0 ? options : [{ value: athleteId, label: "Aktueller Athlet" }]}
-          error={errors.athleteId?.message}
-          {...register("athleteId")}
-        />
+        {viewer === "coach" && (
+          <SelectField
+            label="Für Athlet"
+            required
+            options={
+              options.length > 0 ? options : [{ value: athleteId, label: "Aktueller Athlet" }]
+            }
+            error={errors.athleteId?.message}
+            {...register("athleteId")}
+          />
+        )}
         <TextField
           label="Name"
           required

@@ -4,12 +4,17 @@ import { Link } from "react-router";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryState, SkeletonList } from "@/components/ui/query-state";
+import { useMyPermissions } from "@/features/athletes/api";
+import { useSession } from "@/features/auth/session";
 import { useMyPlan } from "@/features/plans/api";
 import { PlanTypeBadge } from "@/features/plans/plan-type-badge";
 import { weekdayLabel } from "@/features/plans/format";
+import { PlansCard } from "@/features/plans/plans-card";
 
 export default function AthletePlanPage() {
   const myPlan = useMyPlan();
+  const user = useSession((state) => state.user);
+  const ownPlan = useMyPermissions().data?.ownPlan ?? false;
 
   return (
     <>
@@ -21,7 +26,11 @@ export default function AthletePlanPage() {
               <EmptyState
                 icon={Dumbbell}
                 title="Noch kein Trainingsplan"
-                description="Sobald dein Coach einen Plan für dich freigibt, findest du ihn hier."
+                description={
+                  ownPlan
+                    ? "Lege unten einen Plan an und aktiviere ihn, oder warte auf deinen Coach."
+                    : "Sobald dein Coach einen Plan für dich freigibt, findest du ihn hier."
+                }
               />
             </div>
           ) : (
@@ -64,6 +73,11 @@ export default function AthletePlanPage() {
           )
         }
       </QueryState>
+      {ownPlan && user && (
+        <div className="mt-4">
+          <PlansCard athleteId={user.id} athleteName={user.name} />
+        </div>
+      )}
     </>
   );
 }

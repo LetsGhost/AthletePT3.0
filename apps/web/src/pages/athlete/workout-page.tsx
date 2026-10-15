@@ -1,3 +1,4 @@
+import type { CompleteWorkoutResponse } from "@athletept/shared";
 import { ArrowLeft, SearchX } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router";
@@ -7,17 +8,34 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { QueryState, SkeletonList } from "@/components/ui/query-state";
 import { PlanTypeBadge } from "@/features/plans/plan-type-badge";
 import { useMyWorkout } from "@/features/workouts/api";
-import { formatLongDate } from "@/features/workouts/format";
+import { formatClock, formatLongDate } from "@/features/workouts/format";
+import { useElapsedSeconds } from "@/features/workouts/use-elapsed-seconds";
 import { WorkoutEditor } from "@/features/workouts/workout-editor";
+import { WorkoutSummary } from "@/features/workouts/workout-summary";
 import { WorkoutStatusBadge } from "@/features/workouts/workout-status-badge";
 import { WorkoutView } from "@/features/workouts/workout-view";
 import { ApiError } from "@/lib/http";
+
+/** Laufende Trainingsdauer neben der Überschrift. */
+function ElapsedTime({ since }: { since: string }) {
+  const seconds = useElapsedSeconds(since, true);
+  return (
+    <p className="bg-surface flex h-9 items-center gap-2 rounded-full px-3 text-sm tabular-nums">
+      <span aria-hidden="true" className="bg-success size-2 animate-pulse rounded-full" />
+      <span className="sr-only">Trainingsdauer </span>
+      {formatClock(seconds)}
+    </p>
+  );
+}
 
 export default function AthleteWorkoutPage() {
   const { logId = "" } = useParams();
   const workout = useMyWorkout(logId);
   // Nach einem Konflikt neu laden und den Editor mit dem Serverstand neu aufbauen.
   const [reloads, setReloads] = useState(0);
+  const [completed, setCompleted] = useState<CompleteWorkoutResponse | null>(null);
+
+  if (completed?.id === logId) return <WorkoutSummary log={completed} />;
 
   if (workout.error instanceof ApiError && workout.error.status === 404) {
     return (
@@ -50,6 +68,7 @@ export default function AthleteWorkoutPage() {
           <>
             <PageHeader
               title={log.dayName}
+              actions={log.status === "in_progress" && <ElapsedTime since={log.startedAt} />}
               description={
                 <span className="flex flex-wrap items-center gap-2">
                   {formatLongDate(log.date)} <PlanTypeBadge type={log.dayType} />
@@ -62,6 +81,7 @@ export default function AthleteWorkoutPage() {
                 key={`${log.id}-${log.status}-${reloads}`}
                 log={log}
                 onReload={() => void workout.refetch().then(() => setReloads((n) => n + 1))}
+                onCompleted={setCompleted}
               />
             ) : (
               <WorkoutView log={log} />

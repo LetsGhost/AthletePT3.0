@@ -10,6 +10,7 @@ import type { z } from "zod";
 
 import { AppError, ForbiddenError, NotFoundError } from "../../lib/errors";
 import type { AuthContext } from "../../types/express";
+import { getAccessibleAthlete } from "../athletes/athlete-access";
 import { ExerciseModel, toExerciseDto, type ExerciseDocument } from "./exercise.model";
 
 type ListQuery = z.output<typeof exerciseListQuerySchema>;
@@ -21,10 +22,23 @@ function ownerOf(auth: AuthContext) {
   return auth.role === "coach" ? new Types.ObjectId(auth.userId) : null;
 }
 
-/** Was der Anfragende sehen darf: Coaches globale und eigene, der Sysadmin nur globale. */
-function visibleFilter(auth: AuthContext) {
-  return auth.role === "coach"
-    ? { ownerCoachId: { $in: [null, new Types.ObjectId(auth.userId)] } }
+/**
+ * Coach, dessen eigene Übungen der Anfragende neben dem globalen Katalog sieht: der Coach selbst,
+ * bei Athleten mit eigenem Trainingsplan ihr Coach (ohne Berechtigung 403), beim Sysadmin keiner.
+ */
+async function catalogCoachOf(auth: AuthContext) {
+  if (auth.role === "coach") return new Types.ObjectId(auth.userId);
+  if (auth.role === "athlete") {
+    const athlete = await getAccessibleAthlete(auth, auth.userId, "ownPlan");
+    return athlete.coachId ?? null;
+  }
+  return null;
+}
+
+/** Was der Anfragende sehen darf: globale Übungen und die des Coaches (siehe `catalogCoachOf`). */
+function visibleFilter(catalogCoachId: Types.ObjectId | null) {
+  return catalogCoachId
+    ? { ownerCoachId: { $in: [null, catalogCoachId] } }
     : { ownerCoachId: null };
 }
 
@@ -36,12 +50,13 @@ export async function listExercises(
   auth: AuthContext,
   query: ListQuery,
 ): Promise<ExerciseListResponse> {
+  const catalogCoachId = await catalogCoachOf(auth);
   const match: Record<string, unknown> = {
-    ...visibleFilter(auth),
+    ...visibleFilter(catalogCoachId),
     archivedAt: query.archived ? { $ne: null } : null,
   };
-  if (auth.role === "coach" && query.scope) {
-    match.ownerCoachId = query.scope === "own" ? new Types.ObjectId(auth.userId) : null;
+  if (catalogCoachId && query.scope) {
+    match.ownerCoachId = query.scope === "own" ? catalogCoachId : null;
   }
   if (query.equipment) match.equipment = query.equipment;
   if (query.category) match.category = query.category;
@@ -96,7 +111,10 @@ export async function listExercises(
 }
 
 export async function getExercise(auth: AuthContext, id: string) {
-  const exercise = await ExerciseModel.findOne({ _id: id, ...visibleFilter(auth) });
+  const exercise = await ExerciseModel.findOne({
+    _id: id,
+    ...visibleFilter(await catalogCoachOf(auth)),
+  });
   if (!exercise) throw new NotFoundError("Übung nicht gefunden");
   return toExerciseDto(exercise);
 }
@@ -106,7 +124,7 @@ export async function getExercise(auth: AuthContext, id: string) {
  * aber 403. Fremde eigene Übungen liefern 404, damit sich ihre IDs nicht erraten lassen.
  */
 async function findEditable(auth: AuthContext, id: string) {
-  const exercise = await ExerciseModel.findOne({ _id: id, ...visibleFilter(auth) });
+  const exercise = await ExerciseModel.findOne({ _id: id, ...visibleFilter(ownerOf(auth)) });
   if (!exercise) throw new NotFoundError("Übung nicht gefunden");
   if (String(exercise.ownerCoachId ?? null) !== String(ownerOf(auth))) {
     throw new ForbiddenError(

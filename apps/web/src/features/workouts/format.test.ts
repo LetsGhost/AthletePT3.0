@@ -3,9 +3,23 @@ import { describe, expect, it } from "vitest";
 import { buildWorkoutLog } from "@/test/server";
 
 import { appendSet, draftFromLog, draftToRequest, openSetCount } from "./draft";
-import { formatPerformed, formatWeek, parseDecimal } from "./format";
+import {
+  formatClock,
+  formatPerformed,
+  formatWeek,
+  formatWorkoutDuration,
+  parseDecimal,
+} from "./format";
 
 describe("Formatierung", () => {
+  it("zeigt Stoppuhr und Trainingsdauer", () => {
+    expect(formatClock(105)).toBe("1:45");
+    expect(formatClock(3729)).toBe("1:02:09");
+    expect(formatClock(-3)).toBe("0:00");
+    expect(formatWorkoutDuration(48 * 60 + 20)).toBe("48 min");
+    expect(formatWorkoutDuration(65 * 60)).toBe("1 h 05 min");
+  });
+
   it("beschreibt geschaffte Sätze", () => {
     expect(formatPerformed({ weightKg: 82.5, reps: 8, durationSeconds: null })).toBe("82,5 kg × 8");
     expect(formatPerformed({ weightKg: null, reps: 12, durationSeconds: null })).toBe("12 Wdh.");

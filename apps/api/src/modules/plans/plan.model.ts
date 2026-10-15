@@ -10,8 +10,11 @@ import { contentFields, type StoredContent } from "./plan-content.model";
 const trainingPlanSchema = new Schema(
   {
     athleteId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    /** Nur zur Nachvollziehbarkeit, daraus folgen keine Rechte. */
-    createdByCoachId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    /**
+     * Nur zur Nachvollziehbarkeit, daraus folgen keine Rechte. `null`: vom Athleten selbst
+     * angelegt (Berechtigung `ownPlan`).
+     */
+    createdByCoachId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     status: { type: String, enum: planStatuses, required: true, default: "draft" },
     ...contentFields,
     activatedAt: { type: Date, default: null },
@@ -29,7 +32,7 @@ trainingPlanSchema.index(
 export interface StoredPlan extends StoredContent {
   _id: Types.ObjectId;
   athleteId: Types.ObjectId;
-  createdByCoachId: Types.ObjectId;
+  createdByCoachId: Types.ObjectId | null;
   status: PlanStatus;
   activatedAt: Date | null;
   archivedAt: Date | null;
@@ -48,7 +51,8 @@ const trainingPlanVersionSchema = new Schema({
   athleteId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
   ...contentFields,
   replacedAt: { type: Date, required: true },
-  replacedByCoachId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  /** `null`: vom Athleten selbst geändert. */
+  replacedByCoachId: { type: Schema.Types.ObjectId, ref: "User", default: null },
 });
 
 trainingPlanVersionSchema.index({ planId: 1, revision: -1 }, { unique: true });

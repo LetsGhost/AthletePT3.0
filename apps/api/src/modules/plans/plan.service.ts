@@ -14,7 +14,8 @@ import type { z } from "zod";
 
 import { withTransaction } from "../../lib/db";
 import { ConflictError, NotFoundError } from "../../lib/errors";
-import { getAthleteOfCoach } from "../athletes/athlete-access";
+import type { AuthContext } from "../../types/express";
+import { getAccessibleAthlete } from "../athletes/athlete-access";
 import { assertComplete, buildContent, toContentDto } from "./plan-content";
 import {
   TrainingPlanModel,
@@ -26,11 +27,14 @@ import {
 type CreateInput = z.output<typeof createPlanRequestSchema>;
 type UpdateInput = z.output<typeof updatePlanRequestSchema>;
 
+const creator = (plan: StoredPlan) => (plan.createdByCoachId ? "coach" : "athlete");
+
 async function toPlanDto(plan: StoredPlan, coachId: string | null): Promise<Plan> {
   return {
     id: plan._id.toString(),
     athleteId: plan.athleteId.toString(),
     status: plan.status,
+    createdBy: creator(plan),
     ...(await toContentDto(plan, coachId)),
     activatedAt: plan.activatedAt?.toISOString() ?? null,
     archivedAt: plan.archivedAt?.toISOString() ?? null,
@@ -45,6 +49,7 @@ function toSummary(plan: StoredPlan): PlanSummary {
     name: plan.name,
     status: plan.status,
     type: plan.type,
+    createdBy: creator(plan),
     dayCount: plan.days.length,
     activatedAt: plan.activatedAt?.toISOString() ?? null,
     archivedAt: plan.archivedAt?.toISOString() ?? null,
@@ -52,19 +57,33 @@ function toSummary(plan: StoredPlan): PlanSummary {
   };
 }
 
-/** Lädt einen Plan, sofern der Athlet zum Coach gehört. Sonst 404. */
+/**
+ * Prüft den Zugriff auf die Pläne eines Athleten: sein Coach oder der Athlet selbst mit der
+ * Berechtigung `ownPlan`. Beide haben dieselben Rechte.
+ */
+async function planAccess(auth: AuthContext, athleteId: string, session?: ClientSession) {
+  const athlete = await getAccessibleAthlete(auth, athleteId, "ownPlan", session);
+  return {
+    /** Wessen Übungskatalog gilt. Athleten planen mit dem Katalog ihres Coaches. */
+    catalogCoachId: auth.role === "coach" ? auth.userId : String(athlete.coachId),
+    /** Für `createdByCoachId` und `replacedByCoachId`: `null`, wenn der Athlet selbst ändert. */
+    actingCoachId: auth.role === "coach" ? auth.userId : null,
+  };
+}
+
+/** Lädt einen Plan, sofern der Anfragende Zugriff auf den Athleten hat. Sonst 404. */
 async function findPlan(
-  coachId: string,
+  auth: AuthContext,
   athleteId: string,
   planId: string,
   session?: ClientSession,
 ) {
-  await getAthleteOfCoach(coachId, athleteId, session);
+  const access = await planAccess(auth, athleteId, session);
   const plan = await TrainingPlanModel.findOne({ _id: planId, athleteId })
     .session(session ?? null)
     .lean<StoredPlan>();
   if (!plan) throw new NotFoundError("Plan nicht gefunden");
-  return plan;
+  return { plan, ...access };
 }
 
 async function reload(planId: StoredPlan["_id"], session?: ClientSession) {
@@ -77,8 +96,8 @@ async function reload(planId: StoredPlan["_id"], session?: ClientSession) {
 
 const statusOrder: Record<PlanStatus, number> = { active: 0, draft: 1, archived: 2 };
 
-export async function listPlans(coachId: string, athleteId: string): Promise<PlanListResponse> {
-  await getAthleteOfCoach(coachId, athleteId);
+export async function listPlans(auth: AuthContext, athleteId: string): Promise<PlanListResponse> {
+  await planAccess(auth, athleteId);
   const plans = await TrainingPlanModel.find({ athleteId }).lean<StoredPlan[]>();
   plans.sort(
     (a, b) =>
@@ -88,22 +107,23 @@ export async function listPlans(coachId: string, athleteId: string): Promise<Pla
   return { items: plans.map(toSummary) };
 }
 
-export async function getPlan(coachId: string, athleteId: string, planId: string) {
-  return toPlanDto(await findPlan(coachId, athleteId, planId), coachId);
+export async function getPlan(auth: AuthContext, athleteId: string, planId: string) {
+  const { plan, catalogCoachId } = await findPlan(auth, athleteId, planId);
+  return toPlanDto(plan, catalogCoachId);
 }
 
 /** Neue Pläne sind Entwürfe. Der Athlet sieht sie erst nach dem Aktivieren. */
-export async function createPlan(coachId: string, athleteId: string, input: CreateInput) {
-  await getAthleteOfCoach(coachId, athleteId);
-  const content = await buildContent(coachId, input, null);
+export async function createPlan(auth: AuthContext, athleteId: string, input: CreateInput) {
+  const { catalogCoachId, actingCoachId } = await planAccess(auth, athleteId);
+  const content = await buildContent(catalogCoachId, input, null);
   const created = await TrainingPlanModel.create({
     athleteId,
-    createdByCoachId: coachId,
+    createdByCoachId: actingCoachId,
     status: "draft",
     revision: 0,
     ...content,
   });
-  return toPlanDto(await reload(created._id), coachId);
+  return toPlanDto(await reload(created._id), catalogCoachId);
 }
 
 function planConflict() {
@@ -118,13 +138,18 @@ function planConflict() {
  * gesichert. Archivierte Pläne sind schreibgeschützt.
  */
 export async function updatePlan(
-  coachId: string,
+  auth: AuthContext,
   athleteId: string,
   planId: string,
   input: UpdateInput,
 ) {
-  const updated = await withTransaction(async (session) => {
-    const plan = await findPlan(coachId, athleteId, planId, session);
+  const { plan: updated, catalogCoachId } = await withTransaction(async (session) => {
+    const { plan, catalogCoachId, actingCoachId } = await findPlan(
+      auth,
+      athleteId,
+      planId,
+      session,
+    );
     if (plan.status === "archived") {
       throw new ConflictError(
         "Archivierte Pläne lassen sich nicht bearbeiten. Dupliziere ihn, um darauf aufzubauen.",
@@ -133,7 +158,7 @@ export async function updatePlan(
     }
     if (plan.revision !== input.revision) throw planConflict();
 
-    const content = await buildContent(coachId, input, plan, session);
+    const content = await buildContent(catalogCoachId, input, plan, session);
     if (plan.status === "active") {
       assertComplete(content);
       await TrainingPlanVersionModel.create(
@@ -147,7 +172,7 @@ export async function updatePlan(
             revision: plan.revision,
             days: plan.days,
             replacedAt: new Date(),
-            replacedByCoachId: coachId,
+            replacedByCoachId: actingCoachId,
           },
         ],
         { session },
@@ -159,16 +184,16 @@ export async function updatePlan(
       { session },
     );
     if (result.matchedCount === 0) throw planConflict();
-    return reload(plan._id, session);
+    return { plan: await reload(plan._id, session), catalogCoachId };
   });
-  return toPlanDto(updated, coachId);
+  return toPlanDto(updated, catalogCoachId);
 }
 
 /** Gibt den Plan für den Athleten frei. Der bisher aktive Plan wird archiviert. */
-export async function activatePlan(coachId: string, athleteId: string, planId: string) {
-  const activated = await withTransaction(async (session) => {
-    const plan = await findPlan(coachId, athleteId, planId, session);
-    if (plan.status === "active") return plan;
+export async function activatePlan(auth: AuthContext, athleteId: string, planId: string) {
+  const { plan: activated, catalogCoachId } = await withTransaction(async (session) => {
+    const { plan, catalogCoachId } = await findPlan(auth, athleteId, planId, session);
+    if (plan.status === "active") return { plan, catalogCoachId };
     assertComplete(plan);
     const now = new Date();
     await TrainingPlanModel.updateMany(
@@ -181,26 +206,26 @@ export async function activatePlan(coachId: string, athleteId: string, planId: s
       { $set: { status: "active", activatedAt: now, archivedAt: null }, $inc: { revision: 1 } },
       { session },
     );
-    return reload(plan._id, session);
+    return { plan: await reload(plan._id, session), catalogCoachId };
   });
-  return toPlanDto(activated, coachId);
+  return toPlanDto(activated, catalogCoachId);
 }
 
 /** Archivierte Pläne sieht der Athlet nicht mehr. Sie bleiben für die Historie erhalten. */
-export async function archivePlan(coachId: string, athleteId: string, planId: string) {
-  const plan = await findPlan(coachId, athleteId, planId);
+export async function archivePlan(auth: AuthContext, athleteId: string, planId: string) {
+  const { plan, catalogCoachId } = await findPlan(auth, athleteId, planId);
   if (plan.status !== "archived") {
     await TrainingPlanModel.updateOne(
       { _id: plan._id },
       { $set: { status: "archived", archivedAt: new Date() }, $inc: { revision: 1 } },
     );
   }
-  return toPlanDto(await reload(plan._id), coachId);
+  return toPlanDto(await reload(plan._id), catalogCoachId);
 }
 
 /** Nur Entwürfe lassen sich löschen; alles, was der Athlet gesehen hat, wird archiviert. */
-export async function deletePlan(coachId: string, athleteId: string, planId: string) {
-  const plan = await findPlan(coachId, athleteId, planId);
+export async function deletePlan(auth: AuthContext, athleteId: string, planId: string) {
+  const { plan } = await findPlan(auth, athleteId, planId);
   if (plan.status !== "draft") {
     throw new ConflictError(
       "Nur Entwürfe lassen sich löschen. Archiviere den Plan stattdessen.",
@@ -211,11 +236,11 @@ export async function deletePlan(coachId: string, athleteId: string, planId: str
 }
 
 export async function listVersions(
-  coachId: string,
+  auth: AuthContext,
   athleteId: string,
   planId: string,
 ): Promise<PlanVersionListResponse> {
-  const plan = await findPlan(coachId, athleteId, planId);
+  const { plan } = await findPlan(auth, athleteId, planId);
   const versions = await TrainingPlanVersionModel.find({ planId: plan._id })
     .sort({ revision: -1 })
     .lean<StoredPlanVersion[]>();
@@ -230,12 +255,12 @@ export async function listVersions(
 }
 
 export async function getVersion(
-  coachId: string,
+  auth: AuthContext,
   athleteId: string,
   planId: string,
   revision: number,
 ): Promise<PlanVersion> {
-  const plan = await findPlan(coachId, athleteId, planId);
+  const { plan, catalogCoachId } = await findPlan(auth, athleteId, planId);
   const version = await TrainingPlanVersionModel.findOne({
     planId: plan._id,
     revision,
@@ -243,7 +268,7 @@ export async function getVersion(
   if (!version) throw new NotFoundError("Version nicht gefunden");
   return {
     planId: version.planId.toString(),
-    ...(await toContentDto(version, coachId)),
+    ...(await toContentDto(version, catalogCoachId)),
     replacedAt: version.replacedAt.toISOString(),
   };
 }

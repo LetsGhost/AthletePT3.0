@@ -9,3 +9,4 @@ export * from "./workout";
 export * from "./stats";
 export * from "./legal";
 export * from "./exercise";
+export * from "./activity";

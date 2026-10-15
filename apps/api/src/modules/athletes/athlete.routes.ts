@@ -1,6 +1,7 @@
 import {
   athleteDetailSchema,
   athleteListResponseSchema,
+  athletePermissionsSchema,
   createAthleteRequestSchema,
   invitationResultSchema,
   objectIdSchema,
@@ -55,7 +56,9 @@ athletes.route({
   method: "patch",
   path: "/:id",
   summary: "Athlet bearbeiten",
-  description: "`profile` ersetzt die Anamnese vollständig.",
+  description:
+    "`profile` ersetzt die Anamnese vollständig, `permissions` ändert nur die angegebenen " +
+    "Berechtigungen (eigener Trainingsplan, eigene Trainingswoche).",
   auth: ["coach"],
   params: idParams,
   body: updateAthleteRequestSchema,
@@ -115,3 +118,19 @@ athletes.route({
 });
 
 export const athleteRouter = athletes;
+
+const me = createModuleRouter("/me", "Eigenes Training");
+
+me.route({
+  method: "get",
+  path: "/permissions",
+  summary: "Eigene Berechtigungen",
+  description:
+    "Was der Coach freigegeben hat: `ownPlan` (Pläne über `/athletes/{eigene ID}/plans` " +
+    "verwalten) und `ownWeek` (Wochenplan über `/athletes/{eigene ID}/weekly-activities`).",
+  auth: ["athlete"],
+  response: athletePermissionsSchema,
+  handler: ({ auth }) => athleteService.getMyPermissions(auth.userId),
+});
+
+export const myPermissionsRouter = me;

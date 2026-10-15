@@ -182,7 +182,7 @@ describe("Training starten und absagen", () => {
 
     expect(started).toEqual({ dayId: day!.id });
     expect(
-      await screen.findByRole("textbox", { name: "Bankdrücken, Satz 1: Gewicht in kg" }),
+      await screen.findByRole("textbox", { name: "Bankdrücken, Aufwärmsatz: Gewicht in kg" }),
     ).toHaveValue("40");
   });
 
@@ -273,10 +273,10 @@ describe("Training durchführen", () => {
     expect((await screen.findByText(/Letztes Mal/)).closest("p")).toHaveTextContent(
       "Letztes Mal (Di., 6. Okt.): 77,5 kg × 8",
     );
-    const weight = screen.getByRole("textbox", { name: "Bankdrücken, Satz 2: Gewicht in kg" });
+    const weight = screen.getByRole("textbox", { name: "Bankdrücken, Satz 1: Gewicht in kg" });
     await user.clear(weight);
     await user.type(weight, "82,5");
-    await user.click(screen.getByRole("checkbox", { name: "Bankdrücken, Satz 2 erledigt" }));
+    await user.click(screen.getByRole("checkbox", { name: "Bankdrücken, Satz 1 erledigt" }));
 
     await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
     expect(saves[0]!.revision).toBe(0);
@@ -288,6 +288,96 @@ describe("Training durchführen", () => {
     });
     expect(await screen.findByText("Alles gespeichert")).toBeInTheDocument();
     expect(localStorage.getItem("athletept.workout.6acd3920c0072ec254663e01")).toBeNull();
+  });
+
+  it("startet die Pause beim Abhaken und klappt zur nächsten Übung weiter", async () => {
+    signInAsAthlete();
+    const [bench] = buildWorkoutLog().exercises;
+    const log = buildWorkoutLog({
+      exercises: [
+        { ...bench!, sets: bench!.sets.slice(0, 1) },
+        { ...bench!, id: "6acd3920c0072ec254663e12", exerciseName: "Rudern", restSeconds: 90 },
+      ],
+    });
+    mockWorkout(log);
+    const user = userEvent.setup();
+    renderApp(`/workouts/${log.id}`);
+
+    const rowing = await screen.findByRole("button", { name: /^Rudern/ });
+    expect(rowing).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("progressbar", { name: "Erledigte Sätze" })).toHaveAttribute(
+      "aria-valuenow",
+      "0",
+    );
+
+    await user.click(screen.getByRole("checkbox", { name: "Bankdrücken, Aufwärmsatz erledigt" }));
+
+    expect(screen.getByRole("timer")).toHaveTextContent("2:00");
+    expect(screen.getByText("Pause · Bankdrücken")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Erledigte Sätze" })).toHaveAttribute(
+      "aria-valuenow",
+      "1",
+    );
+    expect(screen.getByRole("button", { name: /^Bankdrücken/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(rowing).toHaveAttribute("aria-expanded", "true");
+
+    await user.click(screen.getByRole("button", { name: "15 Sekunden mehr" }));
+    expect(screen.getByRole("timer")).toHaveTextContent("2:15");
+    await user.click(screen.getByRole("button", { name: "Pause überspringen" }));
+    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+  });
+
+  it("nutzt die eigene Standardpause und lässt sich in den Einstellungen abschalten", async () => {
+    signInAsAthlete();
+    const [bench] = buildWorkoutLog().exercises;
+    const log = buildWorkoutLog({ exercises: [{ ...bench!, restSeconds: null }] });
+    mockWorkout(log);
+    const user = userEvent.setup();
+    const { unmount } = renderApp("/settings");
+
+    expect(await screen.findByRole("heading", { name: "Training" })).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Standardpause"), "1:00 min");
+    unmount();
+
+    const workout = renderApp(`/workouts/${log.id}`);
+    await user.click(
+      await screen.findByRole("checkbox", { name: "Bankdrücken, Aufwärmsatz erledigt" }),
+    );
+    expect(screen.getByRole("timer")).toHaveTextContent("1:00");
+    await user.click(screen.getByRole("button", { name: "Pause überspringen" }));
+    workout.unmount();
+
+    const settingsAgain = renderApp("/settings");
+    await user.click(await screen.findByRole("checkbox", { name: "Pausen-Timer" }));
+    expect(screen.getByLabelText("Standardpause")).toBeDisabled();
+    settingsAgain.unmount();
+
+    renderApp(`/workouts/${log.id}`);
+    await user.click(await screen.findByRole("checkbox", { name: "Bankdrücken, Satz 1 erledigt" }));
+    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+  });
+
+  it("klappt eine ausgelassene Übung zu und auf Wunsch wieder auf", async () => {
+    signInAsAthlete();
+    mockWorkout(buildWorkoutLog());
+    const user = userEvent.setup();
+    renderApp("/workouts/6acd3920c0072ec254663e01");
+
+    await user.click(await screen.findByRole("button", { name: "Auslassen" }));
+
+    expect(screen.getByText("Ausgelassen")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Erledigte Sätze" })).toHaveAttribute(
+      "aria-valuemax",
+      "0",
+    );
+    await user.click(screen.getByRole("button", { name: "Doch machen" }));
+    expect(
+      screen.getByRole("checkbox", { name: "Bankdrücken, Aufwärmsatz erledigt" }),
+    ).toBeInTheDocument();
   });
 
   it("markiert ungültige Eingaben und speichert sie nicht", async () => {
@@ -387,12 +477,15 @@ describe("Training durchführen", () => {
 
     await waitFor(() => expect(completed).toMatchObject({ revision: 0, rating: 8 }));
     expect(
+      await screen.findByRole("heading", { level: 1, name: "Training abgeschlossen" }),
+    ).toHaveFocus();
+    expect(screen.getByRole("region", { name: "Neuer Bestwert!" })).toHaveTextContent(
+      "Bankdrücken: Höchstes Gewicht 82,5 kg (bisher 80 kg)",
+    );
+    await user.click(screen.getByRole("link", { name: "Zur Übersicht" }));
+    expect(
       await screen.findByRole("heading", { level: 1, name: "Hallo Max!" }),
     ).toBeInTheDocument();
-    const records = screen.getByRole("region", { name: "Neuer Bestwert!" });
-    expect(records).toHaveTextContent("Bankdrücken: Höchstes Gewicht 82,5 kg (bisher 80 kg)");
-    await user.click(within(records).getByRole("button", { name: "Hinweis schließen" }));
-    expect(screen.queryByRole("region", { name: "Neuer Bestwert!" })).not.toBeInTheDocument();
   });
 
   it("zeigt abgeschlossene Trainings nach Ablauf der Frist nur lesend", async () => {

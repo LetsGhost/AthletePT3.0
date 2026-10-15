@@ -1,4 +1,6 @@
 import {
+  activityQuerySchema,
+  activityResponseSchema,
   exerciseStatsDetailSchema,
   exerciseStatsListResponseSchema,
   objectIdSchema,
@@ -6,7 +8,14 @@ import {
 import { z } from "zod";
 
 import { createModuleRouter } from "../../lib/router";
+import * as activityService from "./activity.service";
 import * as statsService from "./exercise-stats.service";
+
+const activityDescription =
+  "Trainingskalender eines Monats (`month`, z. B. `2026-10`, ohne Angabe der aktuelle) mit " +
+  "Streak. Eine Woche ist erfüllt, wenn so viele Trainings abgeschlossen sind, wie der am " +
+  "Sonntag aktive Plan Trainingstage hat. Wochen ohne aktiven Plan pausieren die Streak, die " +
+  "laufende Woche bricht sie erst, wenn sie vorbei ist.";
 
 const me = createModuleRouter("/me", "Fortschritt");
 
@@ -35,6 +44,17 @@ me.route({
   handler: ({ auth, params }) => statsService.getMyExerciseStats(auth.userId, params.exerciseId),
 });
 
+me.route({
+  method: "get",
+  path: "/activity",
+  summary: "Eigener Trainingskalender mit Streak",
+  description: activityDescription,
+  auth: ["athlete"],
+  query: activityQuerySchema,
+  response: activityResponseSchema,
+  handler: ({ auth, query }) => activityService.getMyActivity(auth.userId, query.month),
+});
+
 export const myStatsRouter = me;
 
 const athletes = createModuleRouter("/athletes", "Fortschritt");
@@ -61,6 +81,20 @@ athletes.route({
   errors: [404],
   handler: ({ auth, params }) =>
     statsService.getAthleteExerciseStats(auth.userId, params.athleteId, params.exerciseId),
+});
+
+athletes.route({
+  method: "get",
+  path: "/:athleteId/activity",
+  summary: "Trainingskalender eines Athleten mit Streak",
+  description: activityDescription,
+  auth: ["coach"],
+  params: athleteParams,
+  query: activityQuerySchema,
+  response: activityResponseSchema,
+  errors: [404],
+  handler: ({ auth, params, query }) =>
+    activityService.getAthleteActivity(auth.userId, params.athleteId, query.month),
 });
 
 export const athleteStatsRouter = athletes;

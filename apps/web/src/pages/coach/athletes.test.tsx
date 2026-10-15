@@ -18,6 +18,7 @@ const athlete = (overrides: Partial<AthleteDetail> = {}): AthleteDetail => ({
   lastLoginAt: null,
   createdAt: "2026-10-01T00:00:00.000Z",
   profile: { goal: "Kraft", focus: "Beine" },
+  permissions: { ownPlan: false, ownWeek: false },
   ...overrides,
 });
 

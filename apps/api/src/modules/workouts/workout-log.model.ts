@@ -129,7 +129,10 @@ workoutLogSchema.index(
 
 export const WorkoutLogModel = model("WorkoutLog", workoutLogSchema);
 
-/** Freitexte je Wochentag (z. B. „Laufen“), unabhängig vom Plan. Gepflegt vom Coach. */
+/**
+ * Freitexte je Wochentag (z. B. „Laufen“), unabhängig vom Plan. Gepflegt vom Coach, mit der
+ * Berechtigung `ownWeek` auch vom Athleten selbst.
+ */
 const weeklyActivitiesSchema = new Schema(
   {
     athleteId: { type: Schema.Types.ObjectId, ref: "User", required: true, unique: true },

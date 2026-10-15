@@ -160,14 +160,15 @@ athletes.route({
   summary: "Wochenplan eines Athleten setzen",
   description:
     "Sieben Freitexte von Montag bis Sonntag (z. B. „Laufen“), leer oder `null` für nichts. " +
-    "Unabhängig vom Trainingsplan.",
-  auth: ["coach"],
+    "Unabhängig vom Trainingsplan. Athleten mit der Berechtigung `ownWeek` setzen ihn mit ihrer " +
+    "eigenen ID selbst.",
+  auth: ["coach", "athlete"],
   params: athleteParams,
   body: updateWeeklyActivitiesRequestSchema,
   response: weeklyActivitiesResponseSchema,
   errors: [404],
   handler: ({ auth, params, body }) =>
-    weekService.updateWeeklyActivities(auth.userId, params.athleteId, body.activities),
+    weekService.updateWeeklyActivities(auth, params.athleteId, body.activities),
 });
 
 athletes.route({

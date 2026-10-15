@@ -37,6 +37,7 @@ const athlete: AthleteDetail = {
   lastLoginAt: null,
   createdAt: "2026-10-01T00:00:00.000Z",
   profile: {},
+  permissions: { ownPlan: false, ownWeek: false },
 } as unknown as AthleteDetail;
 
 function signInAsCoach() {
@@ -94,12 +95,9 @@ describe("Plan-Editor (Coach)", () => {
 
     await user.click(screen.getByRole("combobox", { name: "Übung zu Oberkörper A hinzufügen" }));
     await user.click(await screen.findByRole("option", { name: /Kniebeuge/ }));
-    const entry = screen
-      .getByRole("heading", { level: 4, name: /Kniebeuge/ })
-      .closest("div.border")!;
+    const entry = screen.getByRole("heading", { level: 3, name: /Kniebeuge/ }).closest("article")!;
     // Der Schwerpunkt passt sich live an: Bankdrücken + Kniebeuge ist Ganzkörper (je 50 %).
-    const dayHeading = screen.getByRole("heading", { level: 2, name: /Tag 1: Oberkörper A/ });
-    expect(dayHeading).toHaveTextContent("Ganzkörper");
+    expect(within(screen.getByRole("tabpanel")).getByText("Ganzkörper")).toBeInTheDocument();
 
     const shorthand = within(entry as HTMLElement).getByLabelText("Schnelleingabe Arbeitssätze");
     await user.type(shorthand, "3x8-10@60 RIR2{Enter}");
@@ -187,6 +185,53 @@ describe("Plan-Editor (Coach)", () => {
       await screen.findByText("Satz 2: Darf nicht kleiner als das Minimum sein"),
     ).toBeInTheDocument();
     expect(saved).toHaveLength(0);
+  });
+
+  it("bearbeitet Tage als Tabs und springt beim Speichern zum Tag mit Fehlern", async () => {
+    signInAsCoach();
+    const plan = buildPlan();
+    const saved = mockPlan(plan);
+    const user = userEvent.setup();
+    renderApp(planPath(plan));
+
+    const firstTab = await screen.findByRole("tab", { name: /Oberkörper A/ });
+    expect(firstTab).toHaveAttribute("aria-selected", "true");
+
+    // Warm-up als Freitext mit Details, Wochentag abwählen (flexibel).
+    await user.type(screen.getByRole("combobox", { name: /Warm-up-Übung/ }), "Seilspringen");
+    await user.type(screen.getByLabelText(/Details zum Warm-up/), "2 min{Enter}");
+    expect(screen.getByText("Seilspringen")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Montag", pressed: true }));
+    // Geleerte Felder bleiben leer, auch nach einem Tab-Wechsel.
+    await user.clear(screen.getByLabelText("Satz 1: Gewicht in kg"));
+
+    // Tag duplizieren: Kopie wird aktiv, Namen leeren erzeugt einen Fehler.
+    await user.click(screen.getByRole("button", { name: "Oberkörper A duplizieren" }));
+    expect(screen.getByRole("tab", { name: /Oberkörper A \(Kopie\)/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await user.clear(screen.getByRole("textbox", { name: "Name des Tages" }));
+    await user.click(firstTab);
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+
+    const copyTab = await screen.findByRole("tab", { name: /enthält Fehler/ });
+    expect(copyTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Bitte einen Namen angeben")).toBeInTheDocument();
+    expect(saved).toHaveLength(0);
+
+    await user.type(screen.getByRole("textbox", { name: "Name des Tages" }), "Oberkörper B");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await waitFor(() => expect(saved).toHaveLength(1));
+    const [first, copy] = saved[0]!.days!;
+    expect(first).toMatchObject({ weekday: null });
+    expect(first!.exercises![0]!.sets[1]).toMatchObject({ weightKg: null });
+    expect(first!.warmup).toContainEqual(
+      expect.objectContaining({ exerciseId: null, name: "Seilspringen", details: "2 min" }),
+    );
+    expect(copy).not.toHaveProperty("id");
+    expect(copy!.name).toBe("Oberkörper B");
+    expect(copy!.exercises![0]).not.toHaveProperty("id");
   });
 
   it("fragt nach, bevor ungespeicherte Änderungen verloren gehen", async () => {

@@ -11,6 +11,7 @@ import type {
 } from "@athletept/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { workoutKeys } from "@/features/workouts/api";
 import { api } from "@/lib/api";
 
 export const planKeys = {
@@ -80,6 +81,9 @@ function usePlanMutation<TVariables>(
         queryKey: [...planKeys.all, "detail", athleteId],
         predicate: (query) => query.queryKey[3] !== plan.id,
       });
+      // Bearbeitet der Athlet selbst, ändern sich sein aktiver Plan und seine Woche.
+      void queryClient.invalidateQueries({ queryKey: planKeys.mine() });
+      void queryClient.invalidateQueries({ queryKey: workoutKeys.myWeeks() });
     },
   });
 }
@@ -134,10 +138,11 @@ export function useMyPlan() {
   });
 }
 
-export function useTemplates() {
+export function useTemplates({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: templateKeys.list(),
     queryFn: () => api<PlanTemplateListResponse>("/plan-templates"),
+    enabled,
   });
 }
 
