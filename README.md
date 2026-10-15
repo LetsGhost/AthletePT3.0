@@ -119,7 +119,8 @@ Auf dem Server gibt es drei Compose-Dateien mit eigenem Lebenszyklus, verbunden 
 
 ```sh
 docker load -i athletept-images-<tag>.tar.gz     # nur bei -Save
-cp .env.example .env                              # ausfüllen: Images, DOMAIN, CERTBOT_EMAIL, ...
+cp .env.example .env                              # ausfüllen: Images, DOMAIN, CERTBOT_EMAIL, MONGO_PASSWORD, ...
+cp mongo.env.example mongo.env                    # Root-Passwort für MongoDB
 docker network create athletept-proxy
 docker compose -f docker-compose.app.yml up -d
 docker compose -f docker-compose.certbot.yml run --rm --service-ports certbot-init   # Port 80 muss frei sein
@@ -134,6 +135,27 @@ Neue Version: Images laden, Tags in `.env` setzen, `docker compose -f docker-com
 - `deploy/nginx/proxy.conf.template`: Konfiguration des Proxys (TLS, Routing, HSTS, ACME-Prüfung). `${DOMAIN}` setzt das nginx-Image beim Start ein. Zertifikate liegen in `deploy/certbot/` (nicht im Git).
 - `deploy/nginx/web.conf`: nginx im Web-Container (SPA-Fallback, Caching: Assets 1 Jahr, `index.html` nie, gzip). Sicherheits-Header inkl. CSP in `security-headers.conf`. Die Web-App kommt ohne Inline-Skripte und ohne `eval` aus (`apps/web/src/zod-config.ts`).
 - Ohne `SYSADMIN_PASSWORD` erzeugt `create-sysadmin` ein Passwort und gibt es einmalig aus.
+
+### MongoDB-Zugangsdaten
+
+MongoDB läuft in Produktion mit Authentifizierung, die API startet dort ohne Zugangsdaten nicht. Es gibt zwei Konten:
+
+| Konto | Wo | Rechte |
+|---|---|---|
+| Root (`MONGO_INITDB_ROOT_*`) | `deploy/mongo.env`, nur der mongo-Container sieht es | alles, nur für Wartung |
+| API (`MONGO_USER`/`MONGO_PASSWORD`) | `deploy/.env` | `readWrite` auf `athletept` |
+
+Beim ersten Start mit leerem Volume legt MongoDB beide an (`deploy/mongo-init/create-app-user.js`). Den Keyfile, den ein Replica Set mit Authentifizierung braucht, erzeugt der Container bei jedem Start selbst (ein Mitglied, nichts zu speichern).
+
+**Bestehende Datenbank ohne Zugangsdaten umstellen** (das Init-Skript läuft nur bei leerem Volume): `mongo.env` und `MONGO_USER`/`MONGO_PASSWORD`/`MONGO_AUTH_SOURCE` in `.env` anlegen, dann:
+
+```sh
+docker compose -f docker-compose.app.yml up -d mongo      # startet jetzt mit Authentifizierung
+# Ohne vorhandene Konten erlaubt MongoDB lokal im Container genau das Anlegen des ersten:
+docker exec athletept3-mongo sh -c 'mongosh --quiet admin --eval "db.createUser({ user: process.env.MONGO_INITDB_ROOT_USERNAME, pwd: process.env.MONGO_INITDB_ROOT_PASSWORD, roles: [\"root\"] })"'
+docker exec athletept3-mongo sh -c 'mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin /docker-entrypoint-initdb.d/create-app-user.js'
+docker compose -f docker-compose.app.yml up -d            # API mit den neuen Zugangsdaten
+```
 
 ## Frontend-Konventionen
 

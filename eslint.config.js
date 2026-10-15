@@ -37,6 +37,11 @@ export default tseslint.config(
     },
   },
   {
+    // Skripte für mongosh (Init-Skripte des mongo-Containers).
+    files: ["deploy/mongo-init/**/*.js"],
+    languageOptions: { globals: { ...globals.node, db: "readonly", print: "readonly" } },
+  },
+  {
     files: ["apps/web/**/*.tsx"],
     ...jsxA11y.flatConfigs.recommended,
   },

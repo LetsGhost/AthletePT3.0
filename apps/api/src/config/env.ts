@@ -49,6 +49,17 @@ const envSchema = z
     SMTP_URL: z.url().default("smtp://localhost:1025"),
   })
   .superRefine((env, ctx) => {
+    const credentialsInUri = /^mongodb(\+srv)?:\/\/[^/]*@/.test(env.MONGO_URI);
+    if (env.NODE_ENV === "production" && !env.MONGO_USER && !credentialsInUri) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["MONGO_USER"],
+        message: "In production nur mit Zugangsdaten (MONGO_USER/MONGO_PASSWORD oder in MONGO_URI)",
+      });
+    }
+    if (env.MONGO_USER && !env.MONGO_PASSWORD) {
+      ctx.addIssue({ code: "custom", path: ["MONGO_PASSWORD"], message: "MONGO_PASSWORD fehlt" });
+    }
     const transport = env.MAIL_TRANSPORT ?? (env.NODE_ENV === "production" ? "resend" : "console");
     if (transport === "resend" && !env.RESEND_API_KEY) {
       ctx.addIssue({
