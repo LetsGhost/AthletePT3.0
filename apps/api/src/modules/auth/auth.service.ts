@@ -49,7 +49,11 @@ export async function issueSession(
   });
 
   return {
-    accessToken: signAccessToken({ userId: user._id.toString(), role: user.role }),
+    accessToken: signAccessToken({
+      userId: user._id.toString(),
+      role: user.role,
+      tokenVersion: user.tokenVersion ?? 0,
+    }),
     expiresIn: env.ACCESS_TOKEN_TTL_SECONDS,
     user: toUserDto(user),
     refreshToken,
@@ -126,14 +130,20 @@ async function revokeFamily(familyId: string) {
   await SessionModel.updateMany({ familyId, revokedAt: null }, { revokedAt: new Date() });
 }
 
-/** Beendet alle Sitzungen eines Users, optional mit Ausnahme der aktuellen. */
+/**
+ * Beendet alle Sitzungen eines Users, optional mit Ausnahme der aktuellen. Macht außerdem alle
+ * ausgestellten Access-Tokens ungültig; die ausgenommene Sitzung holt sich per Refresh ein neues.
+ */
 export async function revokeAllSessions(userId: Types.ObjectId | string, exceptToken?: string) {
   const filter: Record<string, unknown> = { userId, revokedAt: null };
   if (exceptToken) {
     const current = await SessionModel.findOne({ tokenHash: hashToken(exceptToken) });
     if (current) filter.familyId = { $ne: current.familyId };
   }
+  // Erst die Sitzungen, dann die Tokens: Ein abgewiesener Client kann sich so nicht mehr
+  // zwischendurch per Refresh ein Token mit der neuen Version holen.
   await SessionModel.updateMany(filter, { revokedAt: new Date() });
+  await UserModel.updateOne({ _id: userId }, { $inc: { tokenVersion: 1 } });
 }
 
 export async function getCurrentUser(userId: string) {

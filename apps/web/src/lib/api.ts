@@ -2,7 +2,12 @@ import { refreshSession, sessionExpired, useSession } from "@/features/auth/sess
 
 import { ApiError, rawRequest, type RequestOptions } from "./http";
 
-const RETRYABLE_AUTH_CODES = new Set(["token_expired", "invalid_token", "unauthorized"]);
+const RETRYABLE_AUTH_CODES = new Set([
+  "token_expired",
+  "token_revoked",
+  "invalid_token",
+  "unauthorized",
+]);
 
 function withAuth(options: RequestOptions): RequestOptions {
   const token = useSession.getState().accessToken;

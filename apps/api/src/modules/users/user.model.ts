@@ -19,6 +19,11 @@ const userSchema = new Schema(
      */
     quotaLock: { type: Number, default: 0, select: false },
     lastLoginAt: { type: Date, default: null },
+    /**
+     * Steht in jedem Access-Token. Erhöhen macht alle bisher ausgestellten Access-Tokens sofort
+     * ungültig (siehe `revokeAllSessions`).
+     */
+    tokenVersion: { type: Number, default: 0 },
     /** Nur bei Athleten: was der Coach dem Athleten selbst erlaubt (siehe `getAccessibleAthlete`). */
     athletePermissions: {
       type: new Schema(

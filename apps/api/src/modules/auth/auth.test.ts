@@ -1,3 +1,4 @@
+import jwt from "jsonwebtoken";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -8,6 +9,7 @@ import {
   login,
   refreshCookieFrom,
 } from "../../../test/helpers";
+import { UserModel } from "../users/user.model";
 import { SessionModel } from "./session.model";
 
 describe("POST /auth/login", () => {
@@ -225,5 +227,82 @@ describe("POST /auth/change-password", () => {
       (await api().post("/api/v1/auth/refresh").set("Cookie", otherDevice.cookie)).status,
     ).toBe(401);
     await expect(login(user.email, "ein-neues-passwort")).resolves.toBeDefined();
+  });
+});
+
+describe("Sofortiger Widerruf von Access-Tokens", () => {
+  const me = (bearer: string) => api().get("/api/v1/auth/me").set("Authorization", bearer);
+
+  it("weist das Token eines archivierten Athleten sofort ab", async () => {
+    const coach = await createAndLogin({ role: "coach" });
+    const athlete = await createAndLogin({ role: "athlete", coachId: coach.user._id });
+
+    await api()
+      .post(`/api/v1/athletes/${athlete.user.id}/archive`)
+      .set("Authorization", coach.bearer)
+      .expect(200);
+
+    const res = await api().get("/api/v1/me/workout-logs").set("Authorization", athlete.bearer);
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe("token_revoked");
+  });
+
+  it("weist das Token eines gesperrten Coaches sofort ab", async () => {
+    const admin = await createAndLogin({ role: "sysadmin" });
+    const coach = await createAndLogin({ role: "coach" });
+
+    await api()
+      .patch(`/api/v1/coaches/${coach.user.id}`)
+      .set("Authorization", admin.bearer)
+      .send({ status: "disabled" })
+      .expect(200);
+
+    const res = await api()
+      .post("/api/v1/athletes")
+      .set("Authorization", coach.bearer)
+      .send({ email: "neu@example.com", name: "Neu", profile: {} });
+    expect(res.status).toBe(401);
+    expect(await UserModel.exists({ email: "neu@example.com" })).toBeNull();
+  });
+
+  it("meldet nach einem Passwortwechsel andere Geräte sofort ab, das aktuelle per Refresh nicht", async () => {
+    const { user, bearer, cookie } = await createAndLogin();
+    const otherDevice = await login(user.email);
+
+    await api()
+      .post("/api/v1/auth/change-password")
+      .set("Authorization", bearer)
+      .set("Cookie", cookie)
+      .send({ currentPassword: DEFAULT_PASSWORD, newPassword: "ein-neues-passwort" })
+      .expect(204);
+
+    expect((await me(otherDevice.bearer)).status).toBe(401);
+    expect((await me(bearer)).body.code).toBe("token_revoked");
+
+    const refreshed = await api().post("/api/v1/auth/refresh").set("Cookie", cookie);
+    expect(refreshed.status).toBe(200);
+    expect((await me(`Bearer ${refreshed.body.accessToken as string}`)).status).toBe(200);
+  });
+
+  it("weist Tokens ab, deren Rolle nicht mehr stimmt", async () => {
+    const { user, bearer } = await createAndLogin({ role: "coach" });
+    await UserModel.updateOne({ _id: user._id }, { role: "athlete" });
+
+    expect((await me(bearer)).status).toBe(401);
+  });
+
+  it("weist Tokens ohne Versions-Claim ab", async () => {
+    const user = await createUser();
+    const legacy = jwt.sign({ role: user.role }, process.env.JWT_SECRET!, {
+      algorithm: "HS256",
+      subject: user.id,
+      issuer: "athletept-api",
+      audience: "athletept",
+      expiresIn: 60,
+    });
+
+    const res = await me(`Bearer ${legacy}`);
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe("invalid_token");
   });
 });
