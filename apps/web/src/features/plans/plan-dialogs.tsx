@@ -61,7 +61,7 @@ export function NewPlanDialog({
       if (templateId) {
         const template = await queryClient.fetchQuery({
           queryKey: templateKeys.detail(templateId),
-          queryFn: () => api<PlanTemplate>(`/plan-templates/${templateId}`),
+          queryFn: () => api<PlanTemplate>(`/plan-templates/${encodeURIComponent(templateId)}`),
         });
         body = copyContent(template, name);
       }

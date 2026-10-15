@@ -53,7 +53,7 @@ export function useMyWorkouts(page: number) {
 export function useMyWorkout(id: string) {
   return useQuery({
     queryKey: workoutKeys.mine(id),
-    queryFn: () => api<WorkoutLog>(`/me/workout-logs/${id}`),
+    queryFn: () => api<WorkoutLog>(`/me/workout-logs/${encodeURIComponent(id)}`),
     // Während des Trainings nicht im Hintergrund neu laden, das Formular ist die Quelle.
     refetchOnWindowFocus: false,
   });
@@ -91,14 +91,17 @@ export function useSkipWorkout() {
 
 /** Zwischenspeichern. Ohne Cache-Update, das übernimmt der Autosave. */
 export function saveWorkout(id: string, body: UpdateWorkoutRequest) {
-  return api<WorkoutLog>(`/me/workout-logs/${id}`, { method: "PUT", body });
+  return api<WorkoutLog>(`/me/workout-logs/${encodeURIComponent(id)}`, { method: "PUT", body });
 }
 
 export function useCompleteWorkout(id: string) {
   const invalidate = useInvalidateMine();
   return useMutation({
     mutationFn: (body: UpdateWorkoutRequest) =>
-      api<CompleteWorkoutResponse>(`/me/workout-logs/${id}/complete`, { method: "POST", body }),
+      api<CompleteWorkoutResponse>(`/me/workout-logs/${encodeURIComponent(id)}/complete`, {
+        method: "POST",
+        body,
+      }),
     onSuccess: (log) => invalidate(log),
   });
 }
@@ -108,7 +111,8 @@ export function useDeleteWorkout() {
   const queryClient = useQueryClient();
   const invalidate = useInvalidateMine();
   return useMutation({
-    mutationFn: (id: string) => api<void>(`/me/workout-logs/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) =>
+      api<void>(`/me/workout-logs/${encodeURIComponent(id)}`, { method: "DELETE" }),
     onSuccess: (_, id) => {
       queryClient.removeQueries({ queryKey: workoutKeys.mine(id) });
       invalidate();
@@ -119,7 +123,8 @@ export function useDeleteWorkout() {
 export function useAthleteWeek(athleteId: string, week: string | null) {
   return useQuery({
     queryKey: workoutKeys.athleteWeek(athleteId, week),
-    queryFn: () => api<WeekView>(`/athletes/${athleteId}/week${weekQuery(week)}`),
+    queryFn: () =>
+      api<WeekView>(`/athletes/${encodeURIComponent(athleteId)}/week${weekQuery(week)}`),
     placeholderData: keepPreviousData,
   });
 }
@@ -129,7 +134,7 @@ export function useAthleteWorkouts(athleteId: string, page: number) {
     queryKey: workoutKeys.athleteList(athleteId, page),
     queryFn: () =>
       api<WorkoutLogListResponse>(
-        `/athletes/${athleteId}/workout-logs?page=${page}&pageSize=${WORKOUT_PAGE_SIZE}`,
+        `/athletes/${encodeURIComponent(athleteId)}/workout-logs?page=${page}&pageSize=${WORKOUT_PAGE_SIZE}`,
       ),
     placeholderData: keepPreviousData,
   });
@@ -138,7 +143,10 @@ export function useAthleteWorkouts(athleteId: string, page: number) {
 export function useAthleteWorkout(athleteId: string, id: string) {
   return useQuery({
     queryKey: workoutKeys.athleteLog(athleteId, id),
-    queryFn: () => api<WorkoutLog>(`/athletes/${athleteId}/workout-logs/${id}`),
+    queryFn: () =>
+      api<WorkoutLog>(
+        `/athletes/${encodeURIComponent(athleteId)}/workout-logs/${encodeURIComponent(id)}`,
+      ),
   });
 }
 
@@ -146,10 +154,13 @@ export function useUpdateWeeklyActivities(athleteId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: UpdateWeeklyActivitiesRequest) =>
-      api<WeeklyActivitiesResponse>(`/athletes/${athleteId}/weekly-activities`, {
-        method: "PUT",
-        body,
-      }),
+      api<WeeklyActivitiesResponse>(
+        `/athletes/${encodeURIComponent(athleteId)}/weekly-activities`,
+        {
+          method: "PUT",
+          body,
+        },
+      ),
     onSuccess: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: [...workoutKeys.athlete(athleteId), "week"] }),

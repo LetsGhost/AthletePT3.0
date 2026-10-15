@@ -32,7 +32,7 @@ export const templateKeys = {
   detail: (id: string) => [...templateKeys.all, "detail", id] as const,
 };
 
-const plansPath = (athleteId: string) => `/athletes/${athleteId}/plans`;
+const plansPath = (athleteId: string) => `/athletes/${encodeURIComponent(athleteId)}/plans`;
 
 export function usePlans(athleteId: string) {
   return useQuery({
@@ -44,14 +44,17 @@ export function usePlans(athleteId: string) {
 export function usePlan(athleteId: string, planId: string) {
   return useQuery({
     queryKey: planKeys.detail(athleteId, planId),
-    queryFn: () => api<Plan>(`${plansPath(athleteId)}/${planId}`),
+    queryFn: () => api<Plan>(`${plansPath(athleteId)}/${encodeURIComponent(planId)}`),
   });
 }
 
 export function usePlanVersions(athleteId: string, planId: string, enabled = true) {
   return useQuery({
     queryKey: planKeys.versions(athleteId, planId),
-    queryFn: () => api<PlanVersionListResponse>(`${plansPath(athleteId)}/${planId}/versions`),
+    queryFn: () =>
+      api<PlanVersionListResponse>(
+        `${plansPath(athleteId)}/${encodeURIComponent(planId)}/versions`,
+      ),
     enabled,
   });
 }
@@ -59,7 +62,10 @@ export function usePlanVersions(athleteId: string, planId: string, enabled = tru
 export function usePlanVersion(athleteId: string, planId: string, revision: number | null) {
   return useQuery({
     queryKey: planKeys.version(athleteId, planId, revision ?? -1),
-    queryFn: () => api<PlanVersion>(`${plansPath(athleteId)}/${planId}/versions/${revision}`),
+    queryFn: () =>
+      api<PlanVersion>(
+        `${plansPath(athleteId)}/${encodeURIComponent(planId)}/versions/${revision}`,
+      ),
     enabled: revision !== null,
   });
 }
@@ -103,26 +109,27 @@ export function useCreatePlan() {
 
 export function useUpdatePlan(athleteId: string, planId: string) {
   return usePlanMutation(athleteId, (body: UpdatePlanRequest) =>
-    api<Plan>(`${plansPath(athleteId)}/${planId}`, { method: "PUT", body }),
+    api<Plan>(`${plansPath(athleteId)}/${encodeURIComponent(planId)}`, { method: "PUT", body }),
   );
 }
 
 export function useActivatePlan(athleteId: string, planId: string) {
   return usePlanMutation(athleteId, () =>
-    api<Plan>(`${plansPath(athleteId)}/${planId}/activate`, { method: "POST" }),
+    api<Plan>(`${plansPath(athleteId)}/${encodeURIComponent(planId)}/activate`, { method: "POST" }),
   );
 }
 
 export function useArchivePlan(athleteId: string, planId: string) {
   return usePlanMutation(athleteId, () =>
-    api<Plan>(`${plansPath(athleteId)}/${planId}/archive`, { method: "POST" }),
+    api<Plan>(`${plansPath(athleteId)}/${encodeURIComponent(planId)}/archive`, { method: "POST" }),
   );
 }
 
 export function useDeletePlan(athleteId: string, planId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => api<void>(`${plansPath(athleteId)}/${planId}`, { method: "DELETE" }),
+    mutationFn: () =>
+      api<void>(`${plansPath(athleteId)}/${encodeURIComponent(planId)}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: planKeys.detail(athleteId, planId) });
       void queryClient.invalidateQueries({ queryKey: planKeys.list(athleteId) });
@@ -149,7 +156,7 @@ export function useTemplates({ enabled = true }: { enabled?: boolean } = {}) {
 export function useTemplate(id: string) {
   return useQuery({
     queryKey: templateKeys.detail(id),
-    queryFn: () => api<PlanTemplate>(`/plan-templates/${id}`),
+    queryFn: () => api<PlanTemplate>(`/plan-templates/${encodeURIComponent(id)}`),
   });
 }
 
@@ -174,14 +181,14 @@ export function useCreateTemplate() {
 
 export function useUpdateTemplate(id: string) {
   return useTemplateMutation((body: UpdatePlanRequest) =>
-    api<PlanTemplate>(`/plan-templates/${id}`, { method: "PUT", body }),
+    api<PlanTemplate>(`/plan-templates/${encodeURIComponent(id)}`, { method: "PUT", body }),
   );
 }
 
 export function useDeleteTemplate(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => api<void>(`/plan-templates/${id}`, { method: "DELETE" }),
+    mutationFn: () => api<void>(`/plan-templates/${encodeURIComponent(id)}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: templateKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: templateKeys.list() });

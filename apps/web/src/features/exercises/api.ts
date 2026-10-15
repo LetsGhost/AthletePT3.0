@@ -75,18 +75,18 @@ export function useCreateExercise() {
 
 export function useUpdateExercise() {
   return useExerciseMutation(({ id, ...body }: UpdateExerciseRequest & { id: string }) =>
-    api<Exercise>(`/exercises/${id}`, { method: "PATCH", body }),
+    api<Exercise>(`/exercises/${encodeURIComponent(id)}`, { method: "PATCH", body }),
   );
 }
 
 export function useArchiveExercise() {
   return useExerciseMutation((id: string) =>
-    api<Exercise>(`/exercises/${id}/archive`, { method: "POST" }),
+    api<Exercise>(`/exercises/${encodeURIComponent(id)}/archive`, { method: "POST" }),
   );
 }
 
 export function useRestoreExercise() {
   return useExerciseMutation((id: string) =>
-    api<Exercise>(`/exercises/${id}/restore`, { method: "POST" }),
+    api<Exercise>(`/exercises/${encodeURIComponent(id)}/restore`, { method: "POST" }),
   );
 }

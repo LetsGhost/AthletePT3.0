@@ -31,7 +31,7 @@ export function useMyStats() {
 export function useMyExerciseStats(exerciseId: string) {
   return useQuery({
     queryKey: statsKeys.myExercise(exerciseId),
-    queryFn: () => api<ExerciseStatsDetail>(`/me/exercise-stats/${exerciseId}`),
+    queryFn: () => api<ExerciseStatsDetail>(`/me/exercise-stats/${encodeURIComponent(exerciseId)}`),
   });
 }
 
@@ -47,21 +47,28 @@ export function useMyActivity(month: string | null) {
 export function useAthleteStats(athleteId: string) {
   return useQuery({
     queryKey: statsKeys.athlete(athleteId),
-    queryFn: () => api<ExerciseStatsListResponse>(`/athletes/${athleteId}/exercise-stats`),
+    queryFn: () =>
+      api<ExerciseStatsListResponse>(`/athletes/${encodeURIComponent(athleteId)}/exercise-stats`),
   });
 }
 
 export function useAthleteExerciseStats(athleteId: string, exerciseId: string) {
   return useQuery({
     queryKey: statsKeys.athleteExercise(athleteId, exerciseId),
-    queryFn: () => api<ExerciseStatsDetail>(`/athletes/${athleteId}/exercise-stats/${exerciseId}`),
+    queryFn: () =>
+      api<ExerciseStatsDetail>(
+        `/athletes/${encodeURIComponent(athleteId)}/exercise-stats/${encodeURIComponent(exerciseId)}`,
+      ),
   });
 }
 
 export function useAthleteActivity(athleteId: string, month: string | null) {
   return useQuery({
     queryKey: statsKeys.athleteActivity(athleteId, month),
-    queryFn: () => api<ActivityResponse>(`/athletes/${athleteId}/activity${monthQuery(month)}`),
+    queryFn: () =>
+      api<ActivityResponse>(
+        `/athletes/${encodeURIComponent(athleteId)}/activity${monthQuery(month)}`,
+      ),
     placeholderData: keepPreviousData,
   });
 }

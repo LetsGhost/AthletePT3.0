@@ -35,7 +35,7 @@ export function useMyPermissions() {
 export function useAthlete(id: string) {
   return useQuery({
     queryKey: athleteKeys.detail(id),
-    queryFn: () => api<AthleteDetail>(`/athletes/${id}`),
+    queryFn: () => api<AthleteDetail>(`/athletes/${encodeURIComponent(id)}`),
   });
 }
 
@@ -61,33 +61,35 @@ export function useCreateAthlete() {
 
 export function useUpdateAthlete(id: string) {
   return useAthleteMutation((body: UpdateAthleteRequest) =>
-    api<AthleteDetail>(`/athletes/${id}`, { method: "PATCH", body }),
+    api<AthleteDetail>(`/athletes/${encodeURIComponent(id)}`, { method: "PATCH", body }),
   );
 }
 
 export function useArchiveAthlete(id: string) {
   return useAthleteMutation(() =>
-    api<AthleteDetail>(`/athletes/${id}/archive`, { method: "POST" }),
+    api<AthleteDetail>(`/athletes/${encodeURIComponent(id)}/archive`, { method: "POST" }),
   );
 }
 
 export function useReactivateAthlete(id: string) {
   return useAthleteMutation(() =>
-    api<AthleteDetail>(`/athletes/${id}/reactivate`, { method: "POST" }),
+    api<AthleteDetail>(`/athletes/${encodeURIComponent(id)}/reactivate`, { method: "POST" }),
   );
 }
 
 export function useResendAthleteInvitation(id: string) {
   return useMutation({
     mutationFn: () =>
-      api<{ inviteSent: boolean }>(`/athletes/${id}/invitation`, { method: "POST" }),
+      api<{ inviteSent: boolean }>(`/athletes/${encodeURIComponent(id)}/invitation`, {
+        method: "POST",
+      }),
   });
 }
 
 export function useDeleteAthlete(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => api<void>(`/athletes/${id}`, { method: "DELETE" }),
+    mutationFn: () => api<void>(`/athletes/${encodeURIComponent(id)}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: athleteKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: athleteKeys.list() });

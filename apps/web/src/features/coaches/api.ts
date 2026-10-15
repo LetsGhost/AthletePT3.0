@@ -24,7 +24,7 @@ export function useUpdateCoach() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...body }: UpdateCoachRequest & { id: string }) =>
-      api<Coach>(`/coaches/${id}`, { method: "PATCH", body }),
+      api<Coach>(`/coaches/${encodeURIComponent(id)}`, { method: "PATCH", body }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.all }),
   });
 }
@@ -32,6 +32,8 @@ export function useUpdateCoach() {
 export function useResendCoachInvitation() {
   return useMutation({
     mutationFn: (id: string) =>
-      api<{ inviteSent: boolean }>(`/coaches/${id}/invitation`, { method: "POST" }),
+      api<{ inviteSent: boolean }>(`/coaches/${encodeURIComponent(id)}/invitation`, {
+        method: "POST",
+      }),
   });
 }
