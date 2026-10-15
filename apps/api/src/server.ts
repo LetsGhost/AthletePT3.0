@@ -11,6 +11,11 @@ async function main() {
 
   const server = createApp().listen(env.PORT, () => {
     logger.info(`AthletePT API läuft auf Port ${env.PORT} (${env.NODE_ENV})`);
+    if (env.isProduction && env.TRUST_PROXY === 0) {
+      // Hinter nginx sähe die API sonst nur die Proxy-IP: Alle anonymen Clients teilen sich
+      // dann ein Rate-Limit.
+      logger.warn("TRUST_PROXY=0 in Produktion: Rate-Limits zählen pro Proxy- statt Client-IP");
+    }
     if (env.apiDocsEnabled) {
       logger.info(`API-Doku: http://localhost:${env.PORT}/api/v1/docs`);
     }

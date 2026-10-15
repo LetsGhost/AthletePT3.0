@@ -1,14 +1,19 @@
 import type { UserRole } from "@athletept/shared";
-import type { RequestHandler } from "express";
+import type { Request, RequestHandler } from "express";
 
 import { ForbiddenError, UnauthorizedError } from "../lib/errors";
 import { resolveAccessToken } from "../modules/auth/access-token";
 
+/** Token aus `Authorization: Bearer …`, sonst `null`. */
+export function bearerToken(req: Request) {
+  const [scheme, token] = req.headers.authorization?.split(" ") ?? [];
+  return scheme === "Bearer" && token ? token : null;
+}
+
 /** Verlangt ein gültiges Bearer-Token eines aktiven Users und setzt `req.auth`. */
 export const authenticate: RequestHandler = async (req, _res, next) => {
-  const header = req.headers.authorization;
-  const [scheme, token] = header?.split(" ") ?? [];
-  if (scheme !== "Bearer" || !token) {
+  const token = bearerToken(req);
+  if (!token) {
     throw new UnauthorizedError();
   }
   req.auth = await resolveAccessToken(token);
