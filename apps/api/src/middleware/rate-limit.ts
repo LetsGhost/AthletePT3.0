@@ -11,6 +11,13 @@ interface LimiterOptions {
   onlyFailures?: boolean;
 }
 
+let enforcedInTests = false;
+
+/** In Tests sind die Limiter aus; Tests, die sie selbst prüfen, schalten sie hiermit ein. */
+export function enforceRateLimitsInTests(enabled: boolean) {
+  enforcedInTests = enabled;
+}
+
 /**
  * In-Memory-Store: reicht für eine einzelne API-Instanz. Bei mehreren Instanzen
  * muss ein gemeinsamer Store (z. B. Redis) eingesetzt werden.
@@ -27,7 +34,7 @@ function createLimiter(
     skipSuccessfulRequests: onlyFailures,
     standardHeaders: "draft-8",
     legacyHeaders: false,
-    skip: () => env.isTest,
+    skip: () => env.isTest && !enforcedInTests,
     keyGenerator: (req) =>
       req.auth ? `user:${req.auth.userId}` : ipKeyGenerator(req.ip ?? "unknown"),
     handler: (req, res) => {

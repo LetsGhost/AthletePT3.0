@@ -37,7 +37,8 @@ coaches.route({
   body: createCoachRequestSchema,
   status: 201,
   response: coachSchema.extend(invitationResultSchema.shape),
-  errors: [409],
+  errors: [409, 429],
+  middleware: [mailLimiter],
   handler: async ({ auth, body }) => coachService.createCoach(body, await actorName(auth.userId)),
 });
 

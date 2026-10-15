@@ -1,16 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { CONSENT, api, createAndLogin, createUser, lastMailTo } from "../../../test/helpers";
+import { sentMails } from "../../lib/mail/mailer";
+import { enforceRateLimitsInTests } from "../../middleware/rate-limit";
 import { SessionModel } from "../auth/session.model";
 import { UserModel } from "../users/user.model";
 import { AthleteProfileModel } from "./athlete-profile.model";
+import * as athleteService from "./athlete.service";
 
 const newAthlete = {
   email: "max@example.com",
   name: "Max Muster",
   profile: {
     birthDate: "1995-04-12",
-    sex: "male",
+    sex: "male" as const,
     heightCm: 182,
     goal: "Fett abbauen, Kraft halten",
     focus: "Oberkörper",
@@ -203,5 +206,66 @@ describe("Athleten (Coach)", () => {
 
     expect(res.status).toBe(409);
     expect(res.body.code).toBe("not_invited");
+  });
+});
+
+describe("Gesperrter Coach", () => {
+  // Direkt gegen den Service: Unabhängig davon, ob ein alter Access-Token noch durchkommt,
+  // darf bei einem gesperrten Coach nichts mehr landen.
+  it("kann keine Athleten anlegen, reaktivieren oder einladen", async () => {
+    const coachUser = await createUser({ role: "coach", status: "disabled", athleteQuota: 5 });
+    const archived = await createUser({
+      role: "athlete",
+      status: "disabled",
+      coachId: coachUser._id,
+    });
+    const invited = await createUser({
+      role: "athlete",
+      status: "invited",
+      coachId: coachUser._id,
+    });
+
+    const attempts = [
+      () => athleteService.createAthlete(coachUser.id, newAthlete),
+      () => athleteService.reactivateAthlete(coachUser.id, archived.id),
+      () => athleteService.resendAthleteInvitation(coachUser.id, invited.id),
+    ];
+    for (const attempt of attempts) {
+      await expect(attempt()).rejects.toMatchObject({ status: 403, code: "coach_inactive" });
+    }
+
+    expect(await UserModel.exists({ email: newAthlete.email })).toBeNull();
+    expect((await UserModel.findById(archived._id))?.status).toBe("disabled");
+    expect(sentMails).toHaveLength(0);
+  });
+});
+
+describe("Mail-Limit beim Anlegen und Reaktivieren", () => {
+  beforeEach(() => enforceRateLimitsInTests(true));
+  afterEach(() => enforceRateLimitsInTests(false));
+
+  it("begrenzt Anlegen und Reaktivieren gemeinsam mit dem Mail-Limiter", async () => {
+    const { user, bearer } = await coach(50);
+    const archived = await createUser({ role: "athlete", status: "disabled", coachId: user._id });
+
+    for (let i = 0; i < 10; i += 1) {
+      const res = await api()
+        .post("/api/v1/athletes")
+        .set("Authorization", bearer)
+        .send({ ...newAthlete, email: `limit${i}@example.com` });
+      expect(res.status).toBe(201);
+    }
+
+    const create = await api()
+      .post("/api/v1/athletes")
+      .set("Authorization", bearer)
+      .send({ ...newAthlete, email: "limit10@example.com" });
+    const reactivate = await api()
+      .post(`/api/v1/athletes/${archived.id}/reactivate`)
+      .set("Authorization", bearer);
+
+    expect(create.status).toBe(429);
+    expect(reactivate.status).toBe(429);
+    expect(await UserModel.exists({ email: "limit10@example.com" })).toBeNull();
   });
 });

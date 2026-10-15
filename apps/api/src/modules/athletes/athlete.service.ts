@@ -10,7 +10,7 @@ import type {
 import type { ClientSession } from "mongoose";
 
 import { withTransaction } from "../../lib/db";
-import { ConflictError, NotFoundError } from "../../lib/errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "../../lib/errors";
 import { revokeAllSessions } from "../auth/auth.service";
 import { COUNTED_ATHLETE_STATUSES, lockCoachQuota } from "../coaches/quota";
 import { createInvitationToken, resendInvitation, sendInvitationMail } from "../users/invitations";
@@ -47,15 +47,27 @@ function toDetail(athlete: UserDocument, profile: AthleteProfileDocument | null)
   };
 }
 
+/** Ein gesperrter Coach darf keine Athleten mehr anlegen, reaktivieren oder einladen. */
+function assertCoachActive(coach: UserDocument) {
+  if (coach.status !== "active") {
+    throw new ForbiddenError("Dein Zugang ist nicht aktiv", "coach_inactive");
+  }
+}
+
 async function getCoach(coachId: string, session?: ClientSession) {
   const coach = await UserModel.findOne({ _id: coachId, role: "coach" }).session(session ?? null);
   if (!coach) throw new NotFoundError("Coach nicht gefunden");
+  assertCoachActive(coach);
   return coach;
 }
 
-/** Prüft innerhalb einer Transaktion, ob noch ein Platz frei ist (siehe `lockCoachQuota`). */
+/**
+ * Prüft innerhalb einer Transaktion, ob der Coach aktiv ist und noch ein Platz frei ist
+ * (siehe `lockCoachQuota`).
+ */
 async function reserveQuotaSlot(coachId: string, session: ClientSession) {
   const { coach, used } = await lockCoachQuota(coachId, session);
+  assertCoachActive(coach);
   if (used >= (coach.athleteQuota ?? 0)) {
     throw new ConflictError(
       `Dein Kontingent von ${coach.athleteQuota ?? 0} Athleten ist ausgeschöpft. Archiviere einen Athleten oder wende dich an den Support.`,

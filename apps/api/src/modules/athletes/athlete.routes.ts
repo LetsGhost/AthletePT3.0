@@ -37,7 +37,8 @@ athletes.route({
   body: createAthleteRequestSchema,
   status: 201,
   response: athleteDetailSchema.extend(invitationResultSchema.shape),
-  errors: [409],
+  errors: [403, 409, 429],
+  middleware: [mailLimiter],
   handler: ({ auth, body }) => athleteService.createAthlete(auth.userId, body),
 });
 
@@ -86,7 +87,8 @@ athletes.route({
   auth: ["coach"],
   params: idParams,
   response: athleteDetailSchema,
-  errors: [404, 409],
+  errors: [403, 404, 409, 429],
+  middleware: [mailLimiter],
   handler: ({ auth, params }) => athleteService.reactivateAthlete(auth.userId, params.id),
 });
 
@@ -98,7 +100,7 @@ athletes.route({
   auth: ["coach"],
   params: idParams,
   response: invitationResultSchema,
-  errors: [404, 409, 429],
+  errors: [403, 404, 409, 429],
   middleware: [mailLimiter],
   handler: ({ auth, params }) => athleteService.resendAthleteInvitation(auth.userId, params.id),
 });
