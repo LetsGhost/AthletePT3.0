@@ -12,6 +12,7 @@ import { trySendMail } from "../../lib/mail/mailer";
 import { passwordResetMail } from "../../lib/mail/templates";
 import { hashPassword } from "../../lib/password";
 import { UserModel } from "../users/user.model";
+import { UserTokenModel } from "../users/user-token.model";
 import {
   TOKEN_LIFETIME,
   consumeUserToken,
@@ -19,6 +20,9 @@ import {
   issueUserToken,
 } from "../users/user-token.service";
 import { issueSession, revokeAllSessions, type ClientMeta } from "./auth.service";
+
+/** Innerhalb dieser Zeit nach einem Reset-Link wird kein neuer ausgestellt. */
+const RESET_REQUEST_COOLDOWN_MS = 5 * 60 * 1000;
 
 /** Daten für die Einladungsseite („Hallo Max, lege dein Passwort fest“). */
 export async function getInvitationInfo(token: string): Promise<InvitationInfo> {
@@ -87,6 +91,16 @@ export async function acceptInvitation(
 export async function requestPasswordReset(email: string) {
   const user = await UserModel.findOne({ email, status: "active" });
   if (!user) return;
+
+  // Ein frischer Link bleibt gültig: Sonst könnte jeder, der die Adresse kennt, den gerade
+  // verschickten Link des Users per neuem Request entwerten und ihm beliebig Mails schicken.
+  const recentlyIssued = await UserTokenModel.exists({
+    userId: user._id,
+    type: "password_reset",
+    expiresAt: { $gt: new Date() },
+    createdAt: { $gt: new Date(Date.now() - RESET_REQUEST_COOLDOWN_MS) },
+  });
+  if (recentlyIssued) return;
 
   const token = await issueUserToken(user._id, "password_reset");
   void trySendMail(

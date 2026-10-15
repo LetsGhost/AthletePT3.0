@@ -52,6 +52,42 @@ describe("Passwort vergessen", () => {
     expect(reuse.status).toBe(400);
   });
 
+  it("lässt einen frischen Link gültig und schickt keine zweite Mail", async () => {
+    const user = await createUser();
+    const request = () =>
+      api().post("/api/v1/auth/password-reset/request").send({ email: user.email });
+
+    await request();
+    await flush();
+    const { token } = lastMailTo(user.email);
+    const second = await request();
+    await flush();
+
+    expect(second.status).toBe(204);
+    expect(sentMails).toHaveLength(1);
+    const confirm = await api()
+      .post("/api/v1/auth/password-reset/confirm")
+      .send({ token, password: "ganz-neues-passwort" });
+    expect(confirm.status).toBe(204);
+  });
+
+  it("stellt nach Ablauf der Sperrzeit einen neuen Link aus", async () => {
+    const user = await createUser();
+    const request = () =>
+      api().post("/api/v1/auth/password-reset/request").send({ email: user.email });
+
+    await request();
+    await flush();
+    await UserTokenModel.collection.updateMany(
+      {},
+      { $set: { createdAt: new Date(Date.now() - 6 * 60 * 1000) } },
+    );
+    await request();
+    await flush();
+
+    expect(sentMails).toHaveLength(2);
+  });
+
   it("lehnt abgelaufene Links ab", async () => {
     const { user } = await createAndLogin();
     await api().post("/api/v1/auth/password-reset/request").send({ email: user.email });
