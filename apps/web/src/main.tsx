@@ -9,6 +9,7 @@ import { RouterProvider } from "react-router";
 
 import { clearCacheOnUserChange, createQueryClient } from "./app/query-client";
 import { router } from "./app/router";
+import { registerServiceWorker } from "./app/service-worker";
 import { initSession } from "./features/auth/session";
 
 const queryClient = createQueryClient();
@@ -16,6 +17,7 @@ clearCacheOnUserChange(queryClient);
 
 // Sitzung sofort wiederherstellen, parallel zum ersten Rendern.
 void initSession();
+registerServiceWorker();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

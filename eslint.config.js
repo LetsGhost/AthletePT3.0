@@ -42,6 +42,13 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.node, db: "readonly", print: "readonly" } },
   },
   {
+    // Vorlage, in die der Build Version und Dateiliste einsetzt (vite.config.ts).
+    files: ["apps/web/sw/**/*.js"],
+    languageOptions: {
+      globals: { ...globals.serviceworker, __SW_PRECACHE__: "readonly" },
+    },
+  },
+  {
     files: ["apps/web/**/*.tsx"],
     ...jsxA11y.flatConfigs.recommended,
   },
