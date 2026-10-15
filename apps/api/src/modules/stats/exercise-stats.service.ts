@@ -17,14 +17,98 @@ import {
 import { Types } from "mongoose";
 
 import { NotFoundError } from "../../lib/errors";
+import { logger } from "../../lib/logger/logger";
 import { getAthleteOfCoach } from "../athletes/athlete-access";
-import { WorkoutLogModel, type StoredWorkoutLog } from "../workouts/workout-log.model";
+import {
+  WorkoutLogModel,
+  type StoredExerciseStats,
+  type StoredWorkoutExercise,
+  type StoredWorkoutLog,
+} from "../workouts/workout-log.model";
 
 /**
- * Übungsanalyse, berechnet aus abgeschlossenen Protokollen. Nichts davon wird gespeichert, damit
- * Korrekturen am Protokoll sofort überall stimmen. Zuordnung über die `exerciseId`.
+ * Übungsanalyse, berechnet aus abgeschlossenen Protokollen. Zuordnung über die `exerciseId`.
+ *
+ * Die Kennzahlen je Übung und Training stehen am Protokoll selbst (`stats`) und werden bei jedem
+ * Speichern neu berechnet. So stimmen Korrekturen sofort überall, und die Analyse muss nur diese
+ * kleinen Einträge laden statt aller Sätze. Alles darüber (Bestwerte, Verlauf) wird beim Abruf
+ * berechnet.
  */
-type LogForStats = Pick<StoredWorkoutLog, "_id" | "date" | "completedAt" | "exercises">;
+
+/**
+ * Bei jeder Änderung an der Berechnung der Kennzahlen (`computeWorkoutStats`, `sessionMetrics`)
+ * hochsetzen. Beim Start der API werden dann alle Protokolle neu berechnet.
+ */
+export const WORKOUT_STATS_VERSION = 1;
+
+/**
+ * Kennzahlen je Übung eines Trainings. Ausgelassene Übungen und solche ohne erledigten Arbeitssatz
+ * fehlen. Kommt eine Übung in einem Training doppelt vor, zählt sie als eine Einheit.
+ */
+export function computeWorkoutStats(
+  exercises: readonly Pick<
+    StoredWorkoutExercise,
+    "exerciseId" | "exerciseName" | "skipped" | "sets"
+  >[],
+): StoredExerciseStats[] {
+  const perExercise = new Map<
+    string,
+    { exerciseId: Types.ObjectId; name: string; sets: StoredWorkoutExercise["sets"] }
+  >();
+  for (const exercise of exercises) {
+    if (exercise.skipped) continue;
+    const id = exercise.exerciseId.toString();
+    const entry = perExercise.get(id) ?? {
+      exerciseId: exercise.exerciseId,
+      name: exercise.exerciseName,
+      sets: [],
+    };
+    entry.sets = [...entry.sets, ...exercise.sets];
+    perExercise.set(id, entry);
+  }
+  const stats: StoredExerciseStats[] = [];
+  for (const { exerciseId, name, sets } of perExercise.values()) {
+    const metrics = sessionMetrics(sets);
+    if (metrics.setCount > 0) stats.push({ exerciseId, exerciseName: name, ...metrics });
+  }
+  return stats;
+}
+
+/**
+ * Berechnet `stats` für alle abgeschlossenen Protokolle, die noch keine oder veraltete Kennzahlen
+ * haben (Bestandsdaten, geänderte Berechnung). Idempotent, läuft beim Start der API.
+ */
+export async function backfillWorkoutStats() {
+  const cursor = WorkoutLogModel.find(
+    { status: "completed", statsVersion: { $ne: WORKOUT_STATS_VERSION } },
+    { exercises: 1 },
+  )
+    .lean<Pick<StoredWorkoutLog, "_id" | "exercises">[]>()
+    .cursor();
+  let batch: Parameters<typeof WorkoutLogModel.bulkWrite>[0] = [];
+  let updated = 0;
+  const flush = async () => {
+    if (batch.length === 0) return;
+    await WorkoutLogModel.bulkWrite(batch, { ordered: false });
+    updated += batch.length;
+    batch = [];
+  };
+  for await (const log of cursor) {
+    batch.push({
+      updateOne: {
+        filter: { _id: log._id },
+        update: {
+          $set: { stats: computeWorkoutStats(log.exercises), statsVersion: WORKOUT_STATS_VERSION },
+        },
+      },
+    });
+    if (batch.length >= 500) await flush();
+  }
+  await flush();
+  if (updated > 0) logger.info(`Kennzahlen für ${updated} Trainings neu berechnet`);
+}
+
+type LogForStats = Pick<StoredWorkoutLog, "_id" | "date" | "stats">;
 
 interface ExerciseSessions {
   exerciseId: string;
@@ -39,32 +123,20 @@ async function loadLogs(athleteId: string, exerciseId?: string) {
       status: "completed",
       ...(exerciseId ? { "exercises.exerciseId": new Types.ObjectId(exerciseId) } : {}),
     },
-    { date: 1, completedAt: 1, exercises: 1 },
+    { date: 1, stats: 1 },
   )
     .sort({ date: 1, completedAt: 1 })
     .lean<LogForStats[]>();
 }
 
-/** Einheiten je Übung, älteste zuerst. Kommt eine Übung in einem Training doppelt vor, zählt sie als eine Einheit. */
+/** Einheiten je Übung, älteste zuerst. */
 function groupSessions(logs: readonly LogForStats[]) {
   const byExercise = new Map<string, ExerciseSessions>();
   for (const log of logs) {
-    const perLog = new Map<
-      string,
-      { name: string; sets: StoredWorkoutLog["exercises"][number]["sets"] }
-    >();
-    for (const exercise of log.exercises) {
-      if (exercise.skipped) continue;
-      const id = exercise.exerciseId.toString();
-      const entry = perLog.get(id) ?? { name: exercise.exerciseName, sets: [] };
-      entry.sets = [...entry.sets, ...exercise.sets];
-      perLog.set(id, entry);
-    }
-    for (const [id, { name, sets }] of perLog) {
-      const metrics = sessionMetrics(sets);
-      if (metrics.setCount === 0) continue;
-      const group = byExercise.get(id) ?? { exerciseId: id, exerciseName: name, sessions: [] };
-      group.exerciseName = name;
+    for (const { exerciseId, exerciseName, ...metrics } of log.stats) {
+      const id = exerciseId.toString();
+      const group = byExercise.get(id) ?? { exerciseId: id, exerciseName, sessions: [] };
+      group.exerciseName = exerciseName;
       group.sessions.push({ date: log.date, logId: log._id.toString(), ...metrics });
       byExercise.set(id, group);
     }

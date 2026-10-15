@@ -20,7 +20,11 @@ import type { z } from "zod";
 
 import { ConflictError, NotFoundError, ValidationError } from "../../lib/errors";
 import { getAthleteOfCoach } from "../athletes/athlete-access";
-import { findNewRecords } from "../stats/exercise-stats.service";
+import {
+  WORKOUT_STATS_VERSION,
+  computeWorkoutStats,
+  findNewRecords,
+} from "../stats/exercise-stats.service";
 import { toDayDtos } from "../plans/plan-content";
 import type { StoredDay } from "../plans/plan-content.model";
 import { TrainingPlanModel, type StoredPlan } from "../plans/plan.model";
@@ -390,9 +394,18 @@ async function saveLog(
   extra: Partial<Pick<StoredWorkoutLog, "status" | "completedAt">> = {},
 ) {
   if (log.revision !== input.revision) throw workoutConflict();
+  const applied = applyInput(log, input);
   const result = await WorkoutLogModel.updateOne(
     { _id: log._id, revision: input.revision },
-    { $set: { ...applyInput(log, input), ...extra }, $inc: { revision: 1 } },
+    {
+      $set: {
+        ...applied,
+        ...extra,
+        stats: computeWorkoutStats(applied.exercises),
+        statsVersion: WORKOUT_STATS_VERSION,
+      },
+      $inc: { revision: 1 },
+    },
   );
   if (result.matchedCount === 0) throw workoutConflict();
   return toLogDto(await reload(log._id), "athlete");

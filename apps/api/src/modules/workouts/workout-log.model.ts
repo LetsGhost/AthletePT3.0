@@ -36,6 +36,21 @@ export interface StoredWorkoutExercise {
   sets: StoredWorkoutSet[];
 }
 
+/**
+ * Kennzahlen einer Übung in diesem Training (siehe `sessionMetrics`). Werden beim Speichern
+ * berechnet, damit die Übungsanalyse nicht alle Sätze aller Trainings laden und auswerten muss.
+ */
+export interface StoredExerciseStats {
+  exerciseId: Types.ObjectId;
+  exerciseName: string;
+  topWeightKg: number | null;
+  estimated1rm: number | null;
+  volumeKg: number | null;
+  maxReps: number | null;
+  maxDurationSeconds: number | null;
+  setCount: number;
+}
+
 export interface StoredWorkoutLog {
   _id: Types.ObjectId;
   athleteId: Types.ObjectId;
@@ -52,6 +67,9 @@ export interface StoredWorkoutLog {
   revision: number;
   startedAt: Date;
   completedAt: Date | null;
+  stats: StoredExerciseStats[];
+  /** Stand der Berechnung von `stats` (siehe `WORKOUT_STATS_VERSION`), `null` = noch nie. */
+  statsVersion: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -94,6 +112,20 @@ const exerciseSchema = new Schema({
   sets: { type: [setSchema], default: [] },
 });
 
+const exerciseStatsSchema = new Schema(
+  {
+    exerciseId: { type: Schema.Types.ObjectId, required: true },
+    exerciseName: { type: String, required: true },
+    topWeightKg: nullableNumber,
+    estimated1rm: nullableNumber,
+    volumeKg: nullableNumber,
+    maxReps: nullableNumber,
+    maxDurationSeconds: nullableNumber,
+    setCount: { type: Number, required: true },
+  },
+  { _id: false },
+);
+
 const workoutLogSchema = new Schema(
   {
     athleteId: { type: Schema.Types.ObjectId, ref: "User", required: true },
@@ -111,6 +143,8 @@ const workoutLogSchema = new Schema(
     revision: { type: Number, required: true, default: 0 },
     startedAt: { type: Date, required: true },
     completedAt: { type: Date, default: null },
+    stats: { type: [exerciseStatsSchema], default: [] },
+    statsVersion: nullableNumber,
   },
   { timestamps: true },
 );

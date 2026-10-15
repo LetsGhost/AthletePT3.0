@@ -13,6 +13,8 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { api, createAndLogin, createUser, login } from "../../../test/helpers";
+import { WorkoutLogModel } from "../workouts/workout-log.model";
+import { WORKOUT_STATS_VERSION, backfillWorkoutStats } from "./exercise-stats.service";
 
 async function createExercise(bearer: string, overrides: Partial<CreateExerciseRequest> = {}) {
   const res = await api()
@@ -221,6 +223,64 @@ describe("Übungsanalyse", () => {
       },
       { exerciseId: pullUp.id, exerciseName: "Klimmzüge", kind: "maxReps", value: 9, previous: 8 },
     ]);
+  });
+
+  it("übernimmt Korrekturen an abgeschlossenen Trainings sofort", async () => {
+    const { athlete, dayId, squat } = await setup();
+    const log = await train(athlete.bearer, dayId, today, {
+      squat: [
+        { weightKg: 60, reps: 5 },
+        { weightKg: 100, reps: 5 },
+      ],
+      pullUps: [{ reps: 8 }],
+    });
+
+    const corrected = await api()
+      .put(`/api/v1/me/workout-logs/${log.id}`)
+      .set("Authorization", athlete.bearer)
+      .send({
+        revision: log.revision,
+        rating: null,
+        notes: null,
+        exercises: [
+          {
+            id: log.exercises[0]!.id,
+            sets: [
+              { weightKg: 60, reps: 5, done: true },
+              { weightKg: 110, reps: 5, done: true },
+            ],
+          },
+          { id: log.exercises[1]!.id, skipped: true, sets: [] },
+        ],
+      } satisfies UpdateWorkoutRequest);
+    expect(corrected.status).toBe(200);
+
+    const stats = await myStats(athlete.bearer);
+    expect(stats.items.map((x) => x.exerciseId)).toEqual([squat.id]);
+    expect(stats.items[0]!.best.topWeightKg).toMatchObject({ value: 110 });
+  });
+
+  it("berechnet fehlende Kennzahlen bestehender Trainings nach", async () => {
+    const { athlete, dayId, squat } = await setup();
+    await train(athlete.bearer, dayId, today, {
+      squat: [
+        { weightKg: 60, reps: 5 },
+        { weightKg: 100, reps: 5 },
+      ],
+      pullUps: [{ reps: 8 }],
+    });
+    // Stand vor Einführung der gespeicherten Kennzahlen.
+    await WorkoutLogModel.updateMany({}, { $unset: { stats: 1, statsVersion: 1 } });
+
+    await backfillWorkoutStats();
+
+    const stats = await myStats(athlete.bearer);
+    expect(stats.items).toHaveLength(2);
+    expect(stats.items.find((x) => x.exerciseId === squat.id)!.best.topWeightKg).toMatchObject({
+      value: 100,
+    });
+    const stored = await WorkoutLogModel.findOne().lean();
+    expect(stored!.statsVersion).toBe(WORKOUT_STATS_VERSION);
   });
 
   it("zeigt dem Coach den Fortschritt nur der eigenen Athleten", async () => {

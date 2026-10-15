@@ -3,11 +3,14 @@ import { env } from "./config/env";
 import { connectDatabase, disconnectDatabase } from "./lib/db";
 import { logger } from "./lib/logger/logger";
 import { seedGlobalExercises } from "./modules/exercises/exercise-seed";
+import { backfillWorkoutStats } from "./modules/stats/exercise-stats.service";
 
 async function main() {
   await connectDatabase();
   // Idempotent: ergänzt nur fehlende Startübungen im globalen Katalog.
   await seedGlobalExercises();
+  // Idempotent: berechnet fehlende oder veraltete Trainingskennzahlen (Übungsanalyse).
+  await backfillWorkoutStats();
 
   const server = createApp().listen(env.PORT, () => {
     logger.info(`AthletePT API läuft auf Port ${env.PORT} (${env.NODE_ENV})`);
