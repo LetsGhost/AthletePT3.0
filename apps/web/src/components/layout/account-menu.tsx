@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { LogOut, Settings } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useNavigate } from "react-router";
@@ -13,14 +12,12 @@ const itemClasses =
 
 export function AccountMenu({ showName = false }: { showName?: boolean }) {
   const user = useSession((state) => state.user);
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   if (!user) return null;
 
   const handleLogout = async () => {
     await logout().catch(() => undefined);
-    queryClient.clear();
     navigate("/login", { replace: true });
   };
 

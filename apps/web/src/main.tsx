@@ -7,11 +7,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router";
 
-import { createQueryClient } from "./app/query-client";
+import { clearCacheOnUserChange, createQueryClient } from "./app/query-client";
 import { router } from "./app/router";
 import { initSession } from "./features/auth/session";
 
 const queryClient = createQueryClient();
+clearCacheOnUserChange(queryClient);
 
 // Sitzung sofort wiederherstellen, parallel zum ersten Rendern.
 void initSession();
