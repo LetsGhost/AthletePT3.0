@@ -10,6 +10,7 @@ import {
   refreshCookieFrom,
 } from "../../../test/helpers";
 import { UserModel } from "../users/user.model";
+import { UserTokenModel } from "../users/user-token.model";
 import { SessionModel } from "./session.model";
 
 describe("POST /auth/login", () => {
@@ -209,6 +210,21 @@ describe("POST /auth/change-password", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.errors[0].path).toBe("newPassword");
+  });
+
+  it("macht offene Reset-Links ungültig", async () => {
+    const { user, bearer, cookie } = await createAndLogin();
+    await api().post("/api/v1/auth/password-reset/request").send({ email: user.email });
+    expect(await UserTokenModel.countDocuments({ userId: user._id })).toBe(1);
+
+    await api()
+      .post("/api/v1/auth/change-password")
+      .set("Authorization", bearer)
+      .set("Cookie", cookie)
+      .send({ currentPassword: DEFAULT_PASSWORD, newPassword: "ein-neues-passwort" })
+      .expect(204);
+
+    expect(await UserTokenModel.countDocuments({ userId: user._id })).toBe(0);
   });
 
   it("ändert das Passwort und meldet nur die anderen Geräte ab", async () => {

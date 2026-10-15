@@ -9,6 +9,7 @@ import { logger } from "../../lib/logger/logger";
 import { hashPassword, verifyPassword } from "../../lib/password";
 import { generateToken, hashToken } from "../../lib/tokens";
 import { UserModel, toUserDto, type UserDocument } from "../users/user.model";
+import { UserTokenModel } from "../users/user-token.model";
 import { signAccessToken } from "./access-token";
 import { SessionModel } from "./session.model";
 
@@ -170,6 +171,8 @@ export async function changePassword(
 
   user.passwordHash = await hashPassword(newPassword);
   await user.save();
+  // Ein offener Reset-Link würde das neue Passwort sonst noch überschreiben können.
+  await UserTokenModel.deleteMany({ userId: user._id, type: "password_reset" });
   // Andere Geräte abmelden, das aktuelle bleibt angemeldet.
   await revokeAllSessions(user._id, currentRefreshToken);
 }

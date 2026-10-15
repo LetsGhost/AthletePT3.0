@@ -61,6 +61,8 @@ export async function acceptInvitation(
   input: { token: string; password: string; healthDataConsent?: HealthDataConsent | undefined },
   meta: ClientMeta,
 ) {
+  // Erst den Link prüfen: bcrypt ist teuer und soll nicht für beliebige Tokens laufen.
+  await findUserByToken(input.token, "invitation");
   const passwordHash = await hashPassword(input.password);
 
   const user = await withTransaction(async (session) => {
@@ -115,6 +117,7 @@ export async function requestPasswordReset(email: string) {
 
 /** Neues Passwort über den Reset-Link setzen. Meldet alle Geräte ab. */
 export async function confirmPasswordReset(token: string, password: string) {
+  await findUserByToken(token, "password_reset");
   const passwordHash = await hashPassword(password);
   const user = await withTransaction(async (session) => {
     const target = await consumeUserToken(token, "password_reset", session);

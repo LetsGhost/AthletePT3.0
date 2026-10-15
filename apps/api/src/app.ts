@@ -42,7 +42,7 @@ export function createApp() {
   app.set("trust proxy", env.TRUST_PROXY);
 
   app.use(requestId);
-  app.use(helmet());
+  app.use(helmet({ frameguard: { action: "deny" } }));
   if (env.CORS_ORIGINS.length > 0) {
     app.use(cors({ origin: env.CORS_ORIGINS, credentials: true }));
   }
@@ -62,6 +62,11 @@ export function createApp() {
   });
 
   const api = Router();
+  // Gesundheitsdaten und Tokens nicht im Browser-Cache ablegen (geteilte Geräte).
+  api.use((_req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+  });
   api.use(apiLimiter);
   for (const module of modules) {
     api.use(module.prefix, module.router);

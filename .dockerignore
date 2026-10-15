@@ -6,4 +6,7 @@ node_modules
 .git
 .env
 **/.env
+.env.*
+**/.env.*
+!**/.env.example
 deploy/out

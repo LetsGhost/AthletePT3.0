@@ -16,12 +16,19 @@ export const userStatusSchema = z.enum(userStatuses);
 export type UserStatus = z.infer<typeof userStatusSchema>;
 
 export const PASSWORD_MIN_LENGTH = 10;
-export const PASSWORD_MAX_LENGTH = 128;
+export const PASSWORD_MAX_LENGTH = 72;
+
+/** bcrypt wertet nur die ersten 72 Bytes aus; alles danach würde stillschweigend ignoriert. */
+const PASSWORD_MAX_BYTES = 72;
 
 export const passwordSchema = z
   .string()
   .min(PASSWORD_MIN_LENGTH, `Mindestens ${PASSWORD_MIN_LENGTH} Zeichen`)
-  .max(PASSWORD_MAX_LENGTH, `Höchstens ${PASSWORD_MAX_LENGTH} Zeichen`);
+  .max(PASSWORD_MAX_LENGTH, `Höchstens ${PASSWORD_MAX_LENGTH} Zeichen`)
+  .refine(
+    (value) => new TextEncoder().encode(value).length <= PASSWORD_MAX_BYTES,
+    "Zu lang: Umlaute und Sonderzeichen zählen mehrfach. Bitte kürze das Passwort.",
+  );
 
 // Erst normalisieren, dann prüfen, damit "  Max@Example.com " gültig ist.
 export const emailSchema = z
@@ -30,7 +37,13 @@ export const emailSchema = z
   .toLowerCase()
   .pipe(z.email("Ungültige E-Mail-Adresse").max(254));
 
-export const personNameSchema = z.string().trim().min(1, "Name fehlt").max(100);
+export const personNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Name fehlt")
+  .max(100)
+  // Steuerzeichen wie Zeilenumbrüche landen sonst im Klartext-Teil von Mails.
+  .regex(/^\P{Cc}*$/u, "Der Name darf keine Zeilenumbrüche oder Steuerzeichen enthalten");
 
 /** Öffentliche Darstellung eines Users. Enthält nie Passwort-Daten. */
 export const userSchema = z.object({

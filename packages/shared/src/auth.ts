@@ -17,7 +17,7 @@ export const authResponseSchema = z.object({
 
 export const changePasswordRequestSchema = z
   .object({
-    currentPassword: z.string().min(1, "Aktuelles Passwort fehlt"),
+    currentPassword: z.string().min(1, "Aktuelles Passwort fehlt").max(1024),
     newPassword: passwordSchema,
   })
   .refine((data) => data.currentPassword !== data.newPassword, {

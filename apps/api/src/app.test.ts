@@ -18,6 +18,13 @@ describe("App", () => {
     expect(res.body).toMatchObject({ status: "ok", db: "connected" });
   });
 
+  it("verbietet Caching von API-Antworten und Einbetten in Frames", async () => {
+    const res = await api().get("/api/v1/gibt-es-nicht");
+
+    expect(res.headers["cache-control"]).toBe("no-store");
+    expect(res.headers["x-frame-options"]).toBe("DENY");
+  });
+
   it("setzt eine Request-ID", async () => {
     const res = await api().get("/health");
 
