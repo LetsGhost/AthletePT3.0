@@ -56,7 +56,17 @@ done
 
 # ---- Voraussetzungen ----
 command -v docker > /dev/null || fail "Docker ist nicht installiert oder nicht im PATH."
-docker info --format '{{.ServerVersion}}' > /dev/null 2>&1 || fail "Docker läuft nicht."
+if ! docker_error="$(docker info --format '{{.ServerVersion}}' 2>&1 > /dev/null)"; then
+  if [[ "$docker_error" == *"permission denied"* ]]; then
+    fail "Kein Zugriff auf Docker. Benutzer in die Gruppe docker aufnehmen (sudo usermod -aG docker \$USER) und neu anmelden.
+$docker_error"
+  fi
+  fail "Docker-Daemon nicht erreichbar (läuft er? sudo systemctl status docker).
+$docker_error"
+fi
+if ! $skip_check && ! command -v npm > /dev/null; then
+  fail "npm nicht gefunden, wird für npm run check gebraucht. Ohne Prüfung bauen: --skip-check"
+fi
 if $push && [[ -z "$registry" ]]; then
   fail "--push braucht --registry (z. B. registry.example.de/athletept)."
 fi
