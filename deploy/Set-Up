@@ -7,6 +7,7 @@ docker compose -f docker-compose.certbot.yml up -d
 
 Zweite Domain (Sport-Analytics-Backend, SPORTS_DOMAIN in .env), Proxy laeuft bereits:
 1. DNS: A-Record sports.athlete-pt.de auf die Server-IP
-2. Im Ordner Sport-Analytics-Backend: .env mit API_KEY, dann docker compose up -d --build
+2. Hier: sports.env mit API_KEY anlegen (Vorlage sports.env.example), dann
+   docker compose -f docker-compose.sports.yml up -d --build
 3. Hier: docker compose -f docker-compose.certbot.yml run --rm certbot-sports
 4. Hier: docker compose -f docker-compose.proxy.yml up -d   (nimmt die neue Vorlage auf)

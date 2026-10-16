@@ -14,4 +14,5 @@ test-results/
 deploy/*.env
 !deploy/*.env.example
 deploy/certbot/
+deploy/sports-data/
 deploy/out/

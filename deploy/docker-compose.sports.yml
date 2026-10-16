@@ -1,0 +1,37 @@
+# Zweites Projekt auf dem Server: Sport-Analytics-Backend unter https://${SPORTS_DOMAIN}.
+#   - sportanalytics: Express-API (Dockerfile im Projekt Sport-Analytics-Backend), Port 8084
+#
+# Veröffentlicht keinen Port. Hängt im externen Netz "athletept-proxy", über das der nginx-Proxy
+# (docker-compose.proxy.yml, nginx/sports.conf.template) ihn unter sportanalytics:8084 erreicht.
+#
+# Erwartet sports.env neben dieser Datei (Vorlage: sports.env.example). Getrennt von .env, damit
+# keiner der beiden Dienste die Geheimnisse des anderen sieht. Die gespeicherten Daten liegen in
+# ./sports-data (data.json).
+#
+# Gebaut wird aus SPORTS_SRC (Pfad zum Projektordner, Standard: ../Sport-Analytics-Backend).
+# Start:
+#   docker compose -f docker-compose.sports.yml up -d --build
+
+name: athletept-sports
+
+services:
+  sportanalytics:
+    build: ${SPORTS_SRC:-../Sport-Analytics-Backend}
+    image: ${SPORTS_IMAGE:-sportsalex:latest}
+    container_name: sportanalytics
+    env_file:
+      - sports.env
+    environment:
+      PORT: 8084
+    volumes:
+      - ./sports-data:/app/data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    name: athletept-proxy
+    external: true
