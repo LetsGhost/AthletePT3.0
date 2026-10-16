@@ -21,8 +21,12 @@ services:
       - "443:443"
     environment:
       DOMAIN: ${DOMAIN:?DOMAIN in .env setzen}
+      SPORTS_DOMAIN: ${SPORTS_DOMAIN:?SPORTS_DOMAIN in .env setzen}
     volumes:
       - ./nginx/proxy.conf.template:/etc/nginx/templates/default.conf.template:ro
+      # Zweite Domain (Sport-Analytics-Backend). Zertifikat muss vorher existieren, siehe
+      # certbot-sports in docker-compose.certbot.yml.
+      - ./nginx/sports.conf.template:/etc/nginx/templates/sports.conf.template:ro
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
     # Reload-Schleife im Hintergrund, dann das normale Entrypoint (setzt die Vorlage ein).

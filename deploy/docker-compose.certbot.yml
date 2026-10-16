@@ -56,3 +56,26 @@ services:
       - -d
       - ${DOMAIN:?DOMAIN in .env setzen}
       - ${CERTBOT_EXTRA_ARGS:---keep-until-expiring}
+
+  # Zertifikat für die zweite Domain (SPORTS_DOMAIN), während der Proxy läuft: Prüfung per Webroot
+  # über den Proxy, Port 80 bleibt belegt. Die Erneuerung übernimmt danach der Dienst certbot.
+  #   docker compose -f docker-compose.certbot.yml run --rm certbot-sports
+  certbot-sports:
+    image: certbot/certbot:v3.0.1
+    profiles: ["init"]
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    command:
+      - certonly
+      - --webroot
+      - -w
+      - /var/www/certbot
+      - --non-interactive
+      - --agree-tos
+      - --no-eff-email
+      - --email
+      - ${CERTBOT_EMAIL:?CERTBOT_EMAIL in .env setzen}
+      - -d
+      - ${SPORTS_DOMAIN:?SPORTS_DOMAIN in .env setzen}
+      - ${CERTBOT_EXTRA_ARGS:---keep-until-expiring}

@@ -1,0 +1,51 @@
+# Zweite Domain auf demselben Proxy: Sport-Analytics-Backend (eigenes Projekt, eigener Container).
+# Das nginx-Image setzt beim Start ${SPORTS_DOMAIN} aus der .env ein (wie ${DOMAIN} in
+# proxy.conf.template). Den resolver erbt dieser Server aus proxy.conf.template (http-Ebene),
+# ein zweiter resolver-Eintrag wäre ein Fehler.
+#
+# Der Container "sportanalytics" hängt im Netz "athletept-proxy" und lauscht auf Port 8084
+# (docker-compose.yml im Projekt Sport-Analytics-Backend).
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${SPORTS_DOMAIN};
+
+    # Let's-Encrypt-Prüfung (certbot --webroot), alles andere auf HTTPS.
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${SPORTS_DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${SPORTS_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${SPORTS_DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    server_tokens off;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
+    # Das Backend speichert ein JSON-Dokument (express.json, Limit 100 kB).
+    client_max_body_size 1m;
+
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    set $sports_upstream http://sportanalytics:8084;
+
+    location / {
+        proxy_pass $sports_upstream;
+        proxy_read_timeout 30s;
+    }
+}
