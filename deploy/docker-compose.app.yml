@@ -1,0 +1,89 @@
+# Produktivbetrieb (Closed Beta) auf dem Server, Teil 1 von 3: die Anwendung.
+#   - api:   REST-API (Dockerfile.api)
+#   - web:   Web-App, statisch über nginx ausgeliefert (Dockerfile.web)
+#   - mongo: MongoDB als Single-Node-Replica-Set (für Transaktionen), nur im internen Netz
+#
+# api und web veröffentlichen keine Ports. Sie hängen zusätzlich im externen Netz
+# "athletept-proxy", über das der nginx-Proxy (docker-compose.proxy.yml) sie erreicht.
+# TLS-Zertifikate verwaltet certbot (docker-compose.certbot.yml).
+#
+# Erwartet eine .env neben dieser Datei (Vorlage: .env.example). Einmalig vorher:
+#   docker network create athletept-proxy
+# Start:
+#   docker compose -f docker-compose.app.yml up -d
+
+name: athletept-app
+
+services:
+  api:
+    image: ${API_IMAGE:-athletept-api:latest}
+    container_name: athletept3-api
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - default
+      - proxy
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  web:
+    image: ${WEB_IMAGE:-athletept-web:latest}
+    container_name: athletept3-web
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy
+
+  mongo:
+    image: mongo:7
+    container_name: athletept3-mongo
+    # Mit Zugangsdaten startet MongoDB nur mit Authentifizierung. Ein Replica Set mit Auth braucht
+    # einen Keyfile (interne Authentifizierung zwischen Mitgliedern). Bei nur einem Mitglied darf er
+    # bei jedem Start neu erzeugt werden, gespeichert werden muss er nicht.
+    entrypoint:
+      - bash
+      - -c
+      - |
+        head -c 756 /dev/urandom | base64 -w0 > /tmp/mongo-keyfile
+        chmod 400 /tmp/mongo-keyfile && chown mongodb:mongodb /tmp/mongo-keyfile
+        exec docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --keyFile /tmp/mongo-keyfile
+    restart: unless-stopped
+    # MONGO_INITDB_ROOT_USERNAME/-PASSWORD. Getrennt von .env, damit die API das Root-Passwort
+    # nie sieht.
+    env_file:
+      - mongo.env
+    environment:
+      # Für mongo-init/create-app-user.js: Konto der API, nur readWrite auf der App-Datenbank.
+      MONGO_APP_DB: athletept
+      MONGO_APP_USER: ${MONGO_USER:?MONGO_USER in .env setzen}
+      MONGO_APP_PASSWORD: ${MONGO_PASSWORD:?MONGO_PASSWORD in .env setzen}
+    volumes:
+      - mongo-data:/data/db
+      # Läuft nur beim allerersten Start (leeres Volume). Bestehende Datenbank: siehe README.
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - default
+    healthcheck:
+      test: >
+        mongosh --quiet -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD"
+        --authenticationDatabase admin --eval "try { rs.status().ok } catch (e) {
+        rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }).ok }"
+      interval: 10s
+      timeout: 10s
+      start_period: 15s
+      retries: 10
+
+networks:
+  proxy:
+    name: athletept-proxy
+    external: true
+
+volumes:
+  mongo-data:

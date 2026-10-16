@@ -1,0 +1,6 @@
+Erster Start auf dem Server (im Ordner deploy/):
+docker network create athletept-proxy
+docker compose -f docker-compose.app.yml up -d
+docker compose -f docker-compose.certbot.yml run --rm --service-ports certbot-init
+docker compose -f docker-compose.proxy.yml up -d
+docker compose -f docker-compose.certbot.yml up -d

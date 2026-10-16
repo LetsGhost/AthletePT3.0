@@ -10,5 +10,8 @@ playwright-report/
 test-results/
 .DS_Store
 
-# Deployment-Dateien (Compose, nginx, Build-Skript) bleiben lokal, nicht im Repo
-deploy/
+# Deployment: Vorlagen und Konfiguration ins Repo, Geheimnisse und Artefakte nicht
+deploy/*.env
+!deploy/*.env.example
+deploy/certbot/
+deploy/out/

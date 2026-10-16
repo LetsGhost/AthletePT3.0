@@ -1,0 +1,58 @@
+# Produktivbetrieb (Closed Beta) auf dem Server, Teil 3 von 3: certbot für die TLS-Zertifikate.
+#   - certbot:      prüft alle 12 Stunden und erneuert fällige Zertifikate (Webroot über den Proxy)
+#   - certbot-init: holt das erste Zertifikat, solange der Proxy noch nicht läuft (eigener
+#                   Webserver von certbot auf Port 80). Nur mit "run" aufrufbar (Profil "init").
+#
+# Zertifikate liegen in ./certbot/conf, die Prüfdateien in ./certbot/www. Beides bindet der Proxy
+# (docker-compose.proxy.yml) schreibgeschützt ein. Domain und Kontakt-Mail kommen aus der .env.
+#
+# Erstes Zertifikat (Port 80 muss frei sein, der Proxy also gestoppt):
+#   docker compose -f docker-compose.certbot.yml run --rm --service-ports certbot-init
+# Danach Proxy und Erneuerung starten:
+#   docker compose -f docker-compose.proxy.yml up -d
+#   docker compose -f docker-compose.certbot.yml up -d
+#
+# Zum Testen ohne Rate-Limits von Let's Encrypt: CERTBOT_EXTRA_ARGS=--staging in der .env
+# (vor dem echten Zertifikat ./certbot/conf wieder löschen).
+
+name: athletept-certbot
+
+services:
+  certbot:
+    image: certbot/certbot:v3.0.1
+    container_name: athletept3-certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    # --webroot überschreibt die Methode aus certbot-init (standalone) für die Erneuerung.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        trap exit TERM;
+        while :; do
+        certbot renew --webroot -w /var/www/certbot --quiet;
+        sleep 12h & wait $${!};
+        done
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  certbot-init:
+    image: certbot/certbot:v3.0.1
+    profiles: ["init"]
+    ports:
+      - "80:80"
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+    command:
+      - certonly
+      - --standalone
+      - --non-interactive
+      - --agree-tos
+      - --no-eff-email
+      - --email
+      - ${CERTBOT_EMAIL:?CERTBOT_EMAIL in .env setzen}
+      - -d
+      - ${DOMAIN:?DOMAIN in .env setzen}
+      - ${CERTBOT_EXTRA_ARGS:---keep-until-expiring}

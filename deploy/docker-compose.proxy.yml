@@ -1,0 +1,42 @@
+# Produktivbetrieb (Closed Beta) auf dem Server, Teil 2 von 3: nginx als Reverse-Proxy.
+#   - terminiert TLS (Zertifikate von certbot, siehe docker-compose.certbot.yml)
+#   - leitet /api/ an athletept3-api, alles andere an athletept3-web (Netz "athletept-proxy")
+#   - beantwortet die Let's-Encrypt-Prüfung unter /.well-known/acme-challenge/
+#
+# Die Konfiguration kommt aus nginx/proxy.conf.template; ${DOMAIN} setzt das nginx-Image beim
+# Start aus der .env ein. nginx lädt sich alle 6 Stunden neu, damit erneuerte Zertifikate ohne
+# Zugriff von certbot auf den Docker-Socket wirksam werden.
+#
+# Erst starten, wenn das erste Zertifikat existiert (siehe docker-compose.certbot.yml). Start:
+#   docker compose -f docker-compose.proxy.yml up -d
+
+name: athletept-proxy
+
+services:
+  proxy:
+    image: nginx:1.27-alpine
+    container_name: athletept3-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN in .env setzen}
+    volumes:
+      - ./nginx/proxy.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    # Reload-Schleife im Hintergrund, dann das normale Entrypoint (setzt die Vorlage ein).
+    entrypoint:
+      - /bin/sh
+      - -c
+      - (while :; do sleep 6h; nginx -s reload; done) & exec /docker-entrypoint.sh nginx -g 'daemon off;'
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    name: athletept-proxy
+    external: true
