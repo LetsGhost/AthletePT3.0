@@ -4,6 +4,8 @@
 # Prüft zuerst den Code (npm run check, abschaltbar mit --skip-check) und baut dann
 # athletept-api und/oder athletept-web für linux/amd64. Jedes Image bekommt den Tag (Standard:
 # kurzer Git-Hash, mit "-dirty" bei uncommitteten Änderungen) und zusätzlich "latest".
+# Danach löscht es ältere athletept-Images der gebauten Dienste. Es bleiben: der neue Tag,
+# "latest", "previous" (Rollback von deploy.sh) und alles, was ein Container noch nutzt.
 #
 # Aufruf:
 #   ./deploy/build-images.sh                    # beide Images
@@ -20,6 +22,7 @@
 #   --push               Images in die Registry schieben (braucht --registry)
 #   --save               Images als .tar.gz nach deploy/out speichern (Server: docker load -i <datei>)
 #   --skip-check         npm run check überspringen
+#   --keep-old           alte Images nicht löschen
 
 set -euo pipefail
 
@@ -33,6 +36,7 @@ platform="linux/amd64"
 push=false
 save=false
 skip_check=false
+keep_old=false
 targets=()
 
 fail() { echo "Fehler: $*" >&2; exit 1; }
@@ -47,7 +51,8 @@ while [[ $# -gt 0 ]]; do
     --push) push=true ;;
     --save) save=true ;;
     --skip-check) skip_check=true ;;
-    -h | --help) sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --keep-old) keep_old=true ;;
+    -h | --help) sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) fail "Unbekanntes Argument: $1 (siehe --help)" ;;
   esac
   shift
@@ -87,9 +92,16 @@ fi
 
 # ---- Bauen ----
 built=()
+# Images, deren Tags der neue Build übernimmt. Ohne weiteren Tag wären sie danach namenlos und
+# tauchten beim Aufräumen nicht mehr unter ihrem Namen auf.
+replaced=()
 for target in "${targets[@]}"; do
   versioned="${prefix}athletept-$target:$tag"
   latest="${prefix}athletept-$target:latest"
+  for name in "$versioned" "$latest"; do
+    id="$(docker image inspect --format '{{.Id}}' "$name" 2> /dev/null || true)"
+    [[ -n "$id" ]] && replaced+=("$id")
+  done
   step "Baue $versioned"
   docker build --platform "$platform" -f "Dockerfile.$target" -t "$versioned" -t "$latest" .
   built+=("$versioned" "$latest")
@@ -110,6 +122,41 @@ if $save; then
   # gzip spart etwa zwei Drittel; docker load liest .tar.gz direkt.
   docker save "${built[@]}" | gzip > "$archive"
   printf '\033[32mArchiv: %s\033[0m\n' "$archive"
+fi
+
+# ---- Aufräumen ----
+# Ältere Images der gebauten Dienste löschen. Images, die ein Container nutzt (auch gestoppt),
+# lässt Docker ohnehin nicht löschen; sie werden hier gar nicht erst versucht.
+if ! $keep_old; then
+  step "Alte Images löschen"
+  in_use=" $(docker ps -aq | xargs -r docker inspect --format '{{.Image}}' | tr '\n' ' ') "
+  removed=0
+  for target in "${targets[@]}"; do
+    repo="${prefix}athletept-$target"
+    while read -r image_tag image_id; do
+      case "$image_tag" in "$tag" | latest | previous) continue ;; esac
+      [[ "$in_use" == *" $image_id "* ]] && continue
+      # Ohne Tag (z. B. alter Stand eines neu vergebenen Tags) nur über die ID löschbar.
+      ref="$repo:$image_tag"
+      [[ "$image_tag" == "<none>" ]] && ref="$image_id"
+      if docker image rm "$ref" > /dev/null 2>&1; then
+        echo "  gelöscht: $repo:$image_tag"
+        (( removed += 1 ))
+      else
+        echo "  übersprungen (noch verwendet): $repo:$image_tag"
+      fi
+    done < <(docker image ls --no-trunc --format '{{.Tag}} {{.ID}}' "$repo")
+  done
+  # Frühere Stände übernommener Tags. Hat eins noch einen anderen Tag (z. B. previous) oder ist es
+  # schon weg, schlägt das Löschen fehl und es bleibt, wie es ist.
+  for id in ${replaced[@]+"${replaced[@]}"}; do
+    [[ "$in_use" == *" $id "* ]] && continue
+    if docker image rm "$id" > /dev/null 2>&1; then
+      echo "  gelöscht: früherer Stand ${id:7:12}"
+      (( removed += 1 ))
+    fi
+  done
+  echo "  $removed alte Images gelöscht."
 fi
 
 # ---- Zusammenfassung ----

@@ -12,6 +12,9 @@
     -Save   Images als komprimiertes Archiv nach deploy/out speichern, zum Kopieren auf den
             Server ohne Registry (dort: docker load -i <datei>)
 
+  Zum Schluss löscht es ältere athletept-Images (abschaltbar mit -KeepOld). Es bleiben: der neue
+  Tag, "latest", "previous" (Rollback von deploy.sh) und alles, was ein Container noch nutzt.
+
 .EXAMPLE
   .\deploy\build-images.ps1
   .\deploy\build-images.ps1 -Save
@@ -25,7 +28,8 @@ param(
   [string]$Platform = "linux/amd64",
   [switch]$Push,
   [switch]$Save,
-  [switch]$SkipCheck
+  [switch]$SkipCheck,
+  [switch]$KeepOld
 )
 
 $ErrorActionPreference = "Stop"
@@ -44,6 +48,14 @@ function Invoke-Native {
   if ($LASTEXITCODE -ne 0) {
     throw "Fehlgeschlagen: $Description (Exit-Code $LASTEXITCODE)"
   }
+}
+
+# Wie Invoke-Native, aber still und ohne Abbruch: liefert stdout, Erfolg steht in $LASTEXITCODE.
+function Invoke-Quiet {
+  param([scriptblock]$Command)
+  $previous = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try { & $Command 2> $null } finally { $ErrorActionPreference = $previous }
 }
 
 # ---- Voraussetzungen ----
@@ -80,9 +92,16 @@ if (-not $SkipCheck) {
 
 # ---- Bauen ----
 $built = @()
+# Images, deren Tags der neue Build übernimmt. Ohne weiteren Tag wären sie danach namenlos und
+# tauchten beim Aufräumen nicht mehr unter ihrem Namen auf.
+$replaced = @()
 foreach ($image in $images) {
   $versioned = "$prefix$($image.Name):$Tag"
   $latest = "$prefix$($image.Name):latest"
+  foreach ($name in $versioned, $latest) {
+    $id = Invoke-Quiet { docker image inspect --format "{{.Id}}" $name }
+    if ($LASTEXITCODE -eq 0 -and $id) { $replaced += "$id".Trim() }
+  }
   Invoke-Native "Baue $versioned" {
     docker build --platform $Platform -f $image.Dockerfile -t $versioned -t $latest .
   }
@@ -110,6 +129,47 @@ if ($Save) {
   try { $in.CopyTo($zip) } finally { $zip.Dispose(); $out.Dispose(); $in.Dispose() }
   Remove-Item $tar
   Write-Host "Archiv: $gz" -ForegroundColor Green
+}
+
+# ---- Aufräumen ----
+# Ältere Images löschen. Images, die ein Container nutzt (auch gestoppt), lässt Docker ohnehin
+# nicht löschen; sie werden hier gar nicht erst versucht.
+if (-not $KeepOld) {
+  Write-Host "==> Alte Images löschen" -ForegroundColor Cyan
+  $containers = @(Invoke-Quiet { docker ps -aq })
+  $inUse = @()
+  if ($containers.Count -gt 0) {
+    $inUse = @(Invoke-Quiet { docker inspect --format "{{.Image}}" @containers })
+  }
+  $removed = 0
+  foreach ($image in $images) {
+    $repo = "$prefix$($image.Name)"
+    foreach ($line in @(Invoke-Quiet { docker image ls --no-trunc --format "{{.Tag}} {{.ID}}" $repo })) {
+      $imageTag, $imageId = "$line".Trim().Split(" ", 2)
+      if ($imageTag -in @($Tag, "latest", "previous") -or $imageId -in $inUse) { continue }
+      # Ohne Tag (z. B. alter Stand eines neu vergebenen Tags) nur über die ID löschbar.
+      $ref = if ($imageTag -eq "<none>") { $imageId } else { "${repo}:$imageTag" }
+      Invoke-Quiet { docker image rm $ref } | Out-Null
+      if ($LASTEXITCODE -eq 0) {
+        Write-Host "  gelöscht: ${repo}:$imageTag"
+        $removed++
+      }
+      else {
+        Write-Host "  übersprungen (noch verwendet): ${repo}:$imageTag"
+      }
+    }
+  }
+  # Frühere Stände übernommener Tags. Hat eins noch einen anderen Tag (z. B. previous) oder ist es
+  # schon weg, schlägt das Löschen fehl und es bleibt, wie es ist.
+  foreach ($id in $replaced) {
+    if ($id -in $inUse) { continue }
+    Invoke-Quiet { docker image rm $id } | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+      Write-Host "  gelöscht: früherer Stand $($id.Substring(7, 12))"
+      $removed++
+    }
+  }
+  Write-Host "  $removed alte Images gelöscht."
 }
 
 # ---- Zusammenfassung ----
