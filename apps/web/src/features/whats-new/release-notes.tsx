@@ -2,7 +2,9 @@
  * Inhalte des „Was ist neu“-Dialogs. Neueste Version OBEN einfügen.
  * Anleitung: README.md in diesem Ordner.
  */
-import { LayoutGrid, Plus, Timer, Trophy } from "lucide-react";
+import { CalendarCheck, LayoutGrid, Plus, Timer, Trophy } from "lucide-react";
+
+import upperBody from "@/features/plans/images/upper-body.svg";
 
 import {
   PreviewButton,
@@ -19,7 +21,9 @@ import {
   PreviewStepper,
   PreviewText,
   PreviewTextGroup,
+  PreviewThumb,
   PreviewTile,
+  PreviewWeek,
 } from "./preview-kit";
 import type { WhatsNewRelease } from "./types";
 
@@ -30,6 +34,31 @@ export const releaseNotes: WhatsNewRelease[] = [
     date: "2026-10-18",
     roles: ["athlete"],
     items: [
+      {
+        title: "Neue Trainingsseite",
+        text: "Dein nächstes Training steht ganz oben, mit Übungen, Sätzen und Dauer – ein Tipp und du legst los. Passt es heute nicht, sagst du es direkt ab.",
+        icon: CalendarCheck,
+        preview: (
+          <PreviewStack>
+            <PreviewCard tone="accent">
+              <PreviewRow>
+                <PreviewTextGroup grow>
+                  <PreviewText size="sm" tone="accent">
+                    Als Nächstes
+                  </PreviewText>
+                  <PreviewText size="lg">Oberkörper B</PreviewText>
+                  <PreviewText size="sm" muted>
+                    4 Übungen · ~50 min
+                  </PreviewText>
+                </PreviewTextGroup>
+                <PreviewThumb src={upperBody} />
+              </PreviewRow>
+            </PreviewCard>
+            <PreviewWeek days={["done", "done", "free", "next", "free", "free", "free"]} />
+            <PreviewButton>Training starten</PreviewButton>
+          </PreviewStack>
+        ),
+      },
       {
         title: "Pausentimer startet automatisch",
         text: "Hak einen Satz ab und der Countdown aus deinem Plan läuft los. Mit −15 / +15 passt du ihn an, oder du überspringst die Pause.",

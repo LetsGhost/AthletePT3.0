@@ -304,6 +304,37 @@ export function PreviewTile({ filled = false }: { filled?: boolean }) {
   );
 }
 
+/** Woche Mo–So als Punkte: `done` (Haken), `next` (Ring), `free`. */
+export function PreviewWeek({ days }: { days: readonly ("done" | "next" | "free")[] }) {
+  return (
+    <div className="grid w-full grid-cols-7 gap-1">
+      {days.map((day, i) => (
+        <span
+          key={i}
+          className={cn(
+            "mx-auto flex size-7 items-center justify-center rounded-full",
+            day === "done" && "bg-primary text-on-primary",
+            day === "next" && "border-accent bg-accent/8 border-2",
+            day === "free" && "bg-surface",
+          )}
+        >
+          {day === "done" && <Check className="size-3.5" strokeWidth={3} />}
+          {day === "next" && <span className="bg-accent size-1.5 rounded-full" />}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Kleines quadratisches Bild, z. B. das Muskelbild eines Trainingstags. */
+export function PreviewThumb({ src }: { src: string }) {
+  return (
+    <span className="bg-surface flex size-14 shrink-0 items-center justify-center rounded-xl">
+      <img src={src} alt="" className="max-h-[86%] max-w-[86%]" />
+    </span>
+  );
+}
+
 /**
  * Screenshot oder Grafik. Bild in diesem Ordner unter `images/` ablegen und importieren:
  * `import timer from "./images/3.2-timer.webp";` → `<PreviewImage src={timer} />`.

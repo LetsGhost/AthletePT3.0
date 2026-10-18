@@ -15,6 +15,11 @@ const longDate = new Intl.DateTimeFormat("de-DE", {
   month: "long",
   year: "numeric",
 });
+const dayMonth = new Intl.DateTimeFormat("de-DE", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+});
 
 function toLocal(date: string) {
   const [year, month, day] = date.split("-").map(Number);
@@ -29,6 +34,11 @@ export function formatWeekdayDate(date: string) {
 /** „Dienstag, 13. Oktober 2026“ */
 export function formatLongDate(date: string) {
   return longDate.format(toLocal(date));
+}
+
+/** „Dienstag, 13. Oktober“ */
+export function formatDayMonth(date: string) {
+  return dayMonth.format(toLocal(date));
 }
 
 /** „KW 42 · 12.–18. Okt.“ */

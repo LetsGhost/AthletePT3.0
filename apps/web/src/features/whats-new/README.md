@@ -165,6 +165,8 @@ preview: <PreviewImage src={wochenplan} />,
 | `PreviewProgress value={0.7}`          | Fortschrittsbalken (0 bis 1)                               |
 | `PreviewIcon icon tone size`           | Großes leuchtendes Icon                                    |
 | `PreviewTile filled`                   | Platzhalter-Kachel                                         |
+| `PreviewWeek days`                     | Woche Mo–So als Punkte (`"done"`, `"next"`, `"free"`)      |
+| `PreviewThumb src`                     | Kleines quadratisches Bild, z. B. Muskelbild eines Tags    |
 | `PreviewImage src`                     | Screenshot oder Grafik                                     |
 
 Ein vollständiges Beispiel mit Zeile, Karte und Fortschritt ist der Pausentimer in
