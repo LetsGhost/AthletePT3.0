@@ -101,6 +101,8 @@ export async function listExercises(
   const match: Record<string, unknown> = {
     $and: conditions,
     archivedAt: query.archived ? { $ne: null } : null,
+    // Ersetzte Übungen sind auch archiviert nicht mehr relevant, Verweise zeigen aufs Ziel.
+    mergedIntoId: null,
   };
   if (query.equipment) match.equipment = query.equipment;
   if (query.category) match.category = query.category;
@@ -171,6 +173,12 @@ async function findEditable(auth: AuthContext, id: string) {
   const owner = ownerOf(auth, catalog);
   const exercise = await ExerciseModel.findOne({ _id: id, ...visibleFilter(catalog) });
   if (!exercise) throw new NotFoundError("Übung nicht gefunden");
+  if (exercise.mergedIntoId) {
+    throw new ConflictError(
+      "Diese Übung wurde durch eine andere ersetzt und lässt sich nicht mehr ändern.",
+      "exercise_merged",
+    );
+  }
   if (!sameOwner(exercise, owner)) {
     throw new ForbiddenError(
       auth.role === "athlete"
@@ -183,11 +191,15 @@ async function findEditable(auth: AuthContext, id: string) {
 }
 
 /** Namen sind pro Katalog eindeutig (aktive Übungen). Globale und eigene dürfen gleich heißen. */
+/** Zusatz zur Namens-Fehlermeldung beim Übernehmen: Statt zu übernehmen kann man ersetzen. */
+const REPLACE_HINT = ". Ersetze die Übung stattdessen durch die vorhandene.";
+
 async function assertNameFree(
   owner: Owner,
   searchKey: string,
   exceptId?: Types.ObjectId,
   session?: ClientSession,
+  hint = "",
 ) {
   const taken = await ExerciseModel.exists({
     ...owner,
@@ -200,7 +212,7 @@ async function assertNameFree(
       owner.ownerCoachId || owner.ownerAthleteId
         ? "Du hast bereits eine Übung mit diesem Namen"
         : "Im Katalog gibt es bereits eine Übung mit diesem Namen";
-    throw new AppError(409, "exercise_name_taken", message, [{ path: "name", message }]);
+    throw new AppError(409, "exercise_name_taken", message + hint, [{ path: "name", message }]);
   }
 }
 
@@ -346,7 +358,7 @@ export async function adoptExercise(auth: AuthContext, id: string) {
     await getAthleteOfCoach(auth.userId, athleteId.toString(), session);
 
     const owner = { ownerCoachId: new Types.ObjectId(auth.userId), ownerAthleteId: null };
-    await assertNameFree(owner, exercise.searchKey, undefined, session);
+    await assertNameFree(owner, exercise.searchKey, undefined, session, REPLACE_HINT);
     exercise.set(owner);
     await exercise.save({ session });
     await ExerciseNoticeModel.create(
@@ -405,7 +417,7 @@ export async function publishExercise(id: string) {
     if (!exercise) throw new NotFoundError("Übung nicht gefunden");
     const coachId = exercise.ownerCoachId!;
 
-    await assertNameFree(GLOBAL, exercise.searchKey, undefined, session);
+    await assertNameFree(GLOBAL, exercise.searchKey, undefined, session, REPLACE_HINT);
     exercise.set({ ...GLOBAL, submittedAt: null });
     await exercise.save({ session });
     await ExerciseNoticeModel.create(

@@ -5,6 +5,7 @@ import type {
   ExerciseListResponse,
   ExerciseNoticeListResponse,
   OwnedExerciseListResponse,
+  ReplaceExerciseRequest,
   UpdateExerciseRequest,
 } from "@athletept/shared";
 import {
@@ -148,4 +149,10 @@ export function useDismissNotice() {
       api<void>(`/exercises/notices/${encodeURIComponent(id)}`, { method: "DELETE" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: noticeKey }),
   });
+}
+
+export function useReplaceExercise() {
+  return useExerciseMutation(({ id, ...body }: ReplaceExerciseRequest & { id: string }) =>
+    api<Exercise>(`/exercises/${encodeURIComponent(id)}/replace`, { method: "POST", body }),
+  );
 }

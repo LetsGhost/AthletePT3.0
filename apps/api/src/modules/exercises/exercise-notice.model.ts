@@ -11,6 +11,8 @@ const exerciseNoticeSchema = new Schema(
     kind: { type: String, enum: exerciseNoticeKinds, required: true },
     exerciseId: { type: Schema.Types.ObjectId, ref: "Exercise", required: true },
     exerciseName: { type: String, required: true },
+    replacementName: { type: String, default: null },
+    reason: { type: String, default: null },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );
@@ -25,6 +27,8 @@ export function toExerciseNoticeDto(notice: ExerciseNoticeDocument): ExerciseNot
     kind: notice.kind,
     exerciseId: notice.exerciseId.toString(),
     exerciseName: notice.exerciseName,
+    replacementName: notice.replacementName ?? null,
+    reason: notice.reason ?? null,
     createdAt: notice.createdAt.toISOString(),
   };
 }

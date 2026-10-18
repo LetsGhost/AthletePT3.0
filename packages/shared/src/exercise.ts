@@ -229,11 +229,23 @@ export const ownedExerciseListResponseSchema = z.object({
   items: z.array(ownedExerciseSchema),
 });
 
+export const MAX_REPLACE_REASON_LENGTH = 500;
+
+/**
+ * Ersetzt eine private Übung (Coach) bzw. eine vorgeschlagene Coach-Übung (Sysadmin) durch eine
+ * vorhandene Katalogübung. Die Begründung sieht der bisherige Besitzer im Hinweis.
+ */
+export const replaceExerciseRequestSchema = z.object({
+  targetId: objectIdSchema,
+  reason: optionalText(MAX_REPLACE_REASON_LENGTH).default(null),
+});
+
 /**
  * Hinweis an den bisherigen Besitzer: `adopted` (Coach hat die private Übung in seinen Katalog
- * übernommen), `published` (Sysadmin hat die Coach-Übung in den globalen Katalog übernommen).
+ * übernommen), `published` (Sysadmin hat die Coach-Übung in den globalen Katalog übernommen),
+ * `replaced` (die Übung wurde durch eine Katalogübung ersetzt).
  */
-export const exerciseNoticeKinds = ["adopted", "published"] as const;
+export const exerciseNoticeKinds = ["adopted", "published", "replaced"] as const;
 export type ExerciseNoticeKind = (typeof exerciseNoticeKinds)[number];
 
 export const exerciseNoticeSchema = z.object({
@@ -241,6 +253,10 @@ export const exerciseNoticeSchema = z.object({
   kind: z.enum(exerciseNoticeKinds),
   exerciseId: objectIdSchema,
   exerciseName: z.string(),
+  /** Nur bei `replaced`: Name der Übung, die stattdessen verwendet wird. */
+  replacementName: z.string().nullable(),
+  /** Nur bei `replaced`: Begründung, falls angegeben. */
+  reason: z.string().nullable(),
   createdAt: z.string(),
 });
 
@@ -255,5 +271,6 @@ export type ExerciseNotice = z.infer<typeof exerciseNoticeSchema>;
 export type ExerciseNoticeListResponse = z.infer<typeof exerciseNoticeListResponseSchema>;
 export type CreateExerciseRequest = z.input<typeof createExerciseRequestSchema>;
 export type UpdateExerciseRequest = z.input<typeof updateExerciseRequestSchema>;
+export type ReplaceExerciseRequest = z.input<typeof replaceExerciseRequestSchema>;
 export type ExerciseListQuery = z.input<typeof exerciseListQuerySchema>;
 export type ExerciseListResponse = z.infer<typeof exerciseListResponseSchema>;

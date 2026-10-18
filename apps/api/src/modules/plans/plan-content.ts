@@ -10,6 +10,7 @@ import { Types, type ClientSession } from "mongoose";
 import type { z } from "zod";
 
 import { AppError, ValidationError } from "../../lib/errors";
+import { resolveMerged } from "../exercises/exercise-merge";
 import { ExerciseModel, type ExerciseDocument } from "../exercises/exercise.model";
 import type { StoredContent, StoredDay } from "./plan-content.model";
 
@@ -52,6 +53,7 @@ async function loadExercises(ids: readonly (Types.ObjectId | string)[], session?
  * - Übungsnamen setzt der Server: aktueller Name aus dem Katalog, wenn der Coach die Übung sieht,
  *   sonst die bisherige Kopie.
  * - Bestehende IDs bleiben, neue Einträge bekommen eine neue ID. Unbekannte IDs sind ein Fehler.
+ * - Ersetzte Übungen (`mergedIntoId`) werden still durch ihre Nachfolgerin ersetzt.
  * - Der Plan-Typ wird pro Tag und für den ganzen Plan berechnet.
  */
 export async function buildContent(
@@ -73,11 +75,14 @@ export async function buildContent(
       if (x.exerciseId) previousNames.set(x.exerciseId.toString(), x.name);
   }
 
-  const referenced = input.days.flatMap((day) => [
+  const requested = input.days.flatMap((day) => [
     ...day.exercises.map((x) => x.exerciseId),
     ...day.warmup.flatMap((x) => (x.exerciseId ? [x.exerciseId] : [])),
   ]);
-  const exercises = await loadExercises(referenced, session);
+  // Ersetzte Übungen, z. B. aus einem Editor, der vor dem Ersetzen geöffnet wurde.
+  const redirects = await resolveMerged(requested, session);
+  const current = (exerciseId: string) => redirects.get(exerciseId) ?? exerciseId;
+  const exercises = await loadExercises(requested.map(current), session);
   const errors: FieldError[] = [];
 
   /** Name der Übung oder `null`, wenn sie hier nicht verwendet werden darf. */
@@ -116,21 +121,23 @@ export async function buildContent(
       type: "FULLBODY",
       warmup: day.warmup.map((item, w) => {
         const path = `days.${d}.warmup.${w}`;
-        const resolved = item.exerciseId ? resolve(item.exerciseId, `${path}.exerciseId`) : null;
+        const exerciseId = item.exerciseId ? current(item.exerciseId) : null;
+        const resolved = exerciseId ? resolve(exerciseId, `${path}.exerciseId`) : null;
         return {
           _id: checkId(item.id, known.warmup, `${path}.id`),
-          exerciseId: item.exerciseId ? new Types.ObjectId(item.exerciseId) : null,
+          exerciseId: exerciseId ? new Types.ObjectId(exerciseId) : null,
           name: resolved?.name ?? item.name,
           details: item.details,
         };
       }),
       exercises: day.exercises.map((entry, e) => {
         const path = `days.${d}.exercises.${e}`;
-        const resolved = resolve(entry.exerciseId, `${path}.exerciseId`);
+        const exerciseId = current(entry.exerciseId);
+        const resolved = resolve(exerciseId, `${path}.exerciseId`);
         if (resolved) dayTypeInputs.push(resolved.exercise);
         return {
           _id: checkId(entry.id, known.exercises, `${path}.id`),
-          exerciseId: new Types.ObjectId(entry.exerciseId),
+          exerciseId: new Types.ObjectId(exerciseId),
           exerciseName: resolved?.name ?? "",
           restSeconds: entry.restSeconds,
           notes: entry.notes,

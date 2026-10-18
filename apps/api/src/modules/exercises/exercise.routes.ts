@@ -6,11 +6,13 @@ import {
   exerciseSchema,
   objectIdSchema,
   ownedExerciseListResponseSchema,
+  replaceExerciseRequestSchema,
   updateExerciseRequestSchema,
 } from "@athletept/shared";
 import { z } from "zod";
 
 import { createModuleRouter } from "../../lib/router";
+import { replaceExercise } from "./exercise-merge";
 import * as exerciseService from "./exercise.service";
 
 const exercises = createModuleRouter("/exercises", "Übungen");
@@ -194,6 +196,23 @@ exercises.route({
   response: exerciseSchema,
   errors: [404, 409],
   handler: ({ params }) => exerciseService.publishExercise(params.id),
+});
+
+exercises.route({
+  method: "post",
+  path: "/:id/replace",
+  summary: "Übung durch eine Katalogübung ersetzen",
+  description:
+    "Coach: private Übung eines eigenen Athleten, Sysadmin: vorgeschlagene Coach-Übung. Alle " +
+    "Pläne, Versionen, Vorlagen und Protokolle verwenden danach das Ziel, die Statistik läuft " +
+    "dort weiter. Die Übung wird archiviert, ihr Besitzer bekommt einen Hinweis mit Begründung. " +
+    "Später gespeicherte Anfragen mit der alten ID werden aufs Ziel umgeleitet. Antwort: das Ziel.",
+  auth: ["coach", "sysadmin"],
+  params: idParams,
+  body: replaceExerciseRequestSchema,
+  response: exerciseSchema,
+  errors: [404],
+  handler: ({ auth, params, body }) => replaceExercise(auth, params.id, body),
 });
 
 export const exerciseRouter = exercises;

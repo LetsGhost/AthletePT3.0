@@ -29,6 +29,11 @@ const exerciseSchema = new Schema(
     seedKey: { type: String, default: null },
     /** Coach-Übung, die der Coach für den globalen Katalog vorgeschlagen hat. */
     submittedAt: { type: Date, default: null },
+    /**
+     * Durch diese Übung ersetzt (immer zusammen mit `archivedAt`). Verweise wurden umgeschrieben;
+     * Anfragen mit der alten ID werden auf die Nachfolgerin umgeleitet.
+     */
+    mergedIntoId: { type: Schema.Types.ObjectId, ref: "Exercise", default: null, index: true },
     archivedAt: { type: Date, default: null },
   },
   { timestamps: true },

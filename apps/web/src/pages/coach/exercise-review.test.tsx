@@ -110,6 +110,45 @@ describe("Übungen der Athleten (Coach)", () => {
     ).toBeInTheDocument();
   });
 
+  it("ersetzt eine Athletenübung durch eine Katalogübung mit Begründung", async () => {
+    signIn("coach");
+    const squat = buildExercise({ id: "6acd3920c0072ec254663c02", name: "Kniebeuge" });
+    mockList([squat]);
+    let body: unknown;
+    let pending: OwnedExercise[] = [pistol];
+    server.use(
+      http.get(apiUrl("/exercises/athlete-exercises"), () => HttpResponse.json({ items: pending })),
+      http.post(apiUrl(`/exercises/${pistol.id}/replace`), async ({ request }) => {
+        body = await request.json();
+        pending = [];
+        return HttpResponse.json(squat);
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp("/coach/exercises");
+
+    await user.click(await screen.findByRole("radio", { name: "Von Athleten (1)" }));
+    await user.click(await screen.findByRole("button", { name: "Pistol Squat ersetzen" }));
+    const dialog = screen.getByRole("dialog", { name: "„Pistol Squat“ ersetzen" });
+    expect(dialog).toHaveTextContent("Pläne und Trainings von Anna");
+
+    // Ohne Auswahl: verständlicher Fehler statt Anfrage.
+    await user.click(within(dialog).getByRole("button", { name: "Ersetzen" }));
+    expect(within(dialog).getByText(/Wähle die Übung/)).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("combobox", { name: "Ersetzen durch" }));
+    await user.click(await screen.findByRole("option", { name: /Kniebeuge/ }));
+    expect(within(dialog).getByText("Kniebeuge")).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText(/^Begründung/), "Das ist unsere Kniebeuge.");
+    await user.click(within(dialog).getByRole("button", { name: "Ersetzen" }));
+
+    expect(
+      await screen.findByText("„Pistol Squat“ durch „Kniebeuge“ ersetzt."),
+    ).toBeInTheDocument();
+    expect(body).toEqual({ targetId: squat.id, reason: "Das ist unsere Kniebeuge." });
+    expect(await screen.findByText("Keine neuen Übungen")).toBeInTheDocument();
+  });
+
   it("schlägt eigene Übungen für den globalen Katalog vor und zieht zurück", async () => {
     signIn("coach");
     const own = buildExercise({ id: "6acd3920c0072ec254663c03", name: "Sled Push", scope: "own" });
@@ -150,6 +189,8 @@ describe("Übungen der Athleten (Coach)", () => {
         kind: "published",
         exerciseId: pistol.id,
         exerciseName: "Sled Push",
+        replacementName: null,
+        reason: null,
         createdAt: "2026-10-18T10:00:00.000Z",
       },
     ];
@@ -300,6 +341,34 @@ describe("Meine Übungen (Athlet)", () => {
     expect(screen.getByRole("heading", { level: 3, name: /Kniebeuge/ })).toBeInTheDocument();
   });
 
+  it("erklärt ersetzte Übungen samt Begründung", async () => {
+    signIn("athlete");
+    server.use(
+      http.get(apiUrl("/me/plan"), () => HttpResponse.json({ plan: null })),
+      http.get(apiUrl("/exercises/notices"), () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: "6acd3920c0072ec254663d03",
+              kind: "replaced",
+              exerciseId: pistol.id,
+              exerciseName: "Tiefe Hocke",
+              replacementName: "Kniebeuge",
+              reason: "Das ist unsere Kniebeuge.",
+              createdAt: "2026-10-18T10:00:00.000Z",
+            },
+          ] satisfies ExerciseNotice[],
+        }),
+      ),
+    );
+    renderApp("/plan");
+
+    expect(
+      await screen.findByText(/Dein Coach hat „Tiefe Hocke“ durch „Kniebeuge“ ersetzt/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("„Das ist unsere Kniebeuge.“")).toBeInTheDocument();
+  });
+
   it("zeigt Hinweise auf der Trainingsseite und den Weg zu den eigenen Übungen", async () => {
     signIn("athlete");
     server.use(
@@ -315,6 +384,8 @@ describe("Meine Übungen (Athlet)", () => {
               kind: "adopted",
               exerciseId: pistol.id,
               exerciseName: "Pistol Squat",
+              replacementName: null,
+              reason: null,
               createdAt: "2026-10-18T10:00:00.000Z",
             },
           ] satisfies ExerciseNotice[],

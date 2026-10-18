@@ -243,6 +243,9 @@ function CoachInbox() {
       ownerLabel={(x) => `von ${x.owner.name}`}
       intro="Übungen, die deine Athleten für ihre Pläne angelegt haben. Übernimmst du eine, steht sie in deinem Katalog und gehört dir. Der Athlet kann sie weiter verwenden, aber nicht mehr ändern."
       takenMessage={(name) => `„${name}“ ist jetzt in deinem Katalog.`}
+      replaceConsequence={(x) =>
+        `Gibt es die Übung schon? Dann verwenden Pläne und Trainings von ${x.owner.name} danach die gewählte, der Verlauf läuft dort weiter. ${x.owner.name} bekommt einen Hinweis.`
+      }
       emptyTitle="Keine neuen Übungen"
       emptyDescription="Legen deine Athleten mit eigenem Trainingsplan Übungen an, findest du sie hier."
     />
@@ -257,6 +260,9 @@ function SysadminInbox() {
       ownerLabel={(x) => `von Coach ${x.owner.name}`}
       intro="Übungen, die Coaches für den globalen Katalog vorgeschlagen haben. Übernimmst du eine, sehen sie alle Coaches, ändern kannst nur noch du."
       takenMessage={(name) => `„${name}“ ist jetzt im globalen Katalog.`}
+      replaceConsequence={(x) =>
+        `Gibt es die Übung schon global? Dann verwenden alle Pläne, Vorlagen und Trainings danach die gewählte. Coach ${x.owner.name} bekommt einen Hinweis.`
+      }
       emptyTitle="Keine Vorschläge"
       emptyDescription="Schlagen Coaches eigene Übungen vor, findest du sie hier."
     />

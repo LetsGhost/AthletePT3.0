@@ -5,7 +5,7 @@ import {
   type OwnedExerciseListResponse,
 } from "@athletept/shared";
 import type { UseMutationResult, UseQueryResult } from "@tanstack/react-query";
-import { ArrowUpFromLine, Eye, Inbox } from "lucide-react";
+import { ArrowUpFromLine, Eye, Inbox, Replace } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { errorMessage } from "@/lib/http";
 
 import { ExerciseDetailsDialog } from "./exercise-details-dialog";
 import { muscleSummary } from "./labels";
+import { ReplaceExerciseDialog } from "./replace-exercise-dialog";
 
 interface OwnedExerciseListProps {
   query: UseQueryResult<OwnedExerciseListResponse>;
@@ -28,6 +29,8 @@ interface OwnedExerciseListProps {
   intro: string;
   /** Meldung nach dem Übernehmen. */
   takenMessage: (name: string) => string;
+  /** Erklärung im Ersetzen-Dialog, was mit Plänen und Trainings passiert. */
+  replaceConsequence: (exercise: OwnedExercise) => string;
   emptyTitle: string;
   emptyDescription: string;
 }
@@ -42,10 +45,12 @@ export function OwnedExerciseList({
   ownerLabel,
   intro,
   takenMessage,
+  replaceConsequence,
   emptyTitle,
   emptyDescription,
 }: OwnedExerciseListProps) {
   const [showing, setShowing] = useState<OwnedExercise | null>(null);
+  const [replacing, setReplacing] = useState<OwnedExercise | null>(null);
 
   const run = async (exercise: OwnedExercise) => {
     try {
@@ -96,11 +101,26 @@ export function OwnedExerciseList({
                       >
                         <ArrowUpFromLine aria-hidden="true" className="size-4" /> Übernehmen
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`${exercise.name} ersetzen`}
+                        onClick={() => setReplacing(exercise)}
+                      >
+                        <Replace aria-hidden="true" className="size-4" /> Ersetzen
+                      </Button>
                     </div>
                   </Card>
                 </li>
               ))}
             </ul>
+            {replacing && (
+              <ReplaceExerciseDialog
+                exercise={replacing}
+                consequence={replaceConsequence(replacing)}
+                onOpenChange={(open) => !open && setReplacing(null)}
+              />
+            )}
             {showing && (
               <ExerciseDetailsDialog
                 exercise={showing}
