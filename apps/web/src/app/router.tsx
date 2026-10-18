@@ -69,6 +69,7 @@ export const routes: RouteObject[] = [
                     ...page(() => import("@/pages/athlete/manage-plan-page")),
                     ...wide,
                   },
+                  { path: "/exercises", ...page(() => import("@/pages/athlete/exercises-page")) },
                   { path: "/workouts", ...page(() => import("@/pages/athlete/workouts-page")) },
                   {
                     path: "/entwicklung",

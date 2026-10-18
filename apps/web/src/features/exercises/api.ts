@@ -3,6 +3,8 @@ import type {
   Exercise,
   ExerciseListQuery,
   ExerciseListResponse,
+  ExerciseNoticeListResponse,
+  OwnedExerciseListResponse,
   UpdateExerciseRequest,
 } from "@athletept/shared";
 import {
@@ -89,4 +91,61 @@ export function useRestoreExercise() {
   return useExerciseMutation((id: string) =>
     api<Exercise>(`/exercises/${encodeURIComponent(id)}/restore`, { method: "POST" }),
   );
+}
+
+/** Private Übungen der eigenen Athleten (Coach). */
+export function useAthleteExercises({ enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: [...exerciseKeys.all, "athlete-exercises"],
+    queryFn: () => api<OwnedExerciseListResponse>("/exercises/athlete-exercises"),
+    enabled,
+  });
+}
+
+/** Für den globalen Katalog vorgeschlagene Coach-Übungen (Sysadmin). */
+export function useExerciseSubmissions({ enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: [...exerciseKeys.all, "submissions"],
+    queryFn: () => api<OwnedExerciseListResponse>("/exercises/submissions"),
+    enabled,
+  });
+}
+
+const exerciseAction = (action: "adopt" | "submit" | "withdraw" | "publish") => (id: string) =>
+  api<Exercise>(`/exercises/${encodeURIComponent(id)}/${action}`, { method: "POST" });
+
+export function useAdoptExercise() {
+  return useExerciseMutation(exerciseAction("adopt"));
+}
+
+export function useSubmitExercise() {
+  return useExerciseMutation(exerciseAction("submit"));
+}
+
+export function useWithdrawExercise() {
+  return useExerciseMutation(exerciseAction("withdraw"));
+}
+
+export function usePublishExercise() {
+  return useExerciseMutation(exerciseAction("publish"));
+}
+
+const noticeKey = [...exerciseKeys.all, "notices"] as const;
+
+/** Hinweise zu übernommenen Übungen (Athlet und Coach). */
+export function useExerciseNotices({ enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: noticeKey,
+    queryFn: () => api<ExerciseNoticeListResponse>("/exercises/notices"),
+    enabled,
+  });
+}
+
+export function useDismissNotice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<void>(`/exercises/notices/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: noticeKey }),
+  });
 }

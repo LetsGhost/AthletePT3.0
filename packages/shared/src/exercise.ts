@@ -170,7 +170,7 @@ export const updateExerciseRequestSchema = z
   )
   .refine(musclesDisjoint, disjointIssue);
 
-export const exerciseScopes = ["global", "own"] as const;
+export const exerciseScopes = ["global", "own", "private"] as const;
 export type ExerciseScope = (typeof exerciseScopes)[number];
 
 export const exerciseSchema = z.object({
@@ -184,8 +184,13 @@ export const exerciseSchema = z.object({
   description: z.string().nullable(),
   executionNotes: z.string().nullable(),
   videoUrl: z.string().nullable(),
-  /** `global`: Katalog des Sysadmins, `own`: eigene Übung des anfragenden Coaches. */
+  /**
+   * `global`: Katalog des Sysadmins, `own`: Katalog des Coaches (des anfragenden Coaches bzw.
+   * des Coaches des Athleten), `private`: private Übung eines Athleten.
+   */
   scope: z.enum(exerciseScopes),
+  /** Coach-Übung, die der Coach für den globalen Katalog vorgeschlagen hat. */
+  submitted: z.boolean(),
   archived: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -198,7 +203,7 @@ export const exerciseListQuerySchema = paginationQuerySchema.extend({
   muscle: muscleGroupSchema.optional(),
   equipment: equipmentSchema.optional(),
   category: exerciseCategorySchema.optional(),
-  /** Nur für Coaches: nur Katalog oder nur eigene. Ohne Angabe beides. */
+  /** Nur Katalog, nur Coach-Übungen oder (Athleten) nur private. Ohne Angabe alles Sichtbare. */
   scope: z.enum(exerciseScopes).optional(),
   /** `false` (Standard): nur aktive, `true`: nur archivierte. */
   archived: z
@@ -212,7 +217,42 @@ export const exerciseListResponseSchema = z.object({
   total: z.number().int(),
 });
 
+/**
+ * Übung mit ihrem Besitzer: private Übungen der Athleten (Liste des Coaches) und vorgeschlagene
+ * Übungen der Coaches (Liste des Sysadmins).
+ */
+export const ownedExerciseSchema = exerciseSchema.extend({
+  owner: z.object({ id: objectIdSchema, name: z.string() }),
+});
+
+export const ownedExerciseListResponseSchema = z.object({
+  items: z.array(ownedExerciseSchema),
+});
+
+/**
+ * Hinweis an den bisherigen Besitzer: `adopted` (Coach hat die private Übung in seinen Katalog
+ * übernommen), `published` (Sysadmin hat die Coach-Übung in den globalen Katalog übernommen).
+ */
+export const exerciseNoticeKinds = ["adopted", "published"] as const;
+export type ExerciseNoticeKind = (typeof exerciseNoticeKinds)[number];
+
+export const exerciseNoticeSchema = z.object({
+  id: objectIdSchema,
+  kind: z.enum(exerciseNoticeKinds),
+  exerciseId: objectIdSchema,
+  exerciseName: z.string(),
+  createdAt: z.string(),
+});
+
+export const exerciseNoticeListResponseSchema = z.object({
+  items: z.array(exerciseNoticeSchema),
+});
+
 export type Exercise = z.infer<typeof exerciseSchema>;
+export type OwnedExercise = z.infer<typeof ownedExerciseSchema>;
+export type OwnedExerciseListResponse = z.infer<typeof ownedExerciseListResponseSchema>;
+export type ExerciseNotice = z.infer<typeof exerciseNoticeSchema>;
+export type ExerciseNoticeListResponse = z.infer<typeof exerciseNoticeListResponseSchema>;
 export type CreateExerciseRequest = z.input<typeof createExerciseRequestSchema>;
 export type UpdateExerciseRequest = z.input<typeof updateExerciseRequestSchema>;
 export type ExerciseListQuery = z.input<typeof exerciseListQuerySchema>;

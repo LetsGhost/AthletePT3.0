@@ -5,6 +5,7 @@ import {
   muscleGroups,
   type Exercise,
   type MuscleGroup,
+  type UserRole,
 } from "@athletept/shared";
 
 export function muscleLabel(muscle: MuscleGroup) {
@@ -30,3 +31,13 @@ export const muscleGroupsByRegion = bodyRegions.map((region) => ({
     .filter((muscle) => muscleGroupInfo[muscle].region === region)
     .map((muscle) => ({ value: muscle, label: muscleLabel(muscle) })),
 }));
+
+/**
+ * Kennzeichnung der Herkunft, globale Übungen bleiben ohne. `own` ist beim Athleten der Katalog
+ * seines Coaches.
+ */
+export function scopeLabel(scope: Exercise["scope"], role: UserRole | undefined) {
+  if (scope === "private") return "Privat";
+  if (scope === "own") return role === "athlete" ? "Vom Coach" : "Eigene";
+  return null;
+}

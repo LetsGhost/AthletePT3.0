@@ -3,10 +3,13 @@ import { env } from "./config/env";
 import { connectDatabase, disconnectDatabase } from "./lib/db";
 import { logger } from "./lib/logger/logger";
 import { seedGlobalExercises } from "./modules/exercises/exercise-seed";
+import { ExerciseModel } from "./modules/exercises/exercise.model";
 import { backfillWorkoutStats } from "./modules/stats/exercise-stats.service";
 
 async function main() {
   await connectDatabase();
+  // Idempotent: ersetzt den alten Namensindex (nur Coach) durch den mit privaten Übungen.
+  await ExerciseModel.syncIndexes();
   // Idempotent: ergänzt nur fehlende Startübungen im globalen Katalog.
   await seedGlobalExercises();
   // Idempotent: berechnet fehlende oder veraltete Trainingskennzahlen (Übungsanalyse).

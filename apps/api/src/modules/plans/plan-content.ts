@@ -18,8 +18,18 @@ type ContentInput = z.output<typeof planContentSchema>;
 /** Gespeicherter Inhalt ohne `revision` (die verwaltet der Aufrufer). */
 export type BuiltContent = Omit<StoredContent, "revision">;
 
-function isVisibleTo(exercise: Pick<ExerciseDocument, "ownerCoachId">, coachId: string) {
-  return !exercise.ownerCoachId || exercise.ownerCoachId.toString() === coachId;
+/** Katalog, aus dem eingeplant wird: der des Coaches, beim Athleten auch seine privaten Übungen. */
+export interface PlanCatalog {
+  coachId: string;
+  athleteId?: string;
+}
+
+function isVisibleTo(
+  exercise: Pick<ExerciseDocument, "ownerCoachId" | "ownerAthleteId">,
+  catalog: PlanCatalog,
+) {
+  if (exercise.ownerAthleteId) return exercise.ownerAthleteId.toString() === catalog.athleteId;
+  return !exercise.ownerCoachId || exercise.ownerCoachId.toString() === catalog.coachId;
 }
 
 function allExerciseIds(days: readonly StoredDay[]) {
@@ -45,7 +55,7 @@ async function loadExercises(ids: readonly (Types.ObjectId | string)[], session?
  * - Der Plan-Typ wird pro Tag und für den ganzen Plan berechnet.
  */
 export async function buildContent(
-  coachId: string,
+  catalog: PlanCatalog,
   input: ContentInput,
   previous: Pick<StoredContent, "days"> | null,
   session?: ClientSession,
@@ -73,7 +83,7 @@ export async function buildContent(
   /** Name der Übung oder `null`, wenn sie hier nicht verwendet werden darf. */
   const resolve = (exerciseId: string, path: string) => {
     const exercise = exercises.get(exerciseId);
-    const visible = exercise && isVisibleTo(exercise, coachId);
+    const visible = exercise && isVisibleTo(exercise, catalog);
     const kept = previousNames.get(exerciseId);
     if (exercise && visible && (!exercise.archivedAt || kept !== undefined)) {
       return { name: exercise.name, exercise };
@@ -163,10 +173,10 @@ export function assertComplete(content: Pick<StoredContent, "days">) {
   }
 }
 
-/** Details zu den verwendeten Übungen. `coachId: null` (Athlet): nichts ist auswählbar. */
+/** Details zu den verwendeten Übungen. `catalog: null` (Athlet ohne Planung): nichts auswählbar. */
 export async function exerciseInfos(
   days: readonly StoredDay[],
-  coachId: string | null,
+  catalog: PlanCatalog | null,
 ): Promise<PlanExerciseInfo[]> {
   const exercises = await loadExercises(allExerciseIds(days));
   return [...exercises.values()].map((x) => ({
@@ -180,7 +190,7 @@ export async function exerciseInfos(
     executionNotes: x.executionNotes ?? null,
     videoUrl: x.videoUrl ?? null,
     archived: Boolean(x.archivedAt),
-    selectable: coachId !== null && isVisibleTo(x, coachId) && !x.archivedAt,
+    selectable: catalog !== null && isVisibleTo(x, catalog) && !x.archivedAt,
   }));
 }
 
@@ -215,13 +225,13 @@ export function toDayDtos(days: readonly StoredDay[]): PlanDay[] {
 }
 
 /** Gemeinsame Felder der Antworten für Plan, Version und Vorlage. */
-export async function toContentDto(content: StoredContent, coachId: string | null) {
+export async function toContentDto(content: StoredContent, catalog: PlanCatalog | null) {
   return {
     name: content.name,
     notes: content.notes ?? null,
     type: content.type,
     revision: content.revision,
     days: toDayDtos(content.days),
-    exercises: await exerciseInfos(content.days, coachId),
+    exercises: await exerciseInfos(content.days, catalog),
   };
 }

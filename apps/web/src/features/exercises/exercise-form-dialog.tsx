@@ -26,7 +26,7 @@ import { applyApiErrors } from "@/lib/form";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 import { useCreateExercise, useExerciseSearch, useUpdateExercise } from "./api";
-import { muscleGroupsByRegion } from "./labels";
+import { muscleGroupsByRegion, muscleSummary } from "./labels";
 
 const splitAliases = (value: string) =>
   value
@@ -98,11 +98,16 @@ interface ExerciseFormDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Ohne Übung: neu anlegen. */
   exercise?: Exercise | undefined;
-  /** `own`: Coach legt eigene an (mit Hinweis auf gleichnamige Katalog-Übungen). */
-  catalog: "global" | "own";
+  /**
+   * `own`: Coach legt eigene an (mit Hinweis auf gleichnamige Katalog-Übungen). `private`: Athlet
+   * legt private an (mit Vorschlägen ähnlicher Übungen, Duplikate lehnt die API ab).
+   */
+  catalog: "global" | "own" | "private";
   /** Vorbelegter Name, z. B. aus der Übungsauswahl. */
   initialName?: string;
   onSaved?: (exercise: Exercise) => void;
+  /** Statt anzulegen eine vorgeschlagene Übung verwenden, z. B. in der Übungsauswahl. */
+  onUseExisting?: (exercise: Exercise) => void;
 }
 
 export function ExerciseFormDialog({
@@ -112,6 +117,7 @@ export function ExerciseFormDialog({
   catalog,
   initialName,
   onSaved,
+  onUseExisting,
 }: ExerciseFormDialogProps) {
   const createExercise = useCreateExercise();
   const updateExercise = useUpdateExercise();
@@ -131,6 +137,7 @@ export function ExerciseFormDialog({
   const name = useWatch({ control, name: "name" });
   const primaryMuscles = useWatch({ control, name: "primaryMuscles" }) as MuscleGroup[];
   const sameNameInCatalog = useSameNameInCatalog(catalog === "own" ? name : "");
+  const similar = useSimilarExercises(catalog === "private" && !exercise ? name : "");
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
@@ -153,9 +160,11 @@ export function ExerciseFormDialog({
       onOpenChange={onOpenChange}
       title={exercise ? "Übung bearbeiten" : "Neue Übung"}
       description={
-        catalog === "own"
-          ? "Eigene Übungen siehst nur du."
-          : "Globale Übungen sehen alle Coaches, ändern kannst nur du."
+        catalog === "private"
+          ? "Private Übungen siehst nur du. Dein Coach kann sie prüfen und in seinen Katalog übernehmen."
+          : catalog === "own"
+            ? "Eigene Übungen siehst nur du."
+            : "Globale Übungen sehen alle Coaches, ändern kannst nur du."
       }
     >
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
@@ -172,6 +181,34 @@ export function ExerciseFormDialog({
           }
           {...register("name")}
         />
+        {similar.length > 0 && (
+          <Alert variant="info" title="Meinst du eine dieser Übungen?">
+            <p className="mb-2">Gibt es die Übung schon, verwende bitte die vorhandene.</p>
+            <ul className="flex flex-col gap-2" aria-label="Ähnliche Übungen">
+              {similar.map((item) => (
+                <li key={item.id} className="flex items-center justify-between gap-2">
+                  <span className="min-w-0">
+                    <span className="block font-medium">{item.name}</span>
+                    <span className="text-muted block text-sm">{muscleSummary(item)}</span>
+                  </span>
+                  {onUseExisting && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      aria-label={`${item.name} verwenden`}
+                      onClick={() => {
+                        onUseExisting(item);
+                        onOpenChange(false);
+                      }}
+                    >
+                      Verwenden
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Alert>
+        )}
         <TextField
           label="Synonyme"
           autoComplete="off"
@@ -272,4 +309,11 @@ function useSameNameInCatalog(name: string) {
   );
   if (key.length < 2) return null;
   return search.data?.items.find((item) => exerciseSearchKey(item.name) === key) ?? null;
+}
+
+/** Sichtbare Übungen, deren Name oder Synonym den eingegebenen Namen enthält (höchstens drei). */
+function useSimilarExercises(name: string) {
+  const key = exerciseSearchKey(useDebouncedValue(name, 300));
+  const search = useExerciseSearch({ search: key }, { enabled: key.length >= 3, limit: 3 });
+  return key.length >= 3 ? (search.data?.items ?? []) : [];
 }

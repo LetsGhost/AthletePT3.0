@@ -16,7 +16,7 @@ import { withTransaction } from "../../lib/db";
 import { ConflictError, NotFoundError } from "../../lib/errors";
 import type { AuthContext } from "../../types/express";
 import { getAccessibleAthlete } from "../athletes/athlete-access";
-import { assertComplete, buildContent, toContentDto } from "./plan-content";
+import { assertComplete, buildContent, toContentDto, type PlanCatalog } from "./plan-content";
 import {
   TrainingPlanModel,
   TrainingPlanVersionModel,
@@ -29,13 +29,13 @@ type UpdateInput = z.output<typeof updatePlanRequestSchema>;
 
 const creator = (plan: StoredPlan) => (plan.createdByCoachId ? "coach" : "athlete");
 
-async function toPlanDto(plan: StoredPlan, coachId: string | null): Promise<Plan> {
+async function toPlanDto(plan: StoredPlan, catalog: PlanCatalog | null): Promise<Plan> {
   return {
     id: plan._id.toString(),
     athleteId: plan.athleteId.toString(),
     status: plan.status,
     createdBy: creator(plan),
-    ...(await toContentDto(plan, coachId)),
+    ...(await toContentDto(plan, catalog)),
     activatedAt: plan.activatedAt?.toISOString() ?? null,
     archivedAt: plan.archivedAt?.toISOString() ?? null,
     createdAt: plan.createdAt.toISOString(),
@@ -64,8 +64,13 @@ function toSummary(plan: StoredPlan): PlanSummary {
 async function planAccess(auth: AuthContext, athleteId: string, session?: ClientSession) {
   const athlete = await getAccessibleAthlete(auth, athleteId, "ownPlan", session);
   return {
-    /** Wessen Übungskatalog gilt. Athleten planen mit dem Katalog ihres Coaches. */
-    catalogCoachId: auth.role === "coach" ? auth.userId : String(athlete.coachId),
+    /**
+     * Wessen Übungskatalog gilt. Athleten planen mit dem Katalog ihres Coaches und ihren privaten
+     * Übungen, der Coach sieht private Übungen nicht (er übernimmt sie erst in seinen Katalog).
+     */
+    catalog: (auth.role === "coach"
+      ? { coachId: auth.userId }
+      : { coachId: String(athlete.coachId), athleteId: auth.userId }) satisfies PlanCatalog,
     /** Für `createdByCoachId` und `replacedByCoachId`: `null`, wenn der Athlet selbst ändert. */
     actingCoachId: auth.role === "coach" ? auth.userId : null,
   };
@@ -108,14 +113,14 @@ export async function listPlans(auth: AuthContext, athleteId: string): Promise<P
 }
 
 export async function getPlan(auth: AuthContext, athleteId: string, planId: string) {
-  const { plan, catalogCoachId } = await findPlan(auth, athleteId, planId);
-  return toPlanDto(plan, catalogCoachId);
+  const { plan, catalog } = await findPlan(auth, athleteId, planId);
+  return toPlanDto(plan, catalog);
 }
 
 /** Neue Pläne sind Entwürfe. Der Athlet sieht sie erst nach dem Aktivieren. */
 export async function createPlan(auth: AuthContext, athleteId: string, input: CreateInput) {
-  const { catalogCoachId, actingCoachId } = await planAccess(auth, athleteId);
-  const content = await buildContent(catalogCoachId, input, null);
+  const { catalog, actingCoachId } = await planAccess(auth, athleteId);
+  const content = await buildContent(catalog, input, null);
   const created = await TrainingPlanModel.create({
     athleteId,
     createdByCoachId: actingCoachId,
@@ -123,7 +128,7 @@ export async function createPlan(auth: AuthContext, athleteId: string, input: Cr
     revision: 0,
     ...content,
   });
-  return toPlanDto(await reload(created._id), catalogCoachId);
+  return toPlanDto(await reload(created._id), catalog);
 }
 
 function planConflict() {
@@ -143,13 +148,8 @@ export async function updatePlan(
   planId: string,
   input: UpdateInput,
 ) {
-  const { plan: updated, catalogCoachId } = await withTransaction(async (session) => {
-    const { plan, catalogCoachId, actingCoachId } = await findPlan(
-      auth,
-      athleteId,
-      planId,
-      session,
-    );
+  const { plan: updated, catalog } = await withTransaction(async (session) => {
+    const { plan, catalog, actingCoachId } = await findPlan(auth, athleteId, planId, session);
     if (plan.status === "archived") {
       throw new ConflictError(
         "Archivierte Pläne lassen sich nicht bearbeiten. Dupliziere ihn, um darauf aufzubauen.",
@@ -158,7 +158,7 @@ export async function updatePlan(
     }
     if (plan.revision !== input.revision) throw planConflict();
 
-    const content = await buildContent(catalogCoachId, input, plan, session);
+    const content = await buildContent(catalog, input, plan, session);
     if (plan.status === "active") {
       assertComplete(content);
       await TrainingPlanVersionModel.create(
@@ -184,16 +184,16 @@ export async function updatePlan(
       { session },
     );
     if (result.matchedCount === 0) throw planConflict();
-    return { plan: await reload(plan._id, session), catalogCoachId };
+    return { plan: await reload(plan._id, session), catalog };
   });
-  return toPlanDto(updated, catalogCoachId);
+  return toPlanDto(updated, catalog);
 }
 
 /** Gibt den Plan für den Athleten frei. Der bisher aktive Plan wird archiviert. */
 export async function activatePlan(auth: AuthContext, athleteId: string, planId: string) {
-  const { plan: activated, catalogCoachId } = await withTransaction(async (session) => {
-    const { plan, catalogCoachId } = await findPlan(auth, athleteId, planId, session);
-    if (plan.status === "active") return { plan, catalogCoachId };
+  const { plan: activated, catalog } = await withTransaction(async (session) => {
+    const { plan, catalog } = await findPlan(auth, athleteId, planId, session);
+    if (plan.status === "active") return { plan, catalog };
     assertComplete(plan);
     const now = new Date();
     await TrainingPlanModel.updateMany(
@@ -206,21 +206,21 @@ export async function activatePlan(auth: AuthContext, athleteId: string, planId:
       { $set: { status: "active", activatedAt: now, archivedAt: null }, $inc: { revision: 1 } },
       { session },
     );
-    return { plan: await reload(plan._id, session), catalogCoachId };
+    return { plan: await reload(plan._id, session), catalog };
   });
-  return toPlanDto(activated, catalogCoachId);
+  return toPlanDto(activated, catalog);
 }
 
 /** Archivierte Pläne sieht der Athlet nicht mehr. Sie bleiben für die Historie erhalten. */
 export async function archivePlan(auth: AuthContext, athleteId: string, planId: string) {
-  const { plan, catalogCoachId } = await findPlan(auth, athleteId, planId);
+  const { plan, catalog } = await findPlan(auth, athleteId, planId);
   if (plan.status !== "archived") {
     await TrainingPlanModel.updateOne(
       { _id: plan._id },
       { $set: { status: "archived", archivedAt: new Date() }, $inc: { revision: 1 } },
     );
   }
-  return toPlanDto(await reload(plan._id), catalogCoachId);
+  return toPlanDto(await reload(plan._id), catalog);
 }
 
 /** Nur Entwürfe lassen sich löschen; alles, was der Athlet gesehen hat, wird archiviert. */
@@ -260,7 +260,7 @@ export async function getVersion(
   planId: string,
   revision: number,
 ): Promise<PlanVersion> {
-  const { plan, catalogCoachId } = await findPlan(auth, athleteId, planId);
+  const { plan, catalog } = await findPlan(auth, athleteId, planId);
   const version = await TrainingPlanVersionModel.findOne({
     planId: plan._id,
     revision,
@@ -268,7 +268,7 @@ export async function getVersion(
   if (!version) throw new NotFoundError("Version nicht gefunden");
   return {
     planId: version.planId.toString(),
-    ...(await toContentDto(version, catalogCoachId)),
+    ...(await toContentDto(version, catalog)),
     replacedAt: version.replacedAt.toISOString(),
   };
 }

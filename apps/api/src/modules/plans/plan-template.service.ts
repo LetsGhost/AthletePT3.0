@@ -16,7 +16,7 @@ type UpdateInput = z.output<typeof updatePlanRequestSchema>;
 async function toTemplateDto(template: StoredPlanTemplate, coachId: string): Promise<PlanTemplate> {
   return {
     id: template._id.toString(),
-    ...(await toContentDto(template, coachId)),
+    ...(await toContentDto(template, { coachId })),
     createdAt: template.createdAt.toISOString(),
     updatedAt: template.updatedAt.toISOString(),
   };
@@ -53,7 +53,7 @@ export async function getTemplate(coachId: string, id: string) {
 }
 
 export async function createTemplate(coachId: string, input: CreateInput) {
-  const content = await buildContent(coachId, input, null);
+  const content = await buildContent({ coachId }, input, null);
   const created = await PlanTemplateModel.create({
     ownerCoachId: coachId,
     revision: 0,
@@ -64,7 +64,7 @@ export async function createTemplate(coachId: string, input: CreateInput) {
 
 export async function updateTemplate(coachId: string, id: string, input: UpdateInput) {
   const template = await findTemplate(coachId, id);
-  const content = await buildContent(coachId, input, template);
+  const content = await buildContent({ coachId }, input, template);
   const result = await PlanTemplateModel.updateOne(
     { _id: template._id, revision: input.revision },
     { $set: content, $inc: { revision: 1 } },

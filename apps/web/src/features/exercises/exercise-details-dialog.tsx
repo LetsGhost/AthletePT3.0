@@ -37,7 +37,11 @@ export function ExerciseDetailsDialog({
   exercise: ExerciseDetails;
   onOpenChange: (open: boolean) => void;
 }) {
-  const origin = { global: "Aus dem Übungskatalog", own: "Eigene Übung" } as const;
+  const origin = {
+    global: "Aus dem Übungskatalog",
+    own: "Eigene Übung",
+    private: "Private Übung",
+  } as const;
   return (
     <Dialog
       open

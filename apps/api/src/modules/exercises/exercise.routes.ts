@@ -2,8 +2,10 @@ import {
   createExerciseRequestSchema,
   exerciseListQuerySchema,
   exerciseListResponseSchema,
+  exerciseNoticeListResponseSchema,
   exerciseSchema,
   objectIdSchema,
+  ownedExerciseListResponseSchema,
   updateExerciseRequestSchema,
 } from "@athletept/shared";
 import { z } from "zod";
@@ -13,9 +15,55 @@ import * as exerciseService from "./exercise.service";
 
 const exercises = createModuleRouter("/exercises", "Übungen");
 const idParams = z.object({ id: objectIdSchema });
-const roles = ["coach", "sysadmin"] as const;
-/** Lesen dürfen auch Athleten mit eigenem Trainingsplan (Katalog ihres Coaches). */
-const readRoles = ["coach", "sysadmin", "athlete"] as const;
+/**
+ * Lesen und im eigenen Katalog anlegen und ändern: Coaches, Sysadmin und Athleten mit eigenem
+ * Trainingsplan (Katalog ihres Coaches plus private Übungen, sonst 403).
+ */
+const roles = ["coach", "sysadmin", "athlete"] as const;
+
+// Feste Pfade vor `/:id`, sonst würden sie als ID gelesen.
+exercises.route({
+  method: "get",
+  path: "/athlete-exercises",
+  summary: "Private Übungen der eigenen Athleten",
+  description: "Aktive private Übungen aller Athleten des Coaches, neueste zuerst.",
+  auth: ["coach"],
+  response: ownedExerciseListResponseSchema,
+  handler: ({ auth }) => exerciseService.listAthleteExercises(auth),
+});
+
+exercises.route({
+  method: "get",
+  path: "/submissions",
+  summary: "Vorgeschlagene Übungen",
+  description: "Übungen, die Coaches für den globalen Katalog vorgeschlagen haben, älteste zuerst.",
+  auth: ["sysadmin"],
+  response: ownedExerciseListResponseSchema,
+  handler: () => exerciseService.listSubmissions(),
+});
+
+exercises.route({
+  method: "get",
+  path: "/notices",
+  summary: "Hinweise zu übernommenen Übungen",
+  description:
+    "Hinweise an Athleten (Coach hat eine private Übung übernommen) und Coaches (Sysadmin hat " +
+    "eine vorgeschlagene Übung übernommen), neueste zuerst.",
+  auth: ["athlete", "coach"],
+  response: exerciseNoticeListResponseSchema,
+  handler: ({ auth }) => exerciseService.listNotices(auth),
+});
+
+exercises.route({
+  method: "delete",
+  path: "/notices/:id",
+  summary: "Hinweis wegklicken",
+  auth: ["athlete", "coach"],
+  params: idParams,
+  status: 204,
+  errors: [404],
+  handler: ({ auth, params }) => exerciseService.dismissNotice(auth, params.id),
+});
 
 exercises.route({
   method: "get",
@@ -23,9 +71,9 @@ exercises.route({
   summary: "Übungen suchen",
   description:
     "Coaches sehen den globalen Katalog und ihre eigenen Übungen, der Sysadmin nur den globalen " +
-    "Katalog, Athleten mit eigenem Trainingsplan den Katalog ihres Coaches (sonst 403). Treffer, " +
-    "deren Name mit dem Suchbegriff beginnt, stehen vorne.",
-  auth: readRoles,
+    "Katalog, Athleten mit eigenem Trainingsplan den Katalog ihres Coaches und ihre privaten " +
+    "Übungen (sonst 403). Treffer, deren Name mit dem Suchbegriff beginnt, stehen vorne.",
+  auth: roles,
   query: exerciseListQuerySchema,
   response: exerciseListResponseSchema,
   handler: ({ auth, query }) => exerciseService.listExercises(auth, query),
@@ -35,7 +83,7 @@ exercises.route({
   method: "get",
   path: "/:id",
   summary: "Übung abrufen",
-  auth: readRoles,
+  auth: roles,
   params: idParams,
   response: exerciseSchema,
   errors: [404],
@@ -47,8 +95,9 @@ exercises.route({
   path: "/",
   summary: "Übung anlegen",
   description:
-    "Coaches legen eigene Übungen an, der Sysadmin globale. Namen sind pro Katalog eindeutig " +
-    "(409 `exercise_name_taken`).",
+    "Coaches legen eigene Übungen an, der Sysadmin globale, Athleten private. Namen sind pro " +
+    "Katalog eindeutig (409 `exercise_name_taken`). Athleten können nichts anlegen, dessen Name " +
+    "oder Synonym eine sichtbare Übung trifft (409 `exercise_exists`).",
   auth: roles,
   body: createExerciseRequestSchema,
   status: 201,
@@ -61,7 +110,8 @@ exercises.route({
   method: "patch",
   path: "/:id",
   summary: "Übung bearbeiten",
-  description: "Globale Übungen kann nur der Sysadmin ändern (403 `exercise_readonly`).",
+  description:
+    "Nur Übungen des eigenen Katalogs, andere sichtbare liefern 403 `exercise_readonly`.",
   auth: roles,
   params: idParams,
   body: updateExerciseRequestSchema,
@@ -74,7 +124,9 @@ exercises.route({
   method: "post",
   path: "/:id/archive",
   summary: "Übung archivieren",
-  description: "Verschwindet aus der Auswahl, bestehende Pläne behalten sie.",
+  description:
+    "Verschwindet aus der Auswahl, bestehende Pläne behalten sie. Ein Vorschlag für den " +
+    "globalen Katalog wird zurückgezogen.",
   auth: roles,
   params: idParams,
   response: exerciseSchema,
@@ -91,6 +143,57 @@ exercises.route({
   response: exerciseSchema,
   errors: [404, 409],
   handler: ({ auth, params }) => exerciseService.restoreExercise(auth, params.id),
+});
+
+exercises.route({
+  method: "post",
+  path: "/:id/adopt",
+  summary: "Private Übung eines Athleten übernehmen",
+  description:
+    "Verschiebt die Übung in den Katalog des Coaches (ID bleibt). Der Athlet kann sie danach " +
+    "nicht mehr ändern und bekommt einen Hinweis. Gleicher Name im Katalog: 409 " +
+    "`exercise_name_taken`.",
+  auth: ["coach"],
+  params: idParams,
+  response: exerciseSchema,
+  errors: [404, 409],
+  handler: ({ auth, params }) => exerciseService.adoptExercise(auth, params.id),
+});
+
+exercises.route({
+  method: "post",
+  path: "/:id/submit",
+  summary: "Für den globalen Katalog vorschlagen",
+  auth: ["coach"],
+  params: idParams,
+  response: exerciseSchema,
+  errors: [404, 409],
+  handler: ({ auth, params }) => exerciseService.setSubmitted(auth, params.id, true),
+});
+
+exercises.route({
+  method: "post",
+  path: "/:id/withdraw",
+  summary: "Vorschlag zurückziehen",
+  auth: ["coach"],
+  params: idParams,
+  response: exerciseSchema,
+  errors: [404],
+  handler: ({ auth, params }) => exerciseService.setSubmitted(auth, params.id, false),
+});
+
+exercises.route({
+  method: "post",
+  path: "/:id/publish",
+  summary: "Vorgeschlagene Übung in den globalen Katalog übernehmen",
+  description:
+    "Verschiebt die Übung in den globalen Katalog (ID bleibt). Der Coach kann sie danach nicht " +
+    "mehr ändern und bekommt einen Hinweis. Gleicher Name im Katalog: 409 `exercise_name_taken`.",
+  auth: ["sysadmin"],
+  params: idParams,
+  response: exerciseSchema,
+  errors: [404, 409],
+  handler: ({ params }) => exerciseService.publishExercise(params.id),
 });
 
 export const exerciseRouter = exercises;

@@ -2,13 +2,16 @@ import { equipmentTypes, exerciseCategories, muscleGroups, type Exercise } from 
 import { Schema, model, type HydratedDocumentFromSchema } from "mongoose";
 
 /**
- * Übung im Katalog. `ownerCoachId: null` ist eine globale Übung (vom Sysadmin gepflegt),
- * sonst gehört sie diesem Coach und nur er sieht sie. Übungen werden nie gelöscht, nur
- * archiviert, weil Pläne und Protokolle über die ID auf sie verweisen.
+ * Übung im Katalog. Ohne Besitzer ist sie global (vom Sysadmin gepflegt). Mit `ownerCoachId`
+ * gehört sie diesem Coach (er und seine Athleten sehen sie), mit `ownerAthleteId` ist sie die
+ * private Übung eines Athleten (nur er sieht sie, sein Coach kann sie übernehmen). Höchstens
+ * eines der beiden Felder ist gesetzt. Übernehmen wechselt nur den Besitzer, die ID bleibt, damit
+ * Pläne, Protokolle und Statistik weiter stimmen. Übungen werden nie gelöscht, nur archiviert.
  */
 const exerciseSchema = new Schema(
   {
     ownerCoachId: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    ownerAthleteId: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
     name: { type: String, required: true, trim: true },
     /** `exerciseSearchKey(name)`, für Eindeutigkeit, Suche und Sortierung. */
     searchKey: { type: String, required: true },
@@ -24,6 +27,8 @@ const exerciseSchema = new Schema(
     videoUrl: { type: String, default: null },
     /** Nur bei Startdaten: stabiler Schlüssel, damit das Seed-Skript nichts doppelt anlegt. */
     seedKey: { type: String, default: null },
+    /** Coach-Übung, die der Coach für den globalen Katalog vorgeschlagen hat. */
+    submittedAt: { type: Date, default: null },
     archivedAt: { type: Date, default: null },
   },
   { timestamps: true },
@@ -31,7 +36,7 @@ const exerciseSchema = new Schema(
 
 // Namen sind pro Katalog eindeutig, archivierte zählen nicht mit.
 exerciseSchema.index(
-  { ownerCoachId: 1, searchKey: 1 },
+  { ownerCoachId: 1, ownerAthleteId: 1, searchKey: 1 },
   { unique: true, partialFilterExpression: { archivedAt: { $type: "null" } } },
 );
 exerciseSchema.index(
@@ -47,6 +52,8 @@ type ExerciseLike = Pick<
   ExerciseDocument,
   | "_id"
   | "ownerCoachId"
+  | "ownerAthleteId"
+  | "submittedAt"
   | "name"
   | "aliases"
   | "category"
@@ -73,7 +80,8 @@ export function toExerciseDto(exercise: ExerciseLike): Exercise {
     description: exercise.description ?? null,
     executionNotes: exercise.executionNotes ?? null,
     videoUrl: exercise.videoUrl ?? null,
-    scope: exercise.ownerCoachId ? "own" : "global",
+    scope: exercise.ownerAthleteId ? "private" : exercise.ownerCoachId ? "own" : "global",
+    submitted: Boolean(exercise.submittedAt),
     archived: Boolean(exercise.archivedAt),
     createdAt: exercise.createdAt.toISOString(),
     updatedAt: exercise.updatedAt.toISOString(),

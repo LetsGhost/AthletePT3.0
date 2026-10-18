@@ -53,8 +53,11 @@ interface PlanEditorProps {
   onDirtyChange?: (dirty: boolean) => void;
   /** Weitere Karten in der rechten Spalte, z. B. frühere Versionen. */
   aside?: ReactNode;
-  /** „Neue Übung anlegen“ in der Übungsauswahl anbieten. Nur Coaches haben einen eigenen Katalog. */
-  canCreateExercises?: boolean;
+  /**
+   * Wohin „Neue Übung anlegen“ in der Übungsauswahl speichert: in den Katalog des Coaches oder
+   * als private Übung des Athleten.
+   */
+  exerciseCatalog?: "own" | "private";
 }
 
 /** Index des ersten Tags mit Fehlern, sonst -1. */
@@ -89,7 +92,7 @@ export function PlanEditor({
   onReload,
   onDirtyChange,
   aside,
-  canCreateExercises = true,
+  exerciseCatalog = "own",
 }: PlanEditorProps) {
   const id = useId();
   const [infos, setInfos] = useState<InfoMap>(() => toInfoMap(content.exercises));
@@ -238,11 +241,7 @@ export function PlanEditor({
                   onDuplicate={duplicateDay}
                   onRemove={removeDay}
                   onPick={remember}
-                  onCreateExercise={
-                    canCreateExercises
-                      ? (name, onCreated) => setCreateRequest({ name, onCreated })
-                      : undefined
-                  }
+                  onCreateExercise={(name, onCreated) => setCreateRequest({ name, onCreated })}
                 />
               </div>
             ))}
@@ -314,9 +313,14 @@ export function PlanEditor({
         <ExerciseFormDialog
           open
           onOpenChange={(open) => !open && setCreateRequest(null)}
-          catalog="own"
+          catalog={exerciseCatalog}
           initialName={createRequest.name}
           onSaved={(exercise) => {
+            remember(exercise);
+            createRequest.onCreated(exercise);
+            setCreateRequest(null);
+          }}
+          onUseExisting={(exercise) => {
             remember(exercise);
             createRequest.onCreated(exercise);
             setCreateRequest(null);

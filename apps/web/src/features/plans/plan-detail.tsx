@@ -236,7 +236,7 @@ export function PlanDetail({ plan, athleteName }: { plan: Plan; athleteName: str
           onSave={(values) => update.mutateAsync(values)}
           onReload={() => void planQuery.refetch()}
           onDirtyChange={setDirty}
-          canCreateExercises={isCoach}
+          exerciseCatalog={isCoach ? "own" : "private"}
           aside={plan.status !== "draft" && <Versions plan={plan} />}
         />
       )}

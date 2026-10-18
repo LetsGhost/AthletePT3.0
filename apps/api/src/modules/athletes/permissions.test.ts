@@ -142,11 +142,6 @@ describe("Eigener Trainingsplan", () => {
     const names = (search.body as ExerciseListResponse).items.map((x) => x.name);
     expect(names).toEqual(expect.arrayContaining([squat.name, coachOwn.name]));
     expect(names).not.toContain(foreign.name);
-    await api()
-      .post("/api/v1/exercises")
-      .set("Authorization", athlete.bearer)
-      .send({ name: "Neu", category: "compound", equipment: "barbell", primaryMuscles: ["quads"] })
-      .expect(403);
 
     const rejected = await api()
       .post(`/api/v1/athletes/${athleteId}/plans`)

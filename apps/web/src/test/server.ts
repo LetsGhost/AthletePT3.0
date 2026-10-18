@@ -30,6 +30,9 @@ export const server = setupServer(
   http.get(apiUrl("/athletes/:id/week"), () => HttpResponse.json(buildWeekView())),
   // Vorschläge im Plan-Editor fragen den Katalog ab; Tests mit Übungen setzen eigene Antworten.
   http.get(apiUrl("/exercises"), () => HttpResponse.json({ items: [], total: 0 })),
+  http.get(apiUrl("/exercises/notices"), () => HttpResponse.json({ items: [] })),
+  http.get(apiUrl("/exercises/athlete-exercises"), () => HttpResponse.json({ items: [] })),
+  http.get(apiUrl("/exercises/submissions"), () => HttpResponse.json({ items: [] })),
   http.get(apiUrl("/me/week"), () => HttpResponse.json(buildWeekView())),
   http.get(apiUrl("/me/permissions"), () =>
     HttpResponse.json({ ownPlan: false, ownWeek: false } satisfies AthletePermissions),
@@ -70,6 +73,7 @@ export function buildExercise(overrides: Partial<Exercise> = {}): Exercise {
     executionNotes: null,
     videoUrl: null,
     scope: "global",
+    submitted: false,
     archived: false,
     createdAt: "2026-10-01T00:00:00.000Z",
     updatedAt: "2026-10-01T00:00:00.000Z",

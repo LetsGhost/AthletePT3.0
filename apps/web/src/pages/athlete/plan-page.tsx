@@ -1,10 +1,12 @@
-import { Dumbbell } from "lucide-react";
+import { ChevronRight, Dumbbell, ListPlus } from "lucide-react";
+import { Link } from "react-router";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryState, SkeletonList } from "@/components/ui/query-state";
 import { useMyPermissions } from "@/features/athletes/api";
 import { useSession } from "@/features/auth/session";
+import { ExerciseNotices } from "@/features/exercises/exercise-notices";
 import { useMyPlan } from "@/features/plans/api";
 import { PlanTypeBadge } from "@/features/plans/plan-type-badge";
 import { PlansCard } from "@/features/plans/plans-card";
@@ -30,6 +32,7 @@ export default function AthletePlanPage() {
         description={plan ? plan.name : "Dein aktueller Trainingsplan."}
         actions={plan && <PlanTypeBadge type={plan.type} />}
       />
+      <ExerciseNotices />
       <QueryState query={myPlan} loading={<SkeletonList rows={4} className="h-20" />}>
         {({ plan }) =>
           !plan ? (
@@ -75,8 +78,21 @@ export default function AthletePlanPage() {
         }
       </QueryState>
       {ownPlan && user && (
-        <div className="mt-4">
+        <div className="mt-4 flex flex-col gap-4">
           <PlansCard athleteId={user.id} athleteName={user.name} />
+          <Link
+            to="/exercises"
+            className="bg-surface hover:border-border-strong flex items-center gap-3 rounded-card border border-transparent p-4 transition-colors"
+          >
+            <ListPlus aria-hidden="true" className="text-muted size-5 shrink-0" />
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">Meine Übungen</span>
+              <span className="text-muted block text-sm">
+                Übungen anlegen, die im Katalog fehlen.
+              </span>
+            </span>
+            <ChevronRight aria-hidden="true" className="text-muted size-5" />
+          </Link>
         </div>
       )}
     </>

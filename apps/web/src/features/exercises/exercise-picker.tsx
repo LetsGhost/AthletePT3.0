@@ -5,11 +5,12 @@ import { useId, useState, type KeyboardEvent } from "react";
 import { Badge } from "@/components/ui/badge";
 import { inputClasses } from "@/components/ui/input-classes";
 import { Spinner } from "@/components/ui/spinner";
+import { useSession } from "@/features/auth/session";
 import { cn } from "@/lib/cn";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 import { useExerciseSearch } from "./api";
-import { muscleSummary } from "./labels";
+import { muscleSummary, scopeLabel } from "./labels";
 
 interface ExercisePickerProps {
   label: string;
@@ -50,6 +51,7 @@ export function ExercisePicker({
   className,
   inputClassName,
 }: ExercisePickerProps) {
+  const role = useSession((state) => state.user?.role);
   const id = useId();
   const listId = `${id}-list`;
   const statusId = `${id}-status`;
@@ -187,7 +189,9 @@ export function ExercisePicker({
               >
                 <span className="flex items-center gap-2 font-medium">
                   {exercise.name}
-                  {exercise.scope === "own" && <Badge tone="success">Eigene</Badge>}
+                  {scopeLabel(exercise.scope, role) && (
+                    <Badge tone="success">{scopeLabel(exercise.scope, role)}</Badge>
+                  )}
                 </span>
                 <span className="text-muted text-sm">{muscleSummary(exercise)}</span>
               </li>
