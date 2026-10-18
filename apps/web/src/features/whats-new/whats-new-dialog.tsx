@@ -10,10 +10,10 @@ import { cn } from "@/lib/cn";
 import { PreviewIcon } from "./preview-kit";
 import { releaseNotes } from "./release-notes";
 import {
-  markReleaseSeen,
+  dismissRelease,
   openWhatsNew,
   releaseFor,
-  useSeenRelease,
+  useReleaseDismissed,
   useWhatsNewDialog,
 } from "./store";
 import type { WhatsNewRelease } from "./types";
@@ -145,19 +145,19 @@ export function WhatsNewDialog({ release, open, onClose }: WhatsNewDialogProps) 
  */
 export function WhatsNew({ releases = releaseNotes }: { releases?: WhatsNewRelease[] }) {
   const user = useSession((state) => state.user);
-  const seen = useSeenRelease(user?.id);
+  const release = user ? releaseFor(user.role, releases) : null;
+  const dismissed = useReleaseDismissed(release?.id);
   const manualOpen = useWhatsNewDialog((state) => state.open);
   const { pathname } = useLocation();
 
-  const release = user ? releaseFor(user.role, releases) : null;
   if (!user || !release) return null;
 
   // Nicht mitten ins laufende Training platzen; der Dialog kommt dann auf der nächsten Seite.
   const inWorkout = pathname.startsWith("/workouts/");
-  const open = manualOpen || (seen !== release.id && !inWorkout);
+  const open = manualOpen || (!dismissed && !inWorkout);
 
   const close = () => {
-    markReleaseSeen(user.id, release.id);
+    dismissRelease(release.id);
     useWhatsNewDialog.setState({ open: false });
   };
 

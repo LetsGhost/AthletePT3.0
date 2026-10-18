@@ -17,42 +17,82 @@ export function releaseFor(role: UserRole, releases: WhatsNewRelease[]): WhatsNe
   return null;
 }
 
-/** Je Nutzer, damit sich mehrere Konten auf einem Gerät nicht gegenseitig beeinflussen. */
-const storageKey = (userId: string) => `atp-whats-new:${userId}`;
+/**
+ * Je Gerät, nicht je Konto: Einmal geschlossen bleibt der Dialog zu, auch nach Konto-Wechsel.
+ * Gespeichert wird `{ release, dismissed }`. Kommt ein Release mit neuer ID, gilt das Flag nicht mehr.
+ */
+const STORAGE_KEY = "atp-whats-new";
+/** Alter Schlüssel (je Nutzer), wird noch gelesen, damit niemand den Dialog erneut sieht. */
+const LEGACY_PREFIX = "atp-whats-new:";
+
+interface DismissedState {
+  release: string;
+  dismissed: boolean;
+}
+
 const listeners = new Set<() => void>();
 /** Fallback, falls localStorage nicht beschreibbar ist (gilt dann nur für diese Sitzung). */
-const memory = new Map<string, string>();
+let memory: DismissedState | null = null;
 
-function readSeen(userId: string): string | null {
-  const remembered = memory.get(userId);
-  if (remembered) return remembered;
+function readState(): DismissedState | null {
+  if (memory) return memory;
   try {
-    return localStorage.getItem(storageKey(userId));
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<DismissedState>;
+    return typeof parsed.release === "string" && parsed.dismissed === true
+      ? { release: parsed.release, dismissed: true }
+      : null;
   } catch {
     return null;
   }
 }
 
-/** Merkt sich, dass der Nutzer dieses Release gesehen hat. Der Dialog öffnet dann nicht mehr von selbst. */
-export function markReleaseSeen(userId: string, releaseId: string) {
+function legacyDismissed(releaseId: string): boolean {
   try {
-    localStorage.setItem(storageKey(userId), releaseId);
-    memory.delete(userId);
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(LEGACY_PREFIX) && localStorage.getItem(key) === releaseId) return true;
+    }
+  } catch {
+    // Kein Zugriff: dann eben nicht.
+  }
+  return false;
+}
+
+/** Merkt sich, dass dieses Release weggeklickt wurde. Der Dialog öffnet erst beim nächsten Release wieder. */
+export function dismissRelease(releaseId: string) {
+  const state: DismissedState = { release: releaseId, dismissed: true };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    memory = null;
   } catch {
     // Privater Modus o. Ä.: gilt dann nur für diese Sitzung.
-    memory.set(userId, releaseId);
+    memory = state;
   }
   listeners.forEach((listener) => listener());
 }
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  // Schließen in einem anderen Tab schließt auch hier.
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === STORAGE_KEY) listener();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener("storage", onStorage);
+  };
 }
 
-/** ID des zuletzt gesehenen Releases, `null` wenn noch keins. */
-export function useSeenRelease(userId: string | undefined): string | null {
-  return useSyncExternalStore(subscribe, () => (userId ? readSeen(userId) : null));
+/** Ob dieses Release schon weggeklickt wurde. */
+export function useReleaseDismissed(releaseId: string | undefined): boolean {
+  return useSyncExternalStore(subscribe, () => {
+    if (!releaseId) return false;
+    const state = readState();
+    return state?.release === releaseId || legacyDismissed(releaseId);
+  });
 }
 
 /** Manuelles Öffnen, z. B. über das Kontomenü. */

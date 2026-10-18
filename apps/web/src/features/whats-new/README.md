@@ -10,9 +10,10 @@ Seite pro Neuerung (Vorschaubild, Titel, kurzer Text).
 - Er öffnet sich **von selbst**, sobald es ein Release gibt, das der Nutzer noch nicht
   gesehen hat. Nicht auf `/workouts/…` (laufendes Training), dann erst auf der nächsten Seite.
 - **Egal wie er geschlossen wird** („Später“, „Los geht’s“, X, Escape, Klick daneben): Die App
-  merkt sich die Release-`id` und zeigt ihn erst beim **nächsten** Release wieder von selbst.
-- Gespeichert wird pro Nutzer und Gerät in `localStorage` (`atp-whats-new:<userId>`).
-  Auf einem neuen Gerät oder nach dem Löschen der Browserdaten sieht man ihn also einmal erneut.
+  setzt in `localStorage` unter `atp-whats-new` das Flag `{ "release": "<id>", "dismissed": true }`
+  und zeigt ihn erst wieder von selbst, wenn ein Release mit **neuer** `id` erscheint.
+- Das Flag gilt pro Gerät/Browser, nicht pro Konto: Nach einem Kontowechsel erscheint er nicht
+  erneut. Auf einem neuen Gerät oder nach dem Löschen der Browserdaten sieht man ihn einmal erneut.
 - Es zählt immer nur das **neueste** Release, das für die Rolle Einträge hat. Wer zwei
   Releases verpasst hat, sieht nur das letzte.
 - Wieder aufrufen: Kontomenü → **„Was ist neu?“**. Auf der Athleten-Übersicht gibt es
@@ -133,7 +134,7 @@ preview: <PreviewImage src={wochenplan} />,
 1. `npm run dev` starten und anmelden.
 2. Der Dialog sollte von selbst aufgehen. Falls du ihn schon geschlossen hast: Kontomenü →
    „Was ist neu?“, oder in den DevTools unter _Application → Local Storage_ den Eintrag
-   `atp-whats-new:<userId>` löschen und neu laden.
+   `atp-whats-new` löschen und neu laden.
 3. Alle Seiten durchblättern, **hell und dunkel** (Einstellungen → Farbschema) und in
    **Handybreite** (DevTools → Gerätemodus) ansehen.
 4. `npm run check` im Projektordner. Der Test prüft auch `release-notes.tsx`: eindeutige

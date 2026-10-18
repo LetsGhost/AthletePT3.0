@@ -74,13 +74,16 @@ describe("Was ist neu", () => {
   });
 
   it("öffnet nach dem Schließen nicht erneut von selbst, lässt sich aber wieder aufrufen", async () => {
-    const user = signIn();
+    signIn();
     const first = renderWhatsNew();
 
     await screen.findByRole("dialog");
     await userEvent.click(screen.getByRole("button", { name: "Später" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(localStorage.getItem(`atp-whats-new:${user.id}`)).toBe("test-2");
+    expect(JSON.parse(localStorage.getItem("atp-whats-new")!)).toEqual({
+      release: "test-2",
+      dismissed: true,
+    });
 
     // Neu laden: bleibt zu
     first.unmount();
@@ -95,11 +98,34 @@ describe("Was ist neu", () => {
   });
 
   it("öffnet für ein neues Release wieder", async () => {
-    const user = signIn();
-    localStorage.setItem(`atp-whats-new:${user.id}`, "test-1");
+    signIn();
+    localStorage.setItem("atp-whats-new", JSON.stringify({ release: "test-1", dismissed: true }));
     renderWhatsNew();
 
     expect(await screen.findByRole("dialog", { name: "Pausentimer" })).toBeInTheDocument();
+  });
+
+  it("bleibt nach „Los geht’s“ auch mit einem anderen Konto zu", async () => {
+    signIn();
+    const first = renderWhatsNew();
+
+    await screen.findByRole("dialog");
+    await userEvent.click(screen.getByRole("button", { name: "Weiter" }));
+    await userEvent.click(screen.getByRole("button", { name: "Los geht’s" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    first.unmount();
+    signIn();
+    renderWhatsNew();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("übernimmt das alte „gesehen“ je Nutzer", () => {
+    const user = signIn();
+    localStorage.setItem(`atp-whats-new:${user.id}`, "test-2");
+    renderWhatsNew();
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("stört nicht während eines laufenden Trainings", () => {
