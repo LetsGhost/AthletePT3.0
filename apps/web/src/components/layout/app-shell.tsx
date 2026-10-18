@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useMatches } from "react-router";
 
 import { navigation, type NavItem, type RouteHandle } from "@/app/navigation";
 import { useSession } from "@/features/auth/session";
+import { WhatsNew } from "@/features/whats-new/whats-new-dialog";
 import { cn } from "@/lib/cn";
 
 import { AccountMenu } from "./account-menu";
@@ -125,6 +126,8 @@ export function AppShell() {
           ))}
         </nav>
       )}
+
+      <WhatsNew />
     </div>
   );
 }

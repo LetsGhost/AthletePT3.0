@@ -13,6 +13,7 @@ import { useSession } from "@/features/auth/session";
 import { WeeklyActivitiesDialog } from "@/features/workouts/athlete-training-cards";
 import { useMyWeek } from "@/features/workouts/api";
 import { formatWeekdayDate } from "@/features/workouts/format";
+import { WhatsNewChip } from "@/features/whats-new/whats-new-dialog";
 import { WeekNavigation, WeekOverview } from "@/features/workouts/week-overview";
 
 function WeekCard() {
@@ -111,6 +112,7 @@ export default function DashboardPage() {
       <PageHeader
         title={`Hallo ${firstName}!`}
         description="Hier siehst du deine Woche auf einen Blick."
+        actions={<WhatsNewChip />}
       />
       <WeekCard />
     </>

@@ -1,9 +1,10 @@
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, Sparkles } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useNavigate } from "react-router";
 
 import { roleLabel } from "@/app/navigation";
 import { logout, useSession } from "@/features/auth/session";
+import { openWhatsNew, useHasWhatsNew } from "@/features/whats-new/store";
 import { cn } from "@/lib/cn";
 import { initials } from "@/lib/format";
 
@@ -13,6 +14,7 @@ const itemClasses =
 export function AccountMenu({ showName = false }: { showName?: boolean }) {
   const user = useSession((state) => state.user);
   const navigate = useNavigate();
+  const hasWhatsNew = useHasWhatsNew();
 
   if (!user) return null;
 
@@ -58,6 +60,11 @@ export function AccountMenu({ showName = false }: { showName?: boolean }) {
           <DropdownMenu.Item className={itemClasses} onSelect={() => navigate("/settings")}>
             <Settings aria-hidden="true" className="size-4" /> Einstellungen
           </DropdownMenu.Item>
+          {hasWhatsNew && (
+            <DropdownMenu.Item className={itemClasses} onSelect={openWhatsNew}>
+              <Sparkles aria-hidden="true" className="size-4" /> Was ist neu?
+            </DropdownMenu.Item>
+          )}
           <DropdownMenu.Item className={itemClasses} onSelect={() => void handleLogout()}>
             <LogOut aria-hidden="true" className="size-4" /> Abmelden
           </DropdownMenu.Item>
