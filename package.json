@@ -7,7 +7,7 @@
     "apps/*"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=26"
   },
   "scripts": {
     "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev -w @athletept/api\" \"npm run dev -w @athletept/web\"",
