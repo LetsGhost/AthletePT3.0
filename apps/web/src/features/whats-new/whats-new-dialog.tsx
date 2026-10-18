@@ -12,9 +12,9 @@ import { releaseNotes } from "./release-notes";
 import {
   dismissRelease,
   openWhatsNew,
-  releaseFor,
   useReleaseDismissed,
   useWhatsNewDialog,
+  useWhatsNewRelease,
 } from "./store";
 import type { WhatsNewRelease } from "./types";
 
@@ -145,7 +145,7 @@ export function WhatsNewDialog({ release, open, onClose }: WhatsNewDialogProps) 
  */
 export function WhatsNew({ releases = releaseNotes }: { releases?: WhatsNewRelease[] }) {
   const user = useSession((state) => state.user);
-  const release = user ? releaseFor(user.role, releases) : null;
+  const { release } = useWhatsNewRelease(releases);
   const dismissed = useReleaseDismissed(release?.id);
   const manualOpen = useWhatsNewDialog((state) => state.open);
   const { pathname } = useLocation();
@@ -169,9 +169,8 @@ const CHIP_DAYS = 30;
 
 /** Kleiner Knopf zum erneuten Öffnen, solange das Release frisch ist. */
 export function WhatsNewChip({ releases = releaseNotes }: { releases?: WhatsNewRelease[] }) {
-  const role = useSession((state) => state.user?.role);
   const [now] = useState(Date.now);
-  const release = role ? releaseFor(role, releases) : null;
+  const { release } = useWhatsNewRelease(releases);
   if (!release) return null;
 
   const ageDays = (now - new Date(release.date).getTime()) / 86_400_000;

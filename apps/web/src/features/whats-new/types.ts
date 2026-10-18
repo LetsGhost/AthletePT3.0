@@ -1,4 +1,4 @@
-import type { UserRole } from "@athletept/shared";
+import type { AthletePermission, UserRole } from "@athletept/shared";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -16,6 +16,11 @@ export interface WhatsNewItem {
   preview?: ReactNode;
   /** Nur für diese Rollen. Ohne: für alle Rollen des Releases. */
   roles?: UserRole[];
+  /**
+   * Nur für Athleten, denen der Coach all diese Berechtigungen freigegeben hat, z. B. `ownPlan`.
+   * Andere Rollen sehen die Seite dann nie.
+   */
+  permissions?: AthletePermission[];
 }
 
 export interface WhatsNewRelease {

@@ -1,17 +1,29 @@
-import type { UserRole } from "@athletept/shared";
+import type { AthletePermissions, UserRole } from "@athletept/shared";
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 
+import { useMyPermissions } from "@/features/athletes/api";
 import { useSession } from "@/features/auth/session";
 
 import { releaseNotes } from "./release-notes";
 import type { WhatsNewRelease } from "./types";
 
-/** Neuestes Release mit Neuerungen für diese Rolle (Einträge schon nach Rolle gefiltert). */
-export function releaseFor(role: UserRole, releases: WhatsNewRelease[]): WhatsNewRelease | null {
+/**
+ * Neuestes Release mit Neuerungen für diese Rolle (Einträge schon nach Rolle und Berechtigungen
+ * gefiltert). Ohne `permissions` (andere Rolle, nicht geladen) fehlen Einträge mit Berechtigung.
+ */
+export function releaseFor(
+  role: UserRole,
+  releases: WhatsNewRelease[],
+  permissions: AthletePermissions | null = null,
+): WhatsNewRelease | null {
   for (const release of releases) {
     if (release.roles && !release.roles.includes(role)) continue;
-    const items = release.items.filter((item) => !item.roles || item.roles.includes(role));
+    const items = release.items.filter(
+      (item) =>
+        (!item.roles || item.roles.includes(role)) &&
+        (!item.permissions || item.permissions.every((key) => permissions?.[key] === true)),
+    );
     if (items.length > 0) return { ...release, items };
   }
   return null;
@@ -102,8 +114,24 @@ export function openWhatsNew() {
   useWhatsNewDialog.setState({ open: true });
 }
 
-/** Ob es für die Rolle überhaupt Neuigkeiten gibt (für den Menüeintrag). */
-export function useHasWhatsNew(releases: WhatsNewRelease[] = releaseNotes): boolean {
+/**
+ * Release für den angemeldeten Nutzer. Bei Athleten erst, wenn ihre Berechtigungen geladen sind
+ * (`ready`), sonst öffnete sich kurz ein älteres Release ohne die Einträge mit Berechtigung.
+ * Schlägt das Laden fehl, gelten keine Berechtigungen.
+ */
+export function useWhatsNewRelease(releases: WhatsNewRelease[] = releaseNotes) {
   const role = useSession((state) => state.user?.role);
-  return role ? releaseFor(role, releases) !== null : false;
+  const isAthlete = role === "athlete";
+  const permissions = useMyPermissions({ enabled: isAthlete });
+  const ready = !isAthlete || !permissions.isPending;
+  const release =
+    role && ready
+      ? releaseFor(role, releases, isAthlete ? (permissions.data ?? null) : null)
+      : null;
+  return { release, ready };
+}
+
+/** Ob es für den Nutzer überhaupt Neuigkeiten gibt (für den Menüeintrag). */
+export function useHasWhatsNew(releases: WhatsNewRelease[] = releaseNotes): boolean {
+  return useWhatsNewRelease(releases).release !== null;
 }

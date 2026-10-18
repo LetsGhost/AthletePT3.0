@@ -74,6 +74,7 @@ import { CalendarCheck } from "lucide-react";
   icon: CalendarCheck,                               // Lucide-Icon
   tone: "accent",                                    // optional: "accent" (Standard) oder "records" (Gold)
   roles: ["coach"],                                  // optional: nur diese Rolle sieht die Seite
+  permissions: ["ownPlan"],                          // optional: nur Athleten mit dieser Freigabe
   preview: ( /* optional, siehe Schritt 3 */ ),
 },
 ```
@@ -186,6 +187,13 @@ Ein vollständiges Beispiel mit Zeile, Karte und Fortschritt ist der Pausentimer
 Absicht. `src/test/setup.ts` ersetzt `release-notes.tsx` in allen Tests durch eine leere
 Liste, damit der Dialog nicht über jeder Seite liegt. Eigene Tests für den Dialog arbeiten
 mit Testdaten (`whats-new.test.tsx`).
+
+**Ich will einen Eintrag nur Athleten mit einer Berechtigung zeigen.**
+`permissions: ["ownPlan"]` (oder `"ownWeek"`) an die Neuerung. Mehrere müssen alle freigegeben
+sein, Coaches und Sysadmin sehen solche Seiten nie. Der Dialog wartet bei Athleten, bis die
+Berechtigungen geladen sind. Bleibt für einen Athleten ohne Freigabe keine Seite übrig, sieht er
+wie bei Rollen das vorherige Release. Bekommt er die Freigabe später, erscheint das neue Release
+automatisch, sofern er es noch nicht weggeklickt hat.
 
 **Ich will einen Eintrag nur Coaches zeigen.**
 `roles: ["coach"]` an die Neuerung. Hat ein Release für eine Rolle keine einzige Seite,

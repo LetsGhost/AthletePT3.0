@@ -1,9 +1,13 @@
+import type { AthletePermissions } from "@athletept/shared";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Rocket, Timer, Users } from "lucide-react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
+import { createQueryClient } from "@/app/query-client";
+import { athleteKeys } from "@/features/athletes/api";
 import { useSession } from "@/features/auth/session";
 import { buildUser } from "@/test/server";
 
@@ -31,6 +35,12 @@ const releases: WhatsNewRelease[] = [
         icon: Users,
         roles: ["coach"],
       },
+      {
+        title: "Eigener Plan",
+        text: "Nur mit freigegebenem eigenem Trainingsplan.",
+        icon: Rocket,
+        permissions: ["ownPlan"],
+      },
       { title: "Schneller", text: "Alles lädt schneller.", icon: Rocket },
     ],
   },
@@ -42,11 +52,24 @@ const releases: WhatsNewRelease[] = [
   },
 ];
 
-function renderWhatsNew(path = "/dashboard") {
+const noPermissions: AthletePermissions = { ownPlan: false, ownWeek: false };
+
+/** Berechtigungen sind schon geladen, damit der Dialog sofort entscheiden kann. */
+function renderWhatsNew(
+  path = "/dashboard",
+  { permissions = noPermissions, list = releases } = {} as {
+    permissions?: AthletePermissions;
+    list?: WhatsNewRelease[];
+  },
+) {
+  const queryClient = createQueryClient();
+  queryClient.setQueryData(athleteKeys.myPermissions(), permissions);
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <WhatsNew releases={releases} />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[path]}>
+        <WhatsNew releases={list} />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -135,15 +158,39 @@ describe("Was ist neu", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("filtert Releases und Einträge nach Rolle", () => {
+  it("zeigt Einträge mit Berechtigung nur Athleten, die sie haben", async () => {
+    signIn();
+    renderWhatsNew("/dashboard", { permissions: { ownPlan: true, ownWeek: false } });
+
+    expect(await screen.findByRole("dialog")).toHaveTextContent("1 / 3");
+    await userEvent.click(screen.getByRole("button", { name: "Weiter" }));
+    expect(screen.getByRole("dialog", { name: "Eigener Plan" })).toBeInTheDocument();
+  });
+
+  it("fällt ohne Berechtigung auf das vorige Release zurück, wenn sonst nichts bleibt", async () => {
+    signIn();
+    const onlyOwnPlan: WhatsNewRelease[] = [
+      { ...releases[0]!, id: "p", items: [releases[0]!.items[2]!] },
+      releases[1]!,
+    ];
+    renderWhatsNew("/dashboard", { list: onlyOwnPlan });
+
+    expect(await screen.findByRole("dialog", { name: "Alt" })).toBeInTheDocument();
+  });
+
+  it("filtert Releases und Einträge nach Rolle und Berechtigung", () => {
     const onlyCoach: WhatsNewRelease[] = [{ ...releases[0]!, id: "c", roles: ["coach"] }];
 
     expect(releaseFor("athlete", onlyCoach)).toBeNull();
+    // Coaches haben keine Athleten-Berechtigungen.
     expect(releaseFor("coach", onlyCoach)?.items).toHaveLength(3);
     expect(releaseFor("athlete", releases)?.items.map((item) => item.title)).toEqual([
       "Pausentimer",
       "Schneller",
     ]);
+    expect(
+      releaseFor("athlete", releases, { ownPlan: true, ownWeek: false })?.items.map((x) => x.title),
+    ).toEqual(["Pausentimer", "Eigener Plan", "Schneller"]);
   });
 });
 

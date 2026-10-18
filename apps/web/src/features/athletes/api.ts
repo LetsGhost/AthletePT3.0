@@ -25,10 +25,11 @@ export function useAthletes({ enabled = true }: { enabled?: boolean } = {}) {
 }
 
 /** Was der Coach dem angemeldeten Athleten erlaubt (eigener Plan, eigene Woche). */
-export function useMyPermissions() {
+export function useMyPermissions({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: athleteKeys.myPermissions(),
     queryFn: () => api<AthletePermissions>("/me/permissions"),
+    enabled,
   });
 }
 

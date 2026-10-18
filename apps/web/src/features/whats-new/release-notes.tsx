@@ -45,9 +45,10 @@ export const releaseNotes: WhatsNewRelease[] = [
     items: [
       {
         title: "Eigene Übungen anlegen",
-        text: "Planst du selbst und fehlt eine Übung im Katalog? Leg sie direkt beim Planen an. Nur du siehst sie, dein Coach kann sie prüfen.",
+        text: "Fehlt beim Planen eine Übung im Katalog? Leg sie direkt an. Nur du siehst sie, dein Coach kann sie prüfen.",
         icon: ListPlus,
         roles: ["athlete"],
+        permissions: ["ownPlan"],
         preview: (
           <PreviewStack>
             <PreviewInput label="Name" value="Pistol Squat" focused />
@@ -68,6 +69,7 @@ export const releaseNotes: WhatsNewRelease[] = [
         text: "Übernimmt oder ersetzt dein Coach eine deiner Übungen, laufen Pläne, Trainings und dein Verlauf einfach weiter. Ein Hinweis sagt dir, was sich geändert hat.",
         icon: Replace,
         roles: ["athlete"],
+        permissions: ["ownPlan"],
       },
       {
         title: "Übungen deiner Athleten",
