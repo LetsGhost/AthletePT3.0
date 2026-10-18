@@ -135,3 +135,28 @@ describe("Athlet einladen", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("bereits verwendet");
   });
 });
+
+describe("Fragebogen", () => {
+  it("ist von der Einladung aus verlinkt und öffnet sich in einem neuen Tab", async () => {
+    signInAsCoach();
+    renderApp("/coach/athletes/new");
+
+    const link = await screen.findByRole("link", { name: "Fragebogen als PDF" });
+    expect(link).toHaveAttribute("href", "/coach/fragebogen");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("zeigt die Anamnese-Fragen ohne interne Notizen und ohne App-Rahmen", async () => {
+    signInAsCoach();
+    renderApp("/coach/fragebogen");
+
+    expect(
+      await screen.findByRole("heading", { name: "Fragebogen für dein Training" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Gesundheit" })).toBeInTheDocument();
+    expect(screen.getByText("Hast du körperliche Beschwerden oder Schmerzen?")).toBeInTheDocument();
+    expect(screen.queryByText(/Interne Notizen/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /als PDF speichern/ })).toBeInTheDocument();
+  });
+});

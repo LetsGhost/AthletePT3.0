@@ -1,4 +1,5 @@
 import {
+  AVERAGE_DURATION_WORKOUTS,
   WORKOUT_BACKFILL_DAYS,
   WORKOUT_EDIT_DAYS,
   addDays,
@@ -20,6 +21,7 @@ import type { z } from "zod";
 
 import { ConflictError, NotFoundError, ValidationError } from "../../lib/errors";
 import { getAthleteOfCoach } from "../athletes/athlete-access";
+import { durationMinutes } from "../stats/activity.service";
 import {
   WORKOUT_STATS_VERSION,
   computeWorkoutStats,
@@ -418,6 +420,20 @@ export async function updateMyWorkout(athleteId: string, logId: string, input: U
   return saveLog(log, input);
 }
 
+/** Durchschnittliche Dauer der letzten abgeschlossenen Trainings außer `logId`, ohne Ausreißer. */
+async function averageDurationMinutes(athleteId: string, logId: Types.ObjectId) {
+  const logs = await WorkoutLogModel.find(
+    { athleteId, status: "completed", _id: { $ne: logId } },
+    { startedAt: 1, completedAt: 1 },
+  )
+    .sort({ completedAt: -1 })
+    .limit(AVERAGE_DURATION_WORKOUTS)
+    .lean<Pick<StoredWorkoutLog, "startedAt" | "completedAt">[]>();
+  const minutes = logs.map(durationMinutes).filter((m) => m !== null);
+  if (minutes.length === 0) return null;
+  return Math.round(minutes.reduce((sum, m) => sum + m, 0) / minutes.length);
+}
+
 /** Speichert den letzten Stand, schließt das Training ab und meldet neue Bestwerte. */
 export async function completeMyWorkout(
   athleteId: string,
@@ -429,7 +445,11 @@ export async function completeMyWorkout(
     throw new ConflictError("Das Training ist bereits abgeschlossen.", "workout_not_in_progress");
   }
   const completed = await saveLog(log, input, { status: "completed", completedAt: new Date() });
-  return { ...completed, newRecords: await findNewRecords(athleteId, log._id) };
+  const [newRecords, average] = await Promise.all([
+    findNewRecords(athleteId, log._id),
+    averageDurationMinutes(athleteId, log._id),
+  ]);
+  return { ...completed, newRecords, averageDurationMinutes: average };
 }
 
 /** Verwirft ein laufendes Training oder nimmt eine Absage zurück. Erledigtes bleibt. */

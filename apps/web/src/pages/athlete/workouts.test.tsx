@@ -449,19 +449,40 @@ describe("Training durchführen", () => {
     server.use(
       http.post(apiUrl(`/me/workout-logs/${log.id}/complete`), async ({ request }) => {
         completed = (await request.json()) as UpdateWorkoutRequest;
+        const [exercise] = log.exercises;
         return HttpResponse.json({
           ...log,
           status: "completed",
           revision: 1,
+          completedAt: "2026-10-13T16:52:00.000Z",
+          // Aufwärmen 40 × 10, dann 80 × 8, 80 × 8 und 82,5 × 8: 2340 kg
+          exercises: [
+            {
+              ...exercise!,
+              sets: exercise!.sets.map((set, i) => ({
+                ...set,
+                weightKg: i === 3 ? 82.5 : set.weightKg,
+                done: true,
+              })),
+            },
+          ],
           newRecords: [
             {
-              exerciseId: log.exercises[0]!.exerciseId,
+              exerciseId: exercise!.exerciseId,
               exerciseName: "Bankdrücken",
               kind: "topWeightKg",
               value: 82.5,
               previous: 80,
             },
+            {
+              exerciseId: exercise!.exerciseId,
+              exerciseName: "Bankdrücken",
+              kind: "estimated1rm",
+              value: 104.5,
+              previous: 101.3,
+            },
           ],
+          averageDurationMinutes: 55,
         });
       }),
     );
@@ -479,9 +500,23 @@ describe("Training durchführen", () => {
     expect(
       await screen.findByRole("heading", { level: 1, name: "Training abgeschlossen" }),
     ).toHaveFocus();
-    expect(screen.getByRole("region", { name: "Neuer Bestwert!" })).toHaveTextContent(
-      "Bankdrücken: Höchstes Gewicht 82,5 kg (bisher 80 kg)",
+    expect(screen.getByText("Oberkörper A · Di., 13. Okt.")).toBeInTheDocument();
+    // Pro Übung nur der wichtigste Bestwert.
+    const records = screen.getByRole("region", { name: "1 neue Bestleistung" });
+    expect(within(records).getByRole("link")).toHaveTextContent(
+      "BankdrückenSchwerstes Gewicht82,5 kg × 8+2,5 kg",
     );
+    expect(screen.getByText("Dauer").closest("div")).toHaveTextContent("Dauer52 minØ 55 min");
+    expect(screen.getByText("Volumen").closest("div")).toHaveTextContent(
+      "Volumen2.340 kg+277 % zum letzten Mal",
+    );
+    const week = screen.getByRole("region", { name: "Diese Woche" });
+    expect(week).toHaveTextContent("1 von 2 Einheiten");
+    expect(week).toHaveTextContent("Heute (Oberkörper A): erledigt");
+    expect(week).toHaveTextContent("Als Nächstes: Arme");
+    await user.click(screen.getByText("Übungen"));
+    expect(screen.getByText("40 kg × 10, 80 kg × 8, 80 kg × 8, 82,5 kg × 8")).toBeVisible();
+
     await user.click(screen.getByRole("link", { name: "Zur Übersicht" }));
     expect(
       await screen.findByRole("heading", { level: 1, name: "Hallo Max!" }),

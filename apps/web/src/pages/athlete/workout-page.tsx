@@ -35,7 +35,9 @@ export default function AthleteWorkoutPage() {
   const [reloads, setReloads] = useState(0);
   const [completed, setCompleted] = useState<CompleteWorkoutResponse | null>(null);
 
-  if (completed?.id === logId) return <WorkoutSummary log={completed} />;
+  if (completed?.id === logId) {
+    return <WorkoutSummary log={completed} onEdit={() => setCompleted(null)} />;
+  }
 
   if (workout.error instanceof ApiError && workout.error.status === 404) {
     return (

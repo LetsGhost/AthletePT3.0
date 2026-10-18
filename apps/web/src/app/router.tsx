@@ -44,6 +44,16 @@ export const routes: RouteObject[] = [
         element: <RequireAuth />,
         children: [
           { index: true, element: <HomeRedirect /> },
+          // Druckansicht ohne App-Rahmen
+          {
+            element: <RequireRole roles={["coach"]} />,
+            children: [
+              {
+                path: "/coach/fragebogen",
+                ...page(() => import("@/pages/coach/questionnaire-page")),
+              },
+            ],
+          },
           {
             element: <AppShell />,
             children: [

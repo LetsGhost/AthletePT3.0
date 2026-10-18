@@ -281,10 +281,13 @@ const logWorkout = async (
       })),
     })),
   });
-  // Abgeschlossen am Trainingstag um 19 Uhr (ältere Protokolle sind damit schreibgeschützt).
+  // Abgeschlossen am Trainingstag um 19 Uhr nach 45–65 Minuten (ältere Protokolle sind damit
+  // schreibgeschützt).
+  const completedAt = new Date(`${date}T17:00:00Z`);
+  const minutes = 45 + ((rating * 7 + weeksAgo * 3) % 21);
   await WorkoutLogModel.updateOne(
     { _id: log.id },
-    { date, completedAt: new Date(`${date}T17:00:00Z`) },
+    { date, startedAt: new Date(completedAt.getTime() - minutes * 60_000), completedAt },
   );
 };
 for (let weeksAgo = 6; weeksAgo >= 2; weeksAgo -= 1) {

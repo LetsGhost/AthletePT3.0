@@ -140,9 +140,14 @@ export const workoutLogSchema = z.object({
   updatedAt: z.string(),
 });
 
-/** Antwort beim Abschließen: das Protokoll und neue Bestwerte darin. */
+/** So viele frühere Trainings gehen in die durchschnittliche Dauer beim Abschließen ein. */
+export const AVERAGE_DURATION_WORKOUTS = 10;
+
+/** Antwort beim Abschließen: das Protokoll, neue Bestwerte darin und die übliche Dauer. */
 export const completeWorkoutResponseSchema = workoutLogSchema.extend({
   newRecords: z.array(newRecordSchema),
+  /** Durchschnittliche Dauer der letzten früheren Trainings in Minuten, `null` ohne solche. */
+  averageDurationMinutes: z.number().int().nullable(),
 });
 
 export const workoutLogSummarySchema = z.object({

@@ -110,7 +110,8 @@ me.route({
   summary: "Training abschließen",
   description:
     "Speichert den mitgeschickten Stand und schließt das laufende Training ab. `newRecords`: " +
-    "Bestwerte, die das Training verbessert hat (nicht beim ersten Mal einer Übung).",
+    "Bestwerte, die das Training verbessert hat (nicht beim ersten Mal einer Übung). " +
+    "`averageDurationMinutes`: Durchschnitt der letzten 10 früheren Trainings.",
   auth: ["athlete"],
   params: logParams,
   body: updateWorkoutRequestSchema,

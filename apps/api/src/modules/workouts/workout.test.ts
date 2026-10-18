@@ -361,6 +361,32 @@ describe("Zwischenspeichern und Abschließen", () => {
     expect(second.exercises[0]!.sets[0]).toMatchObject({ weightKg: 14, reps: 12, done: false });
   });
 
+  it("meldet beim Abschließen die durchschnittliche Dauer früherer Trainings", async () => {
+    const { athlete, legDay, armDay } = await setup();
+    const first = await started(athlete.bearer, { dayId: legDay.id });
+    const firstDone = await complete(athlete.bearer, first);
+    expect(firstDone.body.averageDurationMinutes).toBeNull();
+
+    const now = Date.now();
+    await WorkoutLogModel.updateOne(
+      { _id: first.id },
+      { startedAt: new Date(now - 50 * 60_000), completedAt: new Date(now) },
+    );
+    // Ausreißer (über 4 h) zählen nicht mit.
+    const forgotten = await started(athlete.bearer, { dayId: armDay.id });
+    await complete(athlete.bearer, forgotten);
+    await WorkoutLogModel.updateOne(
+      { _id: forgotten.id },
+      { startedAt: new Date(now - 10 * 3_600_000), completedAt: new Date(now) },
+    );
+
+    const next = await started(athlete.bearer, { dayId: legDay.id });
+    const res = await complete(athlete.bearer, next);
+
+    expect(res.status).toBe(200);
+    expect(res.body.averageDurationMinutes).toBe(50);
+  });
+
   it("verwirft ein laufendes Training, abgeschlossene bleiben", async () => {
     const { athlete, legDay } = await setup();
     const log = await started(athlete.bearer, { dayId: legDay.id });

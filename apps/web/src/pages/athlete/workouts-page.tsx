@@ -38,6 +38,7 @@ export default function AthleteWorkoutsPage() {
               page={page}
               onPageChange={setPage}
               loading={workouts.isFetching}
+              paginationPosition="top"
             />
           )
         }

@@ -1,40 +1,121 @@
-import { recordKindLabels, type NewRecord } from "@athletept/shared";
+import {
+  estimateOneRepMax,
+  type NewRecord,
+  type RecordKind,
+  type WorkoutExercise,
+  type WorkoutSet,
+} from "@athletept/shared";
 import { Trophy } from "lucide-react";
 import { Link } from "react-router";
 
+import { formatDuration } from "@/features/plans/format";
 import { formatRecordValue } from "@/features/stats/format";
+import { formatNumber } from "@/lib/format";
+
+import { formatPerformed } from "./format";
+
+/** Pro Übung zählt der anschaulichste Bestwert: Gewicht vor Maximum vor Wdh. vor Dauer. */
+const kindOrder: RecordKind[] = ["topWeightKg", "estimated1rm", "maxReps", "maxDurationSeconds"];
+
+/** Wert, nach dem der Satz für den Bestwert ausgewählt wird. */
+const setScore: Record<RecordKind, (set: WorkoutSet) => number> = {
+  // Bei gleichem Gewicht gewinnt der Satz mit mehr Wiederholungen.
+  topWeightKg: (set) => (set.weightKg ?? 0) * 1000 + (set.reps ?? 0),
+  estimated1rm: (set) => estimateOneRepMax(set.weightKg, set.reps) ?? 0,
+  maxReps: (set) => set.reps ?? 0,
+  maxDurationSeconds: (set) => set.durationSeconds ?? 0,
+};
+
+function formatGain(kind: RecordKind, gain: number) {
+  if (kind === "maxReps") return `+${gain} Wdh.`;
+  if (kind === "maxDurationSeconds") return `+${formatDuration(gain)}`;
+  return `+${formatNumber(Math.round(gain * 10) / 10)} kg`;
+}
+
+function describe(record: NewRecord) {
+  if (record.kind === "topWeightKg") return "Schwerstes Gewicht";
+  if (record.kind === "estimated1rm") {
+    return `Geschätztes Max. ${formatRecordValue(record.kind, record.value)}`;
+  }
+  if (record.kind === "maxReps") return "Meiste Wiederholungen";
+  return "Längste Dauer";
+}
+
+/** Erledigter Arbeitssatz, mit dem der Bestwert aufgestellt wurde. */
+function recordSet(record: NewRecord, exercises: readonly WorkoutExercise[]) {
+  const exercise = exercises.find((x) => x.exerciseId === record.exerciseId && !x.skipped);
+  const sets = exercise?.sets.filter((s) => s.done && s.kind === "working") ?? [];
+  const score = setScore[record.kind];
+  return sets.reduce<WorkoutSet | null>(
+    (best, set) => (best === null || score(set) > score(best) ? set : best),
+    null,
+  );
+}
+
+/** Ein Eintrag je Übung mit ihrem wichtigsten neuen Bestwert. */
+function headlineRecords(records: readonly NewRecord[]) {
+  const byExercise = new Map<string, NewRecord>();
+  for (const record of records) {
+    const current = byExercise.get(record.exerciseId);
+    if (!current || kindOrder.indexOf(record.kind) < kindOrder.indexOf(current.kind)) {
+      byExercise.set(record.exerciseId, record);
+    }
+  }
+  return [...byExercise.values()];
+}
+
+interface NewRecordsProps {
+  records: NewRecord[];
+  exercises: WorkoutExercise[];
+}
 
 /** Feiert neue Bestwerte direkt nach dem Training. */
-export function NewRecords({ records }: { records: NewRecord[] }) {
-  if (records.length === 0) return null;
+export function NewRecords({ records, exercises }: NewRecordsProps) {
+  const rows = headlineRecords(records);
+  if (rows.length === 0) return null;
 
   return (
     <section
       aria-labelledby="new-records"
-      className="bg-surface border-module-records flex gap-3 rounded-card border-l-4 p-4 text-left"
+      className="bg-surface border-module-records/40 flex flex-col gap-3 rounded-tile border p-4"
     >
-      <Trophy aria-hidden="true" className="text-module-records mt-0.5 size-6 shrink-0" />
-      <div className="min-w-0 flex-1">
-        <h2 id="new-records" className="font-medium">
-          {records.length === 1 ? "Neuer Bestwert!" : "Neue Bestwerte!"}
-        </h2>
-        <ul className="mt-1 flex flex-col gap-1 text-sm">
-          {records.map((record) => (
-            <li key={`${record.exerciseId}-${record.kind}`}>
+      <div className="flex items-center gap-3">
+        <span className="bg-module-records/15 text-module-records flex size-10 shrink-0 items-center justify-center rounded-card">
+          <Trophy aria-hidden="true" className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <h2 id="new-records" className="text-lg leading-tight font-semibold">
+            {rows.length === 1 ? "1 neue Bestleistung" : `${rows.length} neue Bestleistungen`}
+          </h2>
+          <p className="text-muted text-sm">So stark warst du hier noch nie</p>
+        </div>
+      </div>
+      <ul className="flex flex-col gap-2">
+        {rows.map((record) => {
+          const set = recordSet(record, exercises);
+          return (
+            <li key={record.exerciseId}>
               <Link
                 to={`/entwicklung/${record.exerciseId}`}
-                className="font-medium underline-offset-4 hover:underline"
+                className="bg-inset hover:border-border-strong flex items-center gap-3 rounded-card border border-transparent px-3 py-2.5"
               >
-                {record.exerciseName}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{record.exerciseName}</span>
+                  <span className="text-muted block text-sm">{describe(record)}</span>
+                </span>
+                <span className="shrink-0 text-right tabular-nums">
+                  <span className="block font-semibold">
+                    {set ? formatPerformed(set) : formatRecordValue(record.kind, record.value)}
+                  </span>
+                  <span className="text-module-records block text-sm font-medium">
+                    {formatGain(record.kind, record.value - record.previous)}
+                  </span>
+                </span>
               </Link>
-              : {recordKindLabels[record.kind]} {formatRecordValue(record.kind, record.value)}{" "}
-              <span className="text-muted">
-                (bisher {formatRecordValue(record.kind, record.previous)})
-              </span>
             </li>
-          ))}
-        </ul>
-      </div>
+          );
+        })}
+      </ul>
     </section>
   );
 }
