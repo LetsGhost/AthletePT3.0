@@ -328,7 +328,7 @@ export function buildActivity(overrides: Partial<ActivityResponse> = {}): Activi
     today: "2026-10-15",
     streakWeeks: 2,
     weeks: [
-      week(40, "2026-09-28", "missed", 1),
+      week(40, "2026-09-28", "missed"),
       week(41, "2026-10-05", "fulfilled", 2),
       week(42, "2026-10-12", "fulfilled", 2),
       week(43, "2026-10-19", "upcoming"),

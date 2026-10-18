@@ -15,10 +15,10 @@ export const isoMonthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Ungü
 export const activityQuerySchema = z.object({ month: isoMonthSchema.optional() });
 
 /**
- * - `fulfilled`: so viele Trainings abgeschlossen, wie der Plan Trainingstage hat
- * - `missed`: Woche vorbei, Plan nicht erfüllt (bricht die Streak)
- * - `open`: laufende Woche, noch nicht erfüllt (bricht die Streak noch nicht)
- * - `paused`: kein aktiver Plan am Sonntag, oder nicht erfüllt und der Plan wurde erst im Laufe
+ * - `fulfilled`: mindestens ein Training abgeschlossen
+ * - `missed`: Woche vorbei, kein Training (bricht die Streak)
+ * - `open`: laufende Woche, noch kein Training (bricht die Streak noch nicht)
+ * - `paused`: kein aktiver Plan am Sonntag, oder kein Training und der Plan wurde erst im Laufe
  *   der Woche aktiviert (zählt nicht, bricht aber auch nicht)
  * - `upcoming`: Woche liegt in der Zukunft
  */
@@ -26,8 +26,8 @@ export const activityWeekStatuses = ["fulfilled", "missed", "open", "paused", "u
 export const activityWeekStatusSchema = z.enum(activityWeekStatuses);
 export type ActivityWeekStatus = z.infer<typeof activityWeekStatusSchema>;
 export const activityWeekStatusLabels: Record<ActivityWeekStatus, string> = {
-  fulfilled: "Plan erfüllt",
-  missed: "Plan nicht erfüllt",
+  fulfilled: "Trainiert",
+  missed: "Kein Training",
   open: "Läuft noch",
   paused: "Kein Plan aktiv",
   upcoming: "Noch nicht begonnen",
@@ -58,7 +58,7 @@ export const activityDaySchema = z.object({
 export const activityResponseSchema = z.object({
   month: z.string(),
   today: z.string(),
-  /** Aufeinanderfolgende Wochen mit erfülltem Plan bis heute, unabhängig vom angezeigten Monat. */
+  /** Aufeinanderfolgende Wochen mit mindestens einem Training bis heute, unabhängig vom Monat. */
   streakWeeks: z.number().int(),
   /** Alle ISO-Wochen, die den Monat berühren. */
   weeks: z.array(activityWeekSchema),

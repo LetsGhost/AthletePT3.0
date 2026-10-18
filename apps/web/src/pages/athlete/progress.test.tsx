@@ -135,8 +135,8 @@ describe("Streak", () => {
 
     const calendar = screen.getByRole("table", { name: "Trainingskalender Oktober" });
     expect(within(calendar).getAllByRole("button")).toHaveLength(4);
-    expect(within(calendar).getByText("KW 40: Plan nicht erfüllt (1 von 2)")).toBeInTheDocument();
-    expect(within(calendar).getByText("KW 41: Plan erfüllt (2 von 2)")).toBeInTheDocument();
+    expect(within(calendar).getByText("KW 40: Kein Training")).toBeInTheDocument();
+    expect(within(calendar).getByText("KW 41: Trainiert (2 Trainings)")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Nächster Monat" })).toBeDisabled();
 
     await userEvent.click(

@@ -13,8 +13,8 @@ import * as statsService from "./exercise-stats.service";
 
 const activityDescription =
   "Trainingskalender eines Monats (`month`, z. B. `2026-10`, ohne Angabe der aktuelle) mit " +
-  "Streak. Eine Woche ist erfüllt, wenn so viele Trainings abgeschlossen sind, wie der am " +
-  "Sonntag aktive Plan Trainingstage hat. Wochen ohne aktiven Plan pausieren die Streak, die " +
+  "Streak. Eine Woche ist erfüllt, wenn mindestens ein Training abgeschlossen ist und am " +
+  "Sonntag ein Plan aktiv war. Wochen ohne aktiven Plan pausieren die Streak, die " +
   "laufende Woche bricht sie erst, wenn sie vorbei ist.";
 
 const me = createModuleRouter("/me", "Fortschritt");

@@ -23,9 +23,8 @@ import {
 import { WorkoutLogModel, type StoredWorkoutLog } from "../workouts/workout-log.model";
 
 /**
- * Trainingskalender mit Streak. Eine Woche zählt, wenn mindestens so viele Trainings
- * abgeschlossen sind, wie der Plan Trainingstage hat. Maßgeblich ist der Plan (und sein Stand),
- * der am Sonntag der Woche aktiv war. Berechnet, nichts gespeichert.
+ * Trainingskalender mit Streak. Eine Woche zählt, wenn mindestens ein Training abgeschlossen
+ * ist und am Sonntag der Woche ein Plan aktiv war. Berechnet, nichts gespeichert.
  */
 type PlanForActivity = Pick<StoredPlan, "_id" | "days" | "activatedAt" | "archivedAt">;
 type VersionForActivity = Pick<StoredPlanVersion, "planId" | "days" | "replacedAt">;
@@ -43,6 +42,9 @@ function monthBounds(month: string) {
     number === 12 ? `${year! + 1}-01` : `${year}-${String(number! + 1).padStart(2, "0")}`;
   return { start: `${month}-01`, end: addDays(`${next}-01`, -1) };
 }
+
+/** Trainings, die eine Woche für die Streak braucht. */
+const REQUIRED_WORKOUTS_PER_WEEK = 1;
 
 /** Anzahl Trainingstage, die am Tag `endDate` (Ende des Tages) galten. `null` ohne aktiven Plan. */
 function plannedCountAt(
@@ -95,9 +97,9 @@ export function buildActivity(
     let status: ActivityWeekStatus;
     if (startDate > today) status = "upcoming";
     else if (!plannedCount) status = "paused";
-    else if (completedCount >= plannedCount) status = "fulfilled";
+    else if (completedCount >= REQUIRED_WORKOUTS_PER_WEEK) status = "fulfilled";
     else if (endDate >= today) status = "open";
-    // Angebrochene Woche: Plan erst im Laufe der Woche aktiviert.
+    // Angebrochene Woche ohne Training: Plan erst im Laufe der Woche aktiviert.
     else if (plannedCountAt(startDate, plans, versions) === null) status = "paused";
     else status = "missed";
     return { week, startDate, status, completedCount, plannedCount };

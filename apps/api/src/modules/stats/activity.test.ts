@@ -40,15 +40,14 @@ function log(date: string, minutes = 60) {
 const today = "2026-10-15";
 
 describe("Trainingskalender (Berechnung)", () => {
-  it("zählt erfüllte Wochen, die laufende Woche bricht die Streak nicht", () => {
-    const plans = [plan("2026-09-20", 2)];
+  it("zählt Wochen mit mindestens einem Training, die laufende Woche bricht nicht", () => {
+    const plans = [plan("2026-09-20", 3)];
     const logs = [
-      log("2026-09-22"),
-      log("2026-09-24"), // KW 39 erfüllt
-      log("2026-09-29"), // KW 40 nur 1 von 2: bricht
+      log("2026-09-22"), // KW 39: 1 von 3 reicht
+      // KW 40 ohne Training: bricht
       log("2026-10-05"),
-      log("2026-10-07"), // KW 41 erfüllt
-      log("2026-10-12"), // KW 42 läuft, 1 von 2
+      log("2026-10-07"), // KW 41
+      // KW 42 läuft, noch kein Training
     ];
     const result = buildActivity("2026-10", today, plans, [], logs);
 
@@ -60,13 +59,14 @@ describe("Trainingskalender (Berechnung)", () => {
       ["2026-W43", "upcoming"],
       ["2026-W44", "upcoming"],
     ]);
+    expect(result.weeks[1]).toMatchObject({ completedCount: 2, plannedCount: 3 });
     // Nur Tage im Oktober.
-    expect(result.days.map((d) => d.date)).toEqual(["2026-10-05", "2026-10-07", "2026-10-12"]);
-    expect(result.workoutCount).toBe(3);
+    expect(result.days.map((d) => d.date)).toEqual(["2026-10-05", "2026-10-07"]);
+    expect(result.workoutCount).toBe(2);
   });
 
-  it("zählt die laufende Woche mit, sobald sie erfüllt ist", () => {
-    const plans = [plan("2026-10-01", 1)];
+  it("zählt die laufende Woche mit, sobald ein Training abgeschlossen ist", () => {
+    const plans = [plan("2026-10-01", 3)];
     const logs = [log("2026-10-06"), log("2026-10-13")];
 
     expect(buildActivity("2026-10", today, plans, [], logs).streakWeeks).toBe(2);
@@ -87,15 +87,15 @@ describe("Trainingskalender (Berechnung)", () => {
     expect(result.streakWeeks).toBe(2);
   });
 
-  it("pausiert die angebrochene Woche, in der ein Plan aktiviert wurde", () => {
-    // Aktiviert am Do., 1.10. mit 3 Tagen, in KW 40 nur ein Training.
+  it("pausiert die angebrochene Woche ohne Training, in der ein Plan aktiviert wurde", () => {
+    // Aktiviert am Do., 1.10., in KW 40 kein Training mehr.
     const plans = [plan("2026-10-01", 3)];
-    const logs = [log("2026-10-02"), log("2026-10-05"), log("2026-10-07"), log("2026-10-09")];
+    const logs = [log("2026-10-05"), log("2026-10-13")];
     const result = buildActivity("2026-10", today, plans, [], logs);
 
     expect(result.weeks[0]).toMatchObject({ week: "2026-W40", status: "paused", plannedCount: 3 });
     expect(result.weeks[1]).toMatchObject({ week: "2026-W41", status: "fulfilled" });
-    expect(result.streakWeeks).toBe(1);
+    expect(result.streakWeeks).toBe(2);
   });
 
   it("nimmt den Planstand, der am Sonntag galt", () => {

@@ -42,7 +42,9 @@ function WeekMarker({
   streak: number;
 }) {
   const label = `KW ${Number(week.week.slice(6))}: ${activityWeekStatusLabels[week.status]}${
-    week.plannedCount ? ` (${week.completedCount} von ${week.plannedCount})` : ""
+    week.completedCount > 0
+      ? ` (${week.completedCount} ${week.completedCount === 1 ? "Training" : "Trainings"})`
+      : ""
   }`;
   const base = "mx-auto flex size-8 items-center justify-center rounded-full text-sm";
   if (current) {
