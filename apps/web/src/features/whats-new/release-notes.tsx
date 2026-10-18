@@ -2,7 +2,17 @@
  * Inhalte des „Was ist neu“-Dialogs. Neueste Version OBEN einfügen.
  * Anleitung: README.md in diesem Ordner.
  */
-import { CalendarCheck, LayoutGrid, Plus, Timer, Trophy } from "lucide-react";
+import {
+  CalendarCheck,
+  Globe,
+  Inbox,
+  LayoutGrid,
+  ListPlus,
+  Plus,
+  Replace,
+  Timer,
+  Trophy,
+} from "lucide-react";
 
 import upperBody from "@/features/plans/images/upper-body.svg";
 
@@ -28,6 +38,83 @@ import {
 import type { WhatsNewRelease } from "./types";
 
 export const releaseNotes: WhatsNewRelease[] = [
+  {
+    id: "3.2",
+    version: "3.2",
+    date: "2026-10-18",
+    items: [
+      {
+        title: "Eigene Übungen anlegen",
+        text: "Planst du selbst und fehlt eine Übung im Katalog? Leg sie direkt beim Planen an. Nur du siehst sie, dein Coach kann sie prüfen.",
+        icon: ListPlus,
+        roles: ["athlete"],
+        preview: (
+          <PreviewStack>
+            <PreviewInput label="Name" value="Pistol Squat" focused />
+            <PreviewCard tone="accent">
+              <PreviewText size="sm" tone="accent">
+                Meinst du eine dieser Übungen?
+              </PreviewText>
+              <PreviewRow>
+                <PreviewText grow>Bulgarian Split Squat</PreviewText>
+                <PreviewChip>Verwenden</PreviewChip>
+              </PreviewRow>
+            </PreviewCard>
+          </PreviewStack>
+        ),
+      },
+      {
+        title: "Dein Verlauf bleibt erhalten",
+        text: "Übernimmt oder ersetzt dein Coach eine deiner Übungen, laufen Pläne, Trainings und dein Verlauf einfach weiter. Ein Hinweis sagt dir, was sich geändert hat.",
+        icon: Replace,
+        roles: ["athlete"],
+      },
+      {
+        title: "Übungen deiner Athleten",
+        text: "Unter Übungen → Von Athleten siehst du, was deine Athleten angelegt haben. Übernimm sie in deinen Katalog oder ersetze sie durch eine vorhandene.",
+        icon: Inbox,
+        roles: ["coach"],
+        preview: (
+          <PreviewStack>
+            <PreviewCard>
+              <PreviewRow>
+                <PreviewTextGroup grow>
+                  <PreviewText>Pistol Squat</PreviewText>
+                  <PreviewText size="sm" muted>
+                    von Anna · Grundübung
+                  </PreviewText>
+                </PreviewTextGroup>
+                <PreviewChip>Übernehmen</PreviewChip>
+              </PreviewRow>
+            </PreviewCard>
+            <PreviewCard>
+              <PreviewRow>
+                <PreviewTextGroup grow>
+                  <PreviewText>Tiefe Hocke</PreviewText>
+                  <PreviewText size="sm" muted>
+                    von Ben · Grundübung
+                  </PreviewText>
+                </PreviewTextGroup>
+                <PreviewChip>Ersetzen</PreviewChip>
+              </PreviewRow>
+            </PreviewCard>
+          </PreviewStack>
+        ),
+      },
+      {
+        title: "Für alle Coaches vorschlagen",
+        text: "Eine eigene Übung ist so gut, dass alle sie haben sollten? Schlag sie für den globalen Katalog vor, der Sysadmin prüft den Vorschlag.",
+        icon: Globe,
+        roles: ["coach"],
+      },
+      {
+        title: "Vorschläge der Coaches",
+        text: "Unter Übungskatalog → Vorschläge übernimmst du Übungen der Coaches in den globalen Katalog oder ersetzt sie durch eine vorhandene.",
+        icon: Inbox,
+        roles: ["sysadmin"],
+      },
+    ],
+  },
   {
     id: "3.1",
     version: "3.1",
