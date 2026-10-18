@@ -380,6 +380,49 @@ describe("Training durchführen", () => {
     ).toBeInTheDocument();
   });
 
+  it("fügt eine Übung nur für dieses Training hinzu und entfernt sie wieder", async () => {
+    signInAsAthlete();
+    const saves = mockWorkout(buildWorkoutLog());
+    const user = userEvent.setup();
+    renderApp("/workouts/6acd3920c0072ec254663e01");
+
+    await user.click(await screen.findByRole("button", { name: /Übung hinzufügen/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Übung hinzufügen" });
+    await user.click(within(dialog).getByRole("button", { name: "Übung hinzufügen" }));
+    expect(within(dialog).getByText("Mindestens 2 Zeichen")).toBeInTheDocument();
+
+    await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "Butterfly");
+    await user.click(within(dialog).getByRole("button", { name: "Ein Satz weniger" }));
+    await user.type(within(dialog).getByRole("textbox", { name: "Wdh. (optional)" }), "12");
+    await user.type(within(dialog).getByRole("textbox", { name: "Gewicht (optional)" }), "30");
+    await user.click(within(dialog).getByRole("radio", { name: "60 s" }));
+    await user.click(within(dialog).getByRole("button", { name: "Übung hinzufügen" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    const card = screen.getByRole("region", { name: "Butterfly" });
+    expect(within(card).getByText("Spontan hinzugefügt")).toBeInTheDocument();
+    expect(within(card).getByText("2 × 12 Wdh. · 30 kg")).toBeInTheDocument();
+    expect(within(card).getByText("1 min Pause")).toBeInTheDocument();
+    expect(
+      within(card).getByRole("textbox", { name: "Butterfly, Satz 2: Gewicht in kg" }),
+    ).toHaveValue("30");
+
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    const added = saves[0]!.exercises[1]!;
+    expect(added.id).toMatch(/^[0-9a-f]{24}$/);
+    expect(added.custom).toMatchObject({ name: "Butterfly", restSeconds: 60 });
+    expect(added.custom!.targets).toHaveLength(2);
+    expect(added.sets).toEqual([
+      { weightKg: 30, reps: 12, durationSeconds: null, done: false },
+      { weightKg: 30, reps: 12, durationSeconds: null, done: false },
+    ]);
+
+    await user.click(within(card).getByRole("button", { name: "Entfernen" }));
+    expect(screen.queryByRole("region", { name: "Butterfly" })).not.toBeInTheDocument();
+    await waitFor(() => expect(saves).toHaveLength(2), { timeout: 4000 });
+    expect(saves[1]!.exercises).toHaveLength(1);
+  });
+
   it("markiert ungültige Eingaben und speichert sie nicht", async () => {
     signInAsAthlete();
     const saves = mockWorkout(buildWorkoutLog());

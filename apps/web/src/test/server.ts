@@ -186,6 +186,7 @@ export function buildWorkoutLog(overrides: Partial<WorkoutLog> = {}): WorkoutLog
     exercises: [
       {
         id: "6acd3920c0072ec254663e11",
+        custom: false,
         planExerciseId: entry.id,
         exerciseId: entry.exerciseId,
         exerciseName: entry.exerciseName,

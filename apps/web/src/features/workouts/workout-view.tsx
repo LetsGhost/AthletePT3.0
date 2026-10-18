@@ -8,12 +8,11 @@ import { formatPerformed } from "./format";
 
 function targetText(target: WorkoutLog["exercises"][number]["targets"][number] | undefined) {
   if (!target) return "–";
-  return [
-    formatTarget(target),
-    target.weightKg !== null ? `${formatNumber(target.weightKg)} kg` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  return (
+    [formatTarget(target), target.weightKg !== null ? `${formatNumber(target.weightKg)} kg` : null]
+      .filter(Boolean)
+      .join(" · ") || "Frei"
+  );
 }
 
 /** Protokoll nur lesend: Vorgabe gegen geschafft, Bewertung und Kommentar. */
@@ -62,6 +61,11 @@ export function WorkoutView({ log }: { log: WorkoutLog }) {
             <h2 id={`view-${exercise.id}`} className="font-medium">
               <span className="text-muted tabular-nums">{index + 1}. </span>
               {exercise.exerciseName}
+              {exercise.custom && (
+                <span className="bg-inset text-muted ml-2 rounded-full px-2 py-0.5 align-middle text-xs font-normal">
+                  Spontan hinzugefügt
+                </span>
+              )}
             </h2>
             {exercise.skipped ? (
               <p className="text-muted text-sm">Ausgelassen.</p>

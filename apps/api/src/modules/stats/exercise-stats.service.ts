@@ -43,7 +43,8 @@ export const WORKOUT_STATS_VERSION = 1;
 
 /**
  * Kennzahlen je Übung eines Trainings. Ausgelassene Übungen und solche ohne erledigten Arbeitssatz
- * fehlen. Kommt eine Übung in einem Training doppelt vor, zählt sie als eine Einheit.
+ * fehlen, ebenso spontane Übungen ohne Katalogeintrag. Kommt eine Übung in einem Training doppelt
+ * vor, zählt sie als eine Einheit.
  */
 export function computeWorkoutStats(
   exercises: readonly Pick<
@@ -56,10 +57,11 @@ export function computeWorkoutStats(
     { exerciseId: Types.ObjectId; name: string; sets: StoredWorkoutExercise["sets"] }
   >();
   for (const exercise of exercises) {
-    if (exercise.skipped) continue;
-    const id = exercise.exerciseId.toString();
+    const { exerciseId } = exercise;
+    if (exercise.skipped || !exerciseId) continue;
+    const id = exerciseId.toString();
     const entry = perExercise.get(id) ?? {
-      exerciseId: exercise.exerciseId,
+      exerciseId,
       name: exercise.exerciseName,
       sets: [],
     };

@@ -270,7 +270,7 @@ describe("Zwischenspeichern und Abschließen", () => {
     expect(stale.body.code).toBe("workout_conflict");
   });
 
-  it("lässt keine Übungen hinzufügen oder entfernen", async () => {
+  it("lässt Übungen aus dem Plan nicht entfernen", async () => {
     const { athlete, legDay } = await setup();
     const log = await started(athlete.bearer, { dayId: legDay.id });
 
@@ -284,6 +284,132 @@ describe("Zwischenspeichern und Abschließen", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.errors[0].path).toBe("exercises");
+  });
+
+  it("nimmt spontane Übungen auf, ohne sie in die Übungsanalyse zu zählen", async () => {
+    const { athlete, legDay } = await setup();
+    const log = await started(athlete.bearer, { dayId: legDay.id });
+    const customId = "6acd3920c0072ec254664a01";
+    const butterfly: UpdateWorkoutRequest["exercises"][number] = {
+      id: customId,
+      custom: {
+        name: " Butterfly ",
+        restSeconds: 60,
+        targets: [1, 2].map(() => ({
+          kind: "working" as const,
+          repsMin: 12,
+          repsMax: 12,
+          durationSeconds: null,
+          weightKg: 30,
+          rir: null,
+        })),
+      },
+      sets: [
+        { weightKg: 30, reps: 12, done: true },
+        { weightKg: 32.5, reps: 10, done: true },
+      ],
+    };
+
+    const saved = await put(
+      athlete.bearer,
+      log,
+      asUpdate(log, (body) => {
+        body.exercises.push(butterfly);
+      }),
+    );
+    expect(saved.status).toBe(200);
+    const withCustom = saved.body as WorkoutLog;
+    expect(withCustom.exercises.map((x) => x.exerciseName)).toEqual(["Kniebeuge", "Butterfly"]);
+    expect(withCustom.exercises[0]!.custom).toBe(false);
+    expect(withCustom.exercises[1]).toMatchObject({
+      id: customId,
+      custom: true,
+      planExerciseId: null,
+      exerciseId: null,
+      restSeconds: 60,
+      planNotes: null,
+      previous: null,
+    });
+    expect(withCustom.exercises[1]!.targets).toHaveLength(2);
+    expect(withCustom.exercises[1]!.sets.map((s) => [s.kind, s.weightKg, s.done])).toEqual([
+      ["working", 30, true],
+      ["working", 32.5, true],
+    ]);
+
+    const done = await complete(athlete.bearer, withCustom, asUpdate(withCustom, allDone));
+    expect(done.status).toBe(200);
+    expect(
+      (done.body as { newRecords: { exerciseName: string }[] }).newRecords.map(
+        (r) => r.exerciseName,
+      ),
+    ).not.toContain("Butterfly");
+    const stats = await api().get("/api/v1/me/exercise-stats").set("Authorization", athlete.bearer);
+    expect(stats.status).toBe(200);
+    expect(stats.body.items.map((x: { exerciseName: string }) => x.exerciseName)).toEqual([
+      "Kniebeuge",
+    ]);
+
+    // Beim Korrigieren lässt sie sich wieder entfernen.
+    const completed = done.body as WorkoutLog;
+    const removed = await put(
+      athlete.bearer,
+      completed,
+      asUpdate(completed, (body) => {
+        body.exercises = body.exercises.filter((x) => x.id !== customId);
+      }),
+    );
+    expect(removed.status).toBe(200);
+    expect((removed.body as WorkoutLog).exercises.map((x) => x.exerciseName)).toEqual([
+      "Kniebeuge",
+    ]);
+  });
+
+  it("verlangt für neue Übungen Name und Vorgabe und schützt Plan-Übungen", async () => {
+    const { athlete, legDay } = await setup();
+    const log = await started(athlete.bearer, { dayId: legDay.id });
+    const custom = { name: "Butterfly", restSeconds: null, targets: [] };
+
+    const withoutCustom = await put(
+      athlete.bearer,
+      log,
+      asUpdate(log, (body) => {
+        body.exercises.push({ id: "6acd3920c0072ec254664a01", sets: [] });
+      }),
+    );
+    expect(withoutCustom.status).toBe(400);
+
+    const renamedPlanExercise = await put(
+      athlete.bearer,
+      log,
+      asUpdate(log, (body) => {
+        body.exercises[0]!.custom = custom;
+      }),
+    );
+    expect(renamedPlanExercise.status).toBe(400);
+
+    const tooShort = await put(
+      athlete.bearer,
+      log,
+      asUpdate(log, (body) => {
+        body.exercises.push({
+          id: "6acd3920c0072ec254664a01",
+          custom: { ...custom, name: "B" },
+          sets: [],
+        });
+      }),
+    );
+    expect(tooShort.status).toBe(400);
+
+    const tooMany = await put(
+      athlete.bearer,
+      log,
+      asUpdate(log, (body) => {
+        for (let i = 0; i < 11; i++) {
+          body.exercises.push({ id: `6acd3920c0072ec254664a${10 + i}`, custom, sets: [] });
+        }
+      }),
+    );
+    expect(tooMany.status).toBe(400);
   });
 
   it("schließt ab und erlaubt Korrekturen nur 7 Tage lang", async () => {

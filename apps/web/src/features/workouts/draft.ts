@@ -1,6 +1,8 @@
 import {
   MAX_EXERCISE_SETS,
+  type CustomWorkoutExercise,
   type UpdateWorkoutRequest,
+  type WorkoutExercise,
   type WorkoutLog,
   type WorkoutSet,
 } from "@athletept/shared";
@@ -17,6 +19,8 @@ export interface DraftSet {
 
 export interface DraftExercise {
   id: string;
+  /** Nur bei spontan hinzugefügten Übungen: Name, Pause und Vorgabe kommen aus dem Entwurf. */
+  custom?: CustomWorkoutExercise;
   skipped: boolean;
   notes: string;
   sets: DraftSet[];
@@ -41,6 +45,9 @@ export function draftFromLog(log: WorkoutLog): WorkoutDraft {
   return {
     exercises: log.exercises.map((x) => ({
       id: x.id,
+      ...(x.custom && {
+        custom: { name: x.exerciseName, restSeconds: x.restSeconds, targets: x.targets },
+      }),
       skipped: x.skipped,
       notes: x.notes ?? "",
       sets: x.sets.map(toDraftSet),
@@ -65,6 +72,75 @@ export function appendSet(exercise: DraftExercise): DraftExercise {
         done: false,
       },
     ],
+  };
+}
+
+/** ObjectId wie bei MongoDB (Sekunden + Zufall), damit neue Übungen auch offline eine ID haben. */
+function newObjectId() {
+  const seconds = Math.floor(Date.now() / 1000)
+    .toString(16)
+    .padStart(8, "0");
+  const random = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) =>
+    b.toString(16).padStart(2, "0"),
+  ).join("");
+  return seconds + random;
+}
+
+export interface NewCustomExercise {
+  name: string;
+  setCount: number;
+  reps: number | null;
+  weightKg: number | null;
+  restSeconds: number | null;
+}
+
+/** Spontane Übung nur für dieses Training, Sätze mit Wdh. und Gewicht vorbefüllt. */
+export function createCustomExercise({
+  name,
+  setCount,
+  reps,
+  weightKg,
+  restSeconds,
+}: NewCustomExercise): DraftExercise {
+  // Schlüssel in der Reihenfolge des Servers, damit `draftFromLog` denselben Entwurf ergibt.
+  const target = {
+    kind: "working" as const,
+    repsMin: reps,
+    repsMax: reps,
+    durationSeconds: null,
+    weightKg,
+    rir: null,
+  };
+  return {
+    id: newObjectId(),
+    custom: {
+      name: name.trim(),
+      restSeconds,
+      targets: Array.from({ length: setCount }, () => ({ ...target })),
+    },
+    skipped: false,
+    notes: "",
+    sets: Array.from({ length: setCount }, () =>
+      toDraftSet({ weightKg, reps, durationSeconds: null, done: false }),
+    ),
+  };
+}
+
+/** Spontane Übung so aufbereitet wie eine aus dem Plan, auch bevor der Server sie kennt. */
+export function customExerciseView(id: string, custom: CustomWorkoutExercise): WorkoutExercise {
+  return {
+    id,
+    custom: true,
+    planExerciseId: null,
+    exerciseId: null,
+    exerciseName: custom.name,
+    restSeconds: custom.restSeconds,
+    planNotes: null,
+    targets: custom.targets,
+    skipped: false,
+    notes: null,
+    sets: [],
+    previous: null,
   };
 }
 
@@ -103,6 +179,7 @@ export function draftToRequest(
     notes: draft.notes,
     exercises: draft.exercises.map((exercise, e) => ({
       id: exercise.id,
+      ...(exercise.custom && { custom: exercise.custom }),
       skipped: exercise.skipped,
       notes: exercise.notes,
       sets: exercise.sets.map((set, s) => {

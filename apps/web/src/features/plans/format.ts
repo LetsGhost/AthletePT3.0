@@ -61,6 +61,8 @@ export function groupSets(sets: readonly PlanSet[]): SetGroup[] {
 
 /** „3 × 6–8 Wdh. · 80 kg · RIR 2“ */
 export function formatSetGroup(group: SetGroup) {
+  // Ohne Vorgabe (spontane Übung ohne Wdh. und Gewicht) nur die Anzahl.
+  if (!group.text) return `${group.count} ${group.count === 1 ? "Satz" : "Sätze"}`;
   return `${group.count} × ${group.text}`;
 }
 

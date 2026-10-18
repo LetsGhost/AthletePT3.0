@@ -25,8 +25,9 @@ export interface StoredWorkoutSet {
 
 export interface StoredWorkoutExercise {
   _id: Types.ObjectId;
-  planExerciseId: Types.ObjectId;
-  exerciseId: Types.ObjectId;
+  /** Beide `null` bei Übungen, die der Athlet nur für dieses Training hinzugefügt hat. */
+  planExerciseId: Types.ObjectId | null;
+  exerciseId: Types.ObjectId | null;
   exerciseName: string;
   restSeconds: number | null;
   planNotes: string | null;
@@ -101,8 +102,8 @@ const setSchema = new Schema(
 );
 
 const exerciseSchema = new Schema({
-  planExerciseId: { type: Schema.Types.ObjectId, required: true },
-  exerciseId: { type: Schema.Types.ObjectId, ref: "Exercise", required: true },
+  planExerciseId: { type: Schema.Types.ObjectId, default: null },
+  exerciseId: { type: Schema.Types.ObjectId, ref: "Exercise", default: null },
   exerciseName: { type: String, required: true },
   restSeconds: nullableNumber,
   planNotes: nullableString,

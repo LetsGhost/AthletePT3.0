@@ -1,6 +1,10 @@
-import type { CompleteWorkoutResponse, WorkoutLog } from "@athletept/shared";
-import { AlertTriangle, Check, CloudOff, Loader2, RotateCcw, Trash2 } from "lucide-react";
-import { useState } from "react";
+import {
+  MAX_CUSTOM_WORKOUT_EXERCISES,
+  type CompleteWorkoutResponse,
+  type WorkoutLog,
+} from "@athletept/shared";
+import { AlertTriangle, Check, CloudOff, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { Alert } from "@/components/ui/alert";
@@ -13,8 +17,10 @@ import { cn } from "@/lib/cn";
 import { formatDateTime } from "@/lib/format";
 import { errorMessage } from "@/lib/http";
 
+import { AddExerciseDialog } from "./add-exercise-dialog";
 import { useCompleteWorkout, useDeleteWorkout } from "./api";
 import {
+  customExerciseView,
   draftFromLog,
   draftStorage,
   draftToRequest,
@@ -140,7 +146,17 @@ export function WorkoutEditor({ log, onReload, onCompleted }: WorkoutEditorProps
   const complete = useCompleteWorkout(log.id);
   const discard = useDeleteWorkout();
   const [confirm, setConfirm] = useState<"complete" | "discard" | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [removeId, setRemoveId] = useState<string | null>(null);
   const { errors } = draftToRequest(draft, log.revision);
+  // Plan-Übungen vom Server, spontane aus dem Entwurf (auch solange noch nicht gespeichert).
+  const views = useMemo(() => {
+    const byId = new Map(log.exercises.map((x) => [x.id, x]));
+    return draft.exercises.map((x) =>
+      x.custom ? customExerciseView(x.id, x.custom) : byId.get(x.id)!,
+    );
+  }, [log.exercises, draft.exercises]);
+  const customCount = draft.exercises.filter((x) => x.custom).length;
   const open = openSetCount(draft);
   useWakeLock(running);
 
@@ -157,7 +173,7 @@ export function WorkoutEditor({ log, onReload, onCompleted }: WorkoutEditorProps
     setDraft((d) => ({ ...d, exercises: d.exercises.map((x, i) => (i === index ? next : x)) }));
     if (!running) return;
 
-    const exercise = log.exercises[index]!;
+    const exercise = views[index]!;
     const checked = next.sets.some((set, i) => set.done && !previous.sets[i]?.done);
     // Vorgabe des Coaches vor eigener Standardpause; 0 heißt bewusst keine Pause.
     const restSeconds = exercise.restSeconds ?? restSettings.defaultSeconds;
@@ -178,6 +194,16 @@ export function WorkoutEditor({ log, onReload, onCompleted }: WorkoutEditorProps
     } else if (previous.skipped && !next.skipped) {
       setOpenIds((ids) => new Set(ids).add(next.id));
     }
+  };
+
+  const addExercise = (exercise: DraftExercise) => {
+    setDraft((d) => ({ ...d, exercises: [...d.exercises, exercise] }));
+    setOpenIds((ids) => new Set(ids).add(exercise.id));
+  };
+
+  const removeExercise = (id: string) => {
+    setDraft((d) => ({ ...d, exercises: d.exercises.filter((x) => x.id !== id) }));
+    setRemoveId(null);
   };
 
   const handleComplete = async () => {
@@ -240,21 +266,46 @@ export function WorkoutEditor({ log, onReload, onCompleted }: WorkoutEditorProps
         </Alert>
       )}
 
-      {log.exercises.map((exercise, index) => {
-        const exerciseDraft = draft.exercises[index]!;
-        return (
-          <ExerciseCard
-            key={exercise.id}
-            index={index}
-            exercise={exercise}
-            draft={exerciseDraft}
-            errors={errors}
-            open={openIds.has(exerciseDraft.id)}
-            onToggleOpen={() => toggleOpen(exerciseDraft.id)}
-            onChange={(next) => updateExercise(index, next)}
-          />
-        );
-      })}
+      {draft.exercises.map((exerciseDraft, index) => (
+        <ExerciseCard
+          key={exerciseDraft.id}
+          index={index}
+          exercise={views[index]!}
+          draft={exerciseDraft}
+          errors={errors}
+          open={openIds.has(exerciseDraft.id)}
+          onToggleOpen={() => toggleOpen(exerciseDraft.id)}
+          onChange={(next) => updateExercise(index, next)}
+          onRemove={
+            exerciseDraft.custom
+              ? () =>
+                  exerciseDraft.sets.some((s) => s.done)
+                    ? setRemoveId(exerciseDraft.id)
+                    : removeExercise(exerciseDraft.id)
+              : undefined
+          }
+        />
+      ))}
+
+      <button
+        type="button"
+        disabled={customCount >= MAX_CUSTOM_WORKOUT_EXERCISES}
+        onClick={() => setAdding(true)}
+        className="border-border-strong text-accent hover:border-accent flex min-h-15 items-center justify-center gap-3 rounded-card border-[1.5px] border-dashed px-4 py-2.5 disabled:pointer-events-none disabled:opacity-50"
+      >
+        <span className="bg-accent/12 flex size-8 items-center justify-center rounded-lg">
+          <Plus aria-hidden="true" className="size-5" strokeWidth={2.4} />
+        </span>
+        <span className="flex flex-col items-center text-center sm:items-start sm:text-left">
+          <span className="font-semibold">Übung hinzufügen</span>
+          <span className="text-muted text-xs">
+            {customCount >= MAX_CUSTOM_WORKOUT_EXERCISES
+              ? `Höchstens ${MAX_CUSTOM_WORKOUT_EXERCISES} zusätzliche Übungen`
+              : "Nur für dieses Training, z. B. zum Ausprobieren"}
+          </span>
+        </span>
+      </button>
+      <AddExerciseDialog open={adding} onOpenChange={setAdding} onAdd={addExercise} />
 
       <Card className="mt-2">
         <CardHeader title={running ? "Abschluss" : "Bewertung und Kommentar"} />
@@ -303,6 +354,15 @@ export function WorkoutEditor({ log, onReload, onCompleted }: WorkoutEditorProps
         confirmLabel="Abschließen"
         loading={complete.isPending}
         onConfirm={() => void handleComplete()}
+      />
+      <ConfirmDialog
+        open={removeId !== null}
+        onOpenChange={(o) => !o && setRemoveId(null)}
+        title="Übung entfernen?"
+        description="Die abgehakten Sätze dieser Übung werden mit entfernt."
+        confirmLabel="Entfernen"
+        destructive
+        onConfirm={() => removeId && removeExercise(removeId)}
       />
       <ConfirmDialog
         open={confirm === "discard"}

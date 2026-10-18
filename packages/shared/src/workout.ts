@@ -47,8 +47,40 @@ export const workoutSetInputSchema = z.object({
   done: z.boolean().default(false),
 });
 
+/** So viele Übungen darf der Athlet einem Training spontan hinzufügen. */
+export const MAX_CUSTOM_WORKOUT_EXERCISES = 10;
+
+/** Vorgabe einer spontanen Übung. Anders als im Plan dürfen Wiederholungen und Dauer fehlen („frei“). */
+export const customWorkoutTargetSchema = z.object({
+  kind: setKindSchema,
+  repsMin: nullableNumber(number().int("Bitte eine ganze Zahl").min(1).max(100)),
+  repsMax: nullableNumber(number().int("Bitte eine ganze Zahl").min(1).max(100)),
+  durationSeconds: nullableNumber(number().int("Bitte in ganzen Sekunden").min(1).max(3600)),
+  weightKg: nullableNumber(number().min(0, "Nicht negativ").max(1000, "Höchstens 1000 kg")),
+  rir: nullableNumber(number().int().min(0).max(10)),
+});
+
+/** Name, Pause und Vorgabe einer Übung, die nur für dieses Training hinzugefügt wurde. */
+export const customWorkoutExerciseSchema = z.object({
+  name: z.string().trim().min(2, "Mindestens 2 Zeichen").max(80, "Höchstens 80 Zeichen"),
+  restSeconds: nullableNumber(
+    number()
+      .int("Bitte in ganzen Sekunden")
+      .min(0, "Nicht negativ")
+      .max(900, "Höchstens 900 Sekunden"),
+  ),
+  targets: z
+    .array(customWorkoutTargetSchema)
+    .max(MAX_EXERCISE_SETS, `Höchstens ${MAX_EXERCISE_SETS} Sätze`),
+});
+
 export const workoutExerciseInputSchema = z.object({
   id: objectIdSchema,
+  /**
+   * Nur bei spontan hinzugefügten Übungen. Eine neue ID mit `custom` legt die Übung an, fehlt sie
+   * später in der Anfrage, ist sie wieder entfernt.
+   */
+  custom: customWorkoutExerciseSchema.optional(),
   skipped: z.boolean().default(false),
   notes: nullableText(500),
   sets: z
@@ -63,8 +95,9 @@ export const workoutRatingSchema = number()
 
 /**
  * Zwischenspeichern, Abschließen und Korrigieren schicken immer das ganze Protokoll.
- * Übungen lassen sich nicht hinzufügen oder entfernen, nur auslassen. `revision` ist der zuletzt
- * geladene Stand (sonst 409 `workout_conflict`).
+ * Übungen aus dem Plan lassen sich nur auslassen, nicht entfernen; spontane Übungen (`custom`)
+ * kommen hinzu oder fallen weg. `revision` ist der zuletzt geladene Stand (sonst 409
+ * `workout_conflict`).
  */
 export const updateWorkoutRequestSchema = z.object({
   revision: z.number().int().min(0),
@@ -100,9 +133,12 @@ export const previousPerformanceSchema = z.object({
 
 export const workoutExerciseSchema = z.object({
   id: objectIdSchema,
-  /** Übungseintrag im Plan, nach dem trainiert wurde. */
-  planExerciseId: objectIdSchema,
-  exerciseId: objectIdSchema,
+  /** Vom Athleten nur für dieses Training hinzugefügt, ohne Plan- und Katalogeintrag. */
+  custom: z.boolean(),
+  /** Übungseintrag im Plan, nach dem trainiert wurde; `null` bei spontanen Übungen. */
+  planExerciseId: objectIdSchema.nullable(),
+  /** Übung im Katalog; `null` bei spontanen Übungen (zählen nicht in die Übungsanalyse). */
+  exerciseId: objectIdSchema.nullable(),
   exerciseName: z.string(),
   restSeconds: z.number().nullable(),
   /** Hinweise des Coaches zu dieser Übung im Plan. */
@@ -227,6 +263,7 @@ export const weekViewSchema = z.object({
 
 export type WorkoutSetInput = z.input<typeof workoutSetInputSchema>;
 export type WorkoutExerciseInput = z.input<typeof workoutExerciseInputSchema>;
+export type CustomWorkoutExercise = z.infer<typeof customWorkoutExerciseSchema>;
 export type UpdateWorkoutRequest = z.input<typeof updateWorkoutRequestSchema>;
 export type StartWorkoutRequest = z.input<typeof startWorkoutRequestSchema>;
 export type SkipWorkoutRequest = z.input<typeof skipWorkoutRequestSchema>;

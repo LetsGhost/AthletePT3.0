@@ -1,5 +1,6 @@
 import {
   AVERAGE_DURATION_WORKOUTS,
+  MAX_CUSTOM_WORKOUT_EXERCISES,
   WORKOUT_BACKFILL_DAYS,
   WORKOUT_EDIT_DAYS,
   addDays,
@@ -141,7 +142,7 @@ async function toLogDto(log: StoredWorkoutLog, viewer: "athlete" | "coach"): Pro
       ? new Map<string, PreviousPerformance>()
       : await previousPerformances(
           log.athleteId,
-          log.exercises.map((x) => x.exerciseId),
+          log.exercises.flatMap((x) => (x.exerciseId ? [x.exerciseId] : [])),
           log.date,
           log._id,
         );
@@ -158,8 +159,9 @@ async function toLogDto(log: StoredWorkoutLog, viewer: "athlete" | "coach"): Pro
     status: log.status,
     exercises: log.exercises.map((x) => ({
       id: x._id.toString(),
-      planExerciseId: x.planExerciseId.toString(),
-      exerciseId: x.exerciseId.toString(),
+      custom: !x.planExerciseId,
+      planExerciseId: x.planExerciseId?.toString() ?? null,
+      exerciseId: x.exerciseId?.toString() ?? null,
       exerciseName: x.exerciseName,
       restSeconds: x.restSeconds ?? null,
       planNotes: x.planNotes ?? null,
@@ -174,7 +176,7 @@ async function toLogDto(log: StoredWorkoutLog, viewer: "athlete" | "coach"): Pro
       skipped: Boolean(x.skipped),
       notes: x.notes ?? null,
       sets: x.sets.map(toSetDto),
-      previous: previous.get(x.exerciseId.toString()) ?? null,
+      previous: (x.exerciseId && previous.get(x.exerciseId.toString())) ?? null,
     })),
     rating: log.rating ?? null,
     notes: log.notes ?? null,
@@ -360,26 +362,67 @@ function assertEditable(log: StoredWorkoutLog) {
   }
 }
 
-/** Übernimmt die Eingaben. Art und Vorgabe der Sätze bleiben vom Server (Index in `targets`). */
+/** Neue spontane Übung: ohne Plan- und Katalogeintrag, Name und Vorgabe setzt `custom`. */
+function customExercise(id: string): StoredWorkoutExercise {
+  return {
+    _id: new Types.ObjectId(id),
+    planExerciseId: null,
+    exerciseId: null,
+    exerciseName: "",
+    restSeconds: null,
+    planNotes: null,
+    targets: [],
+    skipped: false,
+    notes: null,
+    sets: [],
+  };
+}
+
+/**
+ * Übernimmt die Eingaben in der Reihenfolge der Anfrage. Übungen aus dem Plan müssen alle dabei
+ * sein; Art und Vorgabe ihrer Sätze bleiben vom Server (Index in `targets`). Spontane Übungen
+ * übernehmen Name, Pause und Vorgabe aus `custom`.
+ */
 function applyInput(log: StoredWorkoutLog, input: UpdateInput) {
-  const byId = new Map(input.exercises.map((x) => [x.id, x]));
+  const stored = new Map(log.exercises.map((x) => [x._id.toString(), x]));
+  const ids = new Set(input.exercises.map((x) => x.id));
   const matches =
-    byId.size === input.exercises.length &&
-    input.exercises.length === log.exercises.length &&
-    log.exercises.every((x) => byId.has(x._id.toString()));
+    ids.size === input.exercises.length &&
+    log.exercises.every((x) => !x.planExerciseId || ids.has(x._id.toString())) &&
+    input.exercises.every((entry) => {
+      const existing = stored.get(entry.id);
+      // Neue Übungen nur mit `custom`, Plan-Übungen nie mit.
+      return existing ? !(existing.planExerciseId && entry.custom) : Boolean(entry.custom);
+    });
   if (!matches) {
     throw new ValidationError([
       { path: "exercises", message: "Die Übungen passen nicht zu diesem Training" },
     ]);
   }
-  const exercises = log.exercises.map((stored) => {
-    const entry = byId.get(stored._id.toString())!;
+  if (input.exercises.filter((x) => x.custom).length > MAX_CUSTOM_WORKOUT_EXERCISES) {
+    throw new ValidationError([
+      {
+        path: "exercises",
+        message: `Höchstens ${MAX_CUSTOM_WORKOUT_EXERCISES} zusätzliche Übungen pro Training`,
+      },
+    ]);
+  }
+  const exercises = input.exercises.map((entry) => {
+    const base = stored.get(entry.id) ?? customExercise(entry.id);
+    const exercise = entry.custom
+      ? {
+          ...base,
+          exerciseName: entry.custom.name,
+          restSeconds: entry.custom.restSeconds,
+          targets: entry.custom.targets,
+        }
+      : base;
     return {
-      ...stored,
+      ...exercise,
       skipped: entry.skipped,
       notes: entry.notes,
       sets: entry.sets.map((set, i) => ({
-        kind: stored.targets[i]?.kind ?? "working",
+        kind: exercise.targets[i]?.kind ?? "working",
         weightKg: set.weightKg,
         reps: set.reps,
         durationSeconds: set.durationSeconds,

@@ -1,5 +1,5 @@
 import { MAX_EXERCISE_SETS, type WorkoutExercise } from "@athletept/shared";
-import { Check, ChevronDown, History, Minus, NotebookPen, Plus, Timer } from "lucide-react";
+import { Check, ChevronDown, History, Minus, NotebookPen, Plus, Timer, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -77,7 +77,7 @@ function SetRow({
         target.weightKg !== null ? `${formatNumber(target.weightKg)} kg` : null,
       ]
         .filter(Boolean)
-        .join(" · ")
+        .join(" · ") || "Frei"
     : "Zusatzsatz";
   const tag = label.warmup ? "Aufwärmen" : target ? null : "Extra";
   return (
@@ -159,6 +159,8 @@ interface ExerciseCardProps {
   open: boolean;
   onToggleOpen: () => void;
   onChange: (draft: DraftExercise) => void;
+  /** Nur bei spontanen Übungen: statt Auslassen ganz entfernen. */
+  onRemove?: () => void;
 }
 
 /** Eine Übung als aufklappbare Karte: Kopf mit Vorgabe und Status, darunter die Sätze. */
@@ -170,6 +172,7 @@ export function ExerciseCard({
   open,
   onToggleOpen,
   onChange,
+  onRemove,
 }: ExerciseCardProps) {
   const id = useId();
   const nameId = `${id}-name`;
@@ -180,9 +183,12 @@ export function ExerciseCard({
   const done = draft.sets.filter((s) => s.done).length;
   const expanded = open && !draft.skipped;
   const labels = setLabels(exercise.targets, draft.sets.length);
-  const chips = groupSets(exercise.targets).map((g) =>
-    g.kind === "warmup" ? `Aufwärmen ${formatSetGroup(g)}` : formatSetGroup(g),
-  );
+  const chips = [
+    ...(exercise.custom ? ["Spontan hinzugefügt"] : []),
+    ...groupSets(exercise.targets).map((g) =>
+      g.kind === "warmup" ? `Aufwärmen ${formatSetGroup(g)}` : formatSetGroup(g),
+    ),
+  ];
 
   return (
     <section
@@ -340,9 +346,19 @@ export function ExerciseCard({
               <NotebookPen aria-hidden="true" className="size-4" />
               {noteOpen ? "Notiz ausblenden" : draft.notes ? "Notiz ✓" : "Notiz"}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => onChange({ ...draft, skipped: true })}>
-              Auslassen
-            </Button>
+            {onRemove ? (
+              <Button variant="ghost" size="sm" className="text-danger" onClick={onRemove}>
+                <Trash2 aria-hidden="true" className="size-4" /> Entfernen
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onChange({ ...draft, skipped: true })}
+              >
+                Auslassen
+              </Button>
+            )}
           </div>
         </div>
       )}
