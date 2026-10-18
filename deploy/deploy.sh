@@ -5,6 +5,7 @@
 # Ablauf je Dienst: laufendes Image als athletept-<dienst>:previous sichern, neues Image als
 # athletept-<dienst>:latest setzen, Container neu starten, auf den Docker-Healthcheck warten.
 # Wird er nicht "healthy", startet das Skript automatisch wieder das vorherige Image.
+# Wurde web ausgerollt, startet es danach den nginx-Proxy (athletept3-proxy) neu.
 #
 # Aufruf:
 #   ./deploy.sh --name api                       # athletept-api:latest ausrollen
@@ -36,7 +37,7 @@ while [[ $# -gt 0 ]]; do
     --name) names+=("${2:?--name braucht einen Wert (api oder web)}"); shift ;;
     --load) archive="${2:?--load braucht einen Dateipfad}"; shift ;;
     --timeout) timeout="${2:?--timeout braucht einen Wert}"; shift ;;
-    -h | --help) sed -n '2,19p' "$script_dir/$(basename "$0")" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,20p' "$script_dir/$(basename "$0")" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) fail "Unbekanntes Argument: $1 (siehe --help)" ;;
   esac
   shift
@@ -155,6 +156,24 @@ for i in "${!services[@]}"; do
   fi
   fail "$service: auch der Rollback ist nicht healthy. Bitte sofort prüfen: docker logs $container"
 done
+
+# ---- nginx-Proxy neu starten ----
+# Nach einem neuen Web-Container den Proxy (docker-compose.proxy.yml) neu starten, damit er
+# sicher keine alten Verbindungen oder Antworten zum vorherigen Container mehr hält.
+proxy_container="athletept3-proxy"
+if [[ " ${deployed[*]} " == *" web "* ]]; then
+  if docker inspect "$proxy_container" > /dev/null 2>&1; then
+    step "proxy: starte $proxy_container neu"
+    docker restart "$proxy_container" > /dev/null
+    if [[ "$(docker inspect --format '{{.State.Status}}' "$proxy_container")" == running ]]; then
+      printf '\033[32m  %s läuft wieder.\033[0m\n' "$proxy_container"
+    else
+      warn "$proxy_container läuft nach dem Neustart nicht. Bitte prüfen: docker logs $proxy_container"
+    fi
+  else
+    warn "$proxy_container nicht gefunden, Proxy wurde nicht neu gestartet."
+  fi
+fi
 
 # ---- Zusammenfassung ----
 echo
