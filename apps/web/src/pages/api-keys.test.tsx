@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { useSession } from "@/features/auth/session";
 import { renderApp } from "@/test/render";
-import { apiUrl, buildUser, server } from "@/test/server";
+import { apiUrl, buildUser, buildWorkoutSummary, server } from "@/test/server";
 
 const key = (overrides: Partial<ApiKey> = {}): ApiKey => ({
   id: "6acd3920c0072ec254663e01",
@@ -33,6 +33,7 @@ const adminKey = (overrides: Partial<AdminApiKey> = {}): AdminApiKey => ({
   rateLimit: 300,
   requestCount: 12,
   revokedAt: null,
+  renewedFromId: null,
   ...overrides,
 });
 
@@ -109,6 +110,56 @@ describe("API-Zugänge (Sysadmin)", () => {
 
     expect(await screen.findByText("Änderungen gespeichert.")).toBeVisible();
     expect(body).toEqual({ name: "Trainings-Tracker", scopes: ["workouts:write"], rateLimit: 300 });
+  });
+});
+
+describe("API-Zugänge erneuern (Sysadmin)", () => {
+  it("weist auf den baldigen Ablauf hin und erneuert", async () => {
+    let renewed = false;
+    const soon = adminKey({ expiresAt: new Date(Date.now() + 5 * 86_400_000).toISOString() });
+    const successor = adminKey({
+      id: "6acd3920c0072ec254663e02",
+      status: "pending",
+      keyPreview: null,
+      renewedFromId: soon.id,
+    });
+    server.use(
+      http.get(apiUrl("/api-keys"), () => HttpResponse.json(renewed ? [successor, soon] : [soon])),
+      http.post(apiUrl(`/api-keys/${soon.id}/renew`), () => {
+        renewed = true;
+        return HttpResponse.json({ ...successor, mailSent: true }, { status: 201 });
+      }),
+    );
+    signInAs("sysadmin");
+    renderApp("/admin/api-keys");
+
+    expect(await screen.findByText("Läuft bald ab")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Erneuern" }));
+
+    expect(
+      await screen.findByText(/Der alte Zugang gilt bis zu seinem Ablauf weiter/),
+    ).toBeVisible();
+    expect(await screen.findByText(/Der neue Zugang wartet auf Abholung/)).toBeVisible();
+    expect(screen.getByText("Erneuerung eines früheren Zugangs.")).toBeVisible();
+    expect(screen.queryByText("Läuft bald ab")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Erneuern" })).not.toBeInTheDocument();
+  });
+});
+
+describe("Herkunft aus externen Apps", () => {
+  it("zeigt im Verlauf, welche App ein Training geschrieben hat", async () => {
+    server.use(
+      http.get(apiUrl("/me/workout-logs"), () =>
+        HttpResponse.json({
+          items: [buildWorkoutSummary({ lastWriteVia: { appName: "Trainings-Tracker" } })],
+          total: 1,
+        }),
+      ),
+    );
+    signInAs("athlete");
+    renderApp("/workouts");
+
+    expect(await screen.findByText(/über „Trainings-Tracker“/)).toBeVisible();
   });
 });
 

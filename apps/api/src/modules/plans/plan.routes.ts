@@ -13,6 +13,7 @@ import {
 import { z } from "zod";
 
 import { createModuleRouter } from "../../lib/router";
+import { writeSource } from "../api-keys/write-source";
 import * as templateService from "./plan-template.service";
 import * as planService from "./plan.service";
 
@@ -192,7 +193,7 @@ templates.route({
   body: createPlanRequestSchema,
   status: 201,
   response: planTemplateSchema,
-  handler: ({ auth, body }) => templateService.createTemplate(auth.userId, body),
+  handler: ({ auth, body }) => templateService.createTemplate(auth.userId, body, writeSource(auth)),
 });
 
 templates.route({
@@ -218,7 +219,8 @@ templates.route({
   body: updatePlanRequestSchema,
   response: planTemplateSchema,
   errors: [404, 409],
-  handler: ({ auth, params, body }) => templateService.updateTemplate(auth.userId, params.id, body),
+  handler: ({ auth, params, body }) =>
+    templateService.updateTemplate(auth.userId, params.id, body, writeSource(auth)),
 });
 
 templates.route({

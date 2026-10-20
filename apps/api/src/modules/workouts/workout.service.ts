@@ -28,6 +28,7 @@ import {
   computeWorkoutStats,
   findNewRecords,
 } from "../stats/exercise-stats.service";
+import { toWriteSourceDto, type WriteSourceInput } from "../api-keys/write-source";
 import { toDayDtos } from "../plans/plan-content";
 import type { StoredDay } from "../plans/plan-content.model";
 import { TrainingPlanModel, type StoredPlan } from "../plans/plan.model";
@@ -83,6 +84,7 @@ export function toSummary(log: StoredWorkoutLog): WorkoutLogSummary {
       0,
     ),
     completedAt: log.completedAt?.toISOString() ?? null,
+    lastWriteVia: toWriteSourceDto(log.lastWriteVia),
   };
 }
 
@@ -185,6 +187,7 @@ async function toLogDto(log: StoredWorkoutLog, viewer: "athlete" | "coach"): Pro
     completedAt: log.completedAt?.toISOString() ?? null,
     editableUntil: until?.toISOString() ?? null,
     editable: viewer === "athlete" && isEditable(log),
+    lastWriteVia: toWriteSourceDto(log.lastWriteVia),
     createdAt: log.createdAt.toISOString(),
     updatedAt: log.updatedAt.toISOString(),
   };
@@ -272,7 +275,11 @@ async function reload(logId: Types.ObjectId) {
 }
 
 /** Startet ein Training nach einem Tag des aktiven Plans. Es darf nur eines gleichzeitig laufen. */
-export async function startWorkout(athleteId: string, input: StartInput) {
+export async function startWorkout(
+  athleteId: string,
+  input: StartInput,
+  via: WriteSourceInput = null,
+) {
   const date = resolveDate(input.date);
   const { plan, day } = await findActiveDay(athleteId, input.dayId);
   if (await WorkoutLogModel.exists({ athleteId, status: "in_progress" })) {
@@ -292,6 +299,7 @@ export async function startWorkout(athleteId: string, input: StartInput) {
       status: "in_progress",
       exercises: await exercisesFromDay(athleteObjectId, day, date),
       startedAt: new Date(),
+      lastWriteVia: via,
     });
   } catch (error) {
     // Zwei Starts gleichzeitig: der eindeutige Index lässt nur einen durch.
@@ -302,7 +310,11 @@ export async function startWorkout(athleteId: string, input: StartInput) {
 }
 
 /** Sagt einen Trainingstag ab. Pro Tag und Woche nur, solange er weder erledigt noch abgesagt ist. */
-export async function skipWorkout(athleteId: string, input: SkipInput) {
+export async function skipWorkout(
+  athleteId: string,
+  input: SkipInput,
+  via: WriteSourceInput = null,
+) {
   const date = resolveDate(input.date);
   const { plan, day } = await findActiveDay(athleteId, input.dayId);
   const start = isoWeekStart(isoWeekOf(date));
@@ -332,6 +344,7 @@ export async function skipWorkout(athleteId: string, input: SkipInput) {
     notes: input.notes,
     startedAt: now,
     completedAt: now,
+    lastWriteVia: via,
   });
   return toLogDto(await reload(created._id), "athlete");
 }
@@ -436,6 +449,7 @@ function applyInput(log: StoredWorkoutLog, input: UpdateInput) {
 async function saveLog(
   log: StoredWorkoutLog,
   input: UpdateInput,
+  via: WriteSourceInput,
   extra: Partial<Pick<StoredWorkoutLog, "status" | "completedAt">> = {},
 ) {
   if (log.revision !== input.revision) throw workoutConflict();
@@ -446,6 +460,7 @@ async function saveLog(
       $set: {
         ...applied,
         ...extra,
+        lastWriteVia: via,
         stats: computeWorkoutStats(applied.exercises),
         statsVersion: WORKOUT_STATS_VERSION,
       },
@@ -457,10 +472,15 @@ async function saveLog(
 }
 
 /** Zwischenspeichern bzw. Korrigieren. Der Status bleibt. */
-export async function updateMyWorkout(athleteId: string, logId: string, input: UpdateInput) {
+export async function updateMyWorkout(
+  athleteId: string,
+  logId: string,
+  input: UpdateInput,
+  via: WriteSourceInput = null,
+) {
   const log = await findOwnLog(athleteId, logId);
   assertEditable(log);
-  return saveLog(log, input);
+  return saveLog(log, input, via);
 }
 
 /** Durchschnittliche Dauer der letzten abgeschlossenen Trainings außer `logId`, ohne Ausreißer. */
@@ -482,12 +502,16 @@ export async function completeMyWorkout(
   athleteId: string,
   logId: string,
   input: UpdateInput,
+  via: WriteSourceInput = null,
 ): Promise<CompleteWorkoutResponse> {
   const log = await findOwnLog(athleteId, logId);
   if (log.status !== "in_progress") {
     throw new ConflictError("Das Training ist bereits abgeschlossen.", "workout_not_in_progress");
   }
-  const completed = await saveLog(log, input, { status: "completed", completedAt: new Date() });
+  const completed = await saveLog(log, input, via, {
+    status: "completed",
+    completedAt: new Date(),
+  });
   const [newRecords, average] = await Promise.all([
     findNewRecords(athleteId, log._id),
     averageDurationMinutes(athleteId, log._id),

@@ -93,7 +93,12 @@ export const adminApiKeySchema = apiKeySchema.extend({
   rateLimit: z.number().int(),
   requestCount: z.number().int(),
   revokedAt: z.string().nullable(),
+  /** Erneuerung: ID des Keys, den dieser ablöst. */
+  renewedFromId: objectIdSchema.nullable(),
 });
+
+/** So lange vor dem Ablauf weisen Mail und Admin-Liste auf die nötige Erneuerung hin. */
+export const API_KEY_EXPIRY_NOTICE_DAYS = 14;
 
 export const createApiKeyRequestSchema = z.object({
   /** E-Mail des Coaches oder Athleten, dem der Key gehört. */
@@ -144,6 +149,13 @@ export const apiKeyAuditEntrySchema = z.object({
 
 export const apiKeyAuditListSchema = z.object({ items: z.array(apiKeyAuditEntrySchema) });
 
+/**
+ * Herkunft der letzten Änderung eines Plans, Trainings oder einer Übung: `null` aus der Web-App,
+ * sonst der Name der externen App.
+ */
+export const writeSourceSchema = z.object({ appName: z.string() }).nullable();
+
+export type WriteSource = z.infer<typeof writeSourceSchema>;
 export type ApiKey = z.infer<typeof apiKeySchema>;
 export type AdminApiKey = z.infer<typeof adminApiKeySchema>;
 export type CreateApiKeyRequest = z.input<typeof createApiKeyRequestSchema>;

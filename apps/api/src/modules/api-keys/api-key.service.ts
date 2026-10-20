@@ -1,5 +1,6 @@
 import {
   API_KEY_DEFAULT_RATE_LIMIT,
+  API_KEY_EXPIRY_NOTICE_DAYS,
   API_KEY_PICKUP_DAYS,
   API_KEY_PREFIX,
   createApiKeyRequestSchema,
@@ -26,7 +27,7 @@ import {
 } from "../../lib/errors";
 import { logger } from "../../lib/logger/logger";
 import { trySendMail } from "../../lib/mail/mailer";
-import { apiKeyPickupMail } from "../../lib/mail/templates";
+import { apiKeyExpiryMail, apiKeyPickupMail } from "../../lib/mail/templates";
 import { generateToken, hashToken } from "../../lib/tokens";
 import type { AuthContext } from "../../types/express";
 import { UserModel, type UserDocument } from "../users/user.model";
@@ -42,10 +43,18 @@ export function isApiKeyToken(token: string) {
   return token.startsWith(API_KEY_PREFIX);
 }
 
-/** Keys, die noch gültig sind oder es werden können. */
-function countLiveKeys(userId: Types.ObjectId, now = new Date()) {
+/** Filter für Keys, die noch gültig sind oder es werden können. */
+function liveKeys(now = new Date()) {
+  return {
+    $or: [{ status: "pending" as const }, { status: "active" as const, expiresAt: { $gt: now } }],
+  };
+}
+
+/** Keys, die noch gültig sind oder es werden können. `except`: bei Erneuerung der alte Key. */
+function countLiveKeys(userId: Types.ObjectId, except?: Types.ObjectId, now = new Date()) {
   return ApiKeyModel.countDocuments({
     userId,
+    ...(except ? { _id: { $ne: except } } : {}),
     $or: [{ status: "pending" as const }, { status: "active" as const, expiresAt: { $gt: now } }],
   });
 }
@@ -55,6 +64,8 @@ export interface CreateApiKeyInput {
   name: string;
   scopes: ApiKeyScope[];
   rateLimit?: number;
+  /** Erneuerung: dieser Key wird abgelöst und zählt nicht aufs Limit. */
+  renewedFromId?: Types.ObjectId;
 }
 
 /**
@@ -80,7 +91,7 @@ export async function createApiKey(auth: AuthContext, input: CreateApiKeyInput) 
   if (user.role !== "coach" && scopes.some((scope) => coachOnlyScopes.includes(scope))) {
     throw new BadRequestError("Diesen Bereich gibt es nur für Coaches.", "api_key_scope_invalid");
   }
-  if ((await countLiveKeys(user._id)) >= MAX_API_KEYS_PER_USER) {
+  if ((await countLiveKeys(user._id, input.renewedFromId)) >= MAX_API_KEYS_PER_USER) {
     throw new ConflictError(
       `Der Nutzer hat bereits ${MAX_API_KEYS_PER_USER} API-Keys.`,
       "api_key_limit_reached",
@@ -94,7 +105,69 @@ export async function createApiKey(auth: AuthContext, input: CreateApiKeyInput) 
     scopes,
     rateLimit: input.rateLimit ?? API_KEY_DEFAULT_RATE_LIMIT,
     createdById: auth.userId,
+    renewedFromId: input.renewedFromId ?? null,
   });
+}
+
+/**
+ * Erneuert einen aktiven oder abgelaufenen Key: neuer Key mit denselben Einstellungen, der Nutzer
+ * holt ihn über einen neuen Link ab. Der alte bleibt bis zu seinem Ablauf gültig, damit die App
+ * nicht hart abbricht. Pro Key nur eine laufende Erneuerung.
+ */
+export async function renewApiKey(auth: AuthContext, apiKeyId: string) {
+  const original = await ApiKeyModel.findOne({ _id: apiKeyId, status: "active" });
+  if (!original) {
+    throw new ConflictError(
+      "Nur abgeholte, nicht zurückgezogene Keys lassen sich erneuern.",
+      "api_key_not_renewable",
+    );
+  }
+  if (await ApiKeyModel.exists({ renewedFromId: original._id, ...liveKeys() })) {
+    throw new ConflictError("Der Key wurde bereits erneuert.", "api_key_already_renewed");
+  }
+  const renewed = await createApiKey(auth, {
+    userId: original.userId.toString(),
+    name: original.name,
+    scopes: original.scopes as ApiKeyScope[],
+    rateLimit: original.rateLimit,
+    renewedFromId: original._id,
+  });
+  const { mailSent } = await sendPickupLink(renewed._id.toString());
+  return { ...(await getAdminApiKey(renewed._id.toString())), mailSent };
+}
+
+/**
+ * Schickt Nutzern eine Mail, deren Key in den nächsten 14 Tagen abläuft. Jeder Key nur einmal;
+ * bereits erneuerte Keys nicht. Liefert die Anzahl verschickter Hinweise.
+ */
+export async function sendExpiryNotices(now = new Date()) {
+  const due = await ApiKeyModel.find({
+    status: "active",
+    expiryNoticeSentAt: null,
+    expiresAt: { $gt: now, $lte: new Date(now.getTime() + API_KEY_EXPIRY_NOTICE_DAYS * DAY_MS) },
+  });
+  let sent = 0;
+  for (const apiKey of due) {
+    if (await ApiKeyModel.exists({ renewedFromId: apiKey._id, ...liveKeys(now) })) continue;
+    // Erst markieren, dann senden: Lieber eine Mail verlieren als bei jedem Lauf erneut schicken.
+    const claimed = await ApiKeyModel.updateOne(
+      { _id: apiKey._id, expiryNoticeSentAt: null },
+      { $set: { expiryNoticeSentAt: now } },
+    );
+    if (claimed.modifiedCount === 0) continue;
+    const user = await UserModel.findById(apiKey.userId, { email: 1, name: 1 }).lean();
+    if (!user) continue;
+    const ok = await trySendMail(
+      apiKeyExpiryMail({
+        to: user.email,
+        name: user.name,
+        appName: apiKey.name,
+        expiresAt: apiKey.expiresAt!,
+      }),
+    );
+    if (ok) sent += 1;
+  }
+  return sent;
 }
 
 /** Coach oder Athlet mit dieser E-Mail, dem der Sysadmin einen Key geben will. */
@@ -318,6 +391,7 @@ function toAdminApiKeyDto(apiKey: ApiKeyDocument, user: UserDocument | undefined
     },
     rateLimit: apiKey.rateLimit,
     requestCount: apiKey.requestCount,
+    renewedFromId: apiKey.renewedFromId?.toString() ?? null,
     revokedAt: iso(apiKey.revokedAt),
   };
 }
@@ -395,6 +469,7 @@ export async function resolveApiKey(token: string): Promise<AuthContext> {
     role: apiKey.role,
     apiKey: {
       id: apiKey._id.toString(),
+      name: apiKey.name,
       scopes: apiKey.scopes as ApiKeyScope[],
       rateLimit: apiKey.rateLimit,
     },

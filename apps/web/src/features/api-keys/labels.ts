@@ -1,4 +1,4 @@
-import type { ApiKeyScope, UserRole } from "@athletept/shared";
+import type { ApiKeyScope, UserRole, WriteSource } from "@athletept/shared";
 
 export const scopeLabels: Record<ApiKeyScope, string> = {
   "exercises:read": "Übungen lesen",
@@ -29,4 +29,9 @@ export function scopeGroups(role: UserRole | null, only?: readonly ApiKeyScope[]
   return groups
     .map((g) => ({ ...g, options: g.options.filter((o) => only.includes(o.value)) }))
     .filter((g) => g.options.length > 0);
+}
+
+/** „über „App““ für Zeilen mit Metadaten, `null` bei Änderungen aus der Web-App. */
+export function viaAppText(source: WriteSource) {
+  return source ? `über „${source.appName}“` : null;
 }

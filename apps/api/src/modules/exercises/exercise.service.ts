@@ -12,6 +12,7 @@ import type { z } from "zod";
 
 import { withTransaction } from "../../lib/db";
 import { AppError, ConflictError, ForbiddenError, NotFoundError } from "../../lib/errors";
+import { writeSource } from "../api-keys/write-source";
 import type { AuthContext } from "../../types/express";
 import { getAccessibleAthlete, getAthleteOfCoach } from "../athletes/athlete-access";
 import { UserModel } from "../users/user.model";
@@ -269,7 +270,12 @@ export async function createExercise(auth: AuthContext, input: CreateInput) {
   const owner = ownerOf(auth, catalog);
   const keys = searchFields(input.name, input.aliases);
   await assertAvailable(auth, catalog, owner, keys);
-  const exercise = await ExerciseModel.create({ ...input, ...keys, ...owner });
+  const exercise = await ExerciseModel.create({
+    ...input,
+    ...keys,
+    ...owner,
+    lastWriteVia: writeSource(auth),
+  });
   return toExerciseDto(exercise);
 }
 
@@ -284,7 +290,7 @@ export async function updateExercise(auth: AuthContext, id: string, input: Updat
   if (!exercise.archivedAt && changed) {
     await assertAvailable(auth, catalog, ownerOf(auth, catalog), keys, exercise._id);
   }
-  exercise.set({ ...input, ...keys });
+  exercise.set({ ...input, ...keys, lastWriteVia: writeSource(auth) });
   await exercise.save();
   return toExerciseDto(exercise);
 }
@@ -298,6 +304,7 @@ export async function archiveExercise(auth: AuthContext, id: string) {
   if (!exercise.archivedAt) {
     exercise.archivedAt = new Date();
     exercise.submittedAt = null;
+    exercise.set({ lastWriteVia: writeSource(auth) });
     await exercise.save();
   }
   return toExerciseDto(exercise);
@@ -309,6 +316,7 @@ export async function restoreExercise(auth: AuthContext, id: string) {
     const keys = { searchKey: exercise.searchKey, aliasKeys: [...exercise.aliasKeys] };
     await assertAvailable(auth, catalog, ownerOf(auth, catalog), keys, exercise._id);
     exercise.archivedAt = null;
+    exercise.set({ lastWriteVia: writeSource(auth) });
     await exercise.save();
   }
   return toExerciseDto(exercise);

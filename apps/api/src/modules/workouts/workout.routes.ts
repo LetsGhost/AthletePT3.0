@@ -15,6 +15,7 @@ import {
 import { z } from "zod";
 
 import { createModuleRouter } from "../../lib/router";
+import { writeSource } from "../api-keys/write-source";
 import * as weekService from "./week.service";
 import * as workoutService from "./workout.service";
 
@@ -61,7 +62,7 @@ me.route({
   status: 201,
   response: workoutLogSchema,
   errors: [404, 409],
-  handler: ({ auth, body }) => workoutService.startWorkout(auth.userId, body),
+  handler: ({ auth, body }) => workoutService.startWorkout(auth.userId, body, writeSource(auth)),
 });
 
 me.route({
@@ -77,7 +78,7 @@ me.route({
   status: 201,
   response: workoutLogSchema,
   errors: [404, 409],
-  handler: ({ auth, body }) => workoutService.skipWorkout(auth.userId, body),
+  handler: ({ auth, body }) => workoutService.skipWorkout(auth.userId, body, writeSource(auth)),
 });
 
 me.route({
@@ -107,7 +108,8 @@ me.route({
   body: updateWorkoutRequestSchema,
   response: workoutLogSchema,
   errors: [404, 409],
-  handler: ({ auth, params, body }) => workoutService.updateMyWorkout(auth.userId, params.id, body),
+  handler: ({ auth, params, body }) =>
+    workoutService.updateMyWorkout(auth.userId, params.id, body, writeSource(auth)),
 });
 
 me.route({
@@ -125,7 +127,7 @@ me.route({
   response: completeWorkoutResponseSchema,
   errors: [404, 409],
   handler: ({ auth, params, body }) =>
-    workoutService.completeMyWorkout(auth.userId, params.id, body),
+    workoutService.completeMyWorkout(auth.userId, params.id, body, writeSource(auth)),
 });
 
 me.route({

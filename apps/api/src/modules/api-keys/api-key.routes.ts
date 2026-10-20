@@ -13,13 +13,25 @@ import {
 } from "@athletept/shared";
 import { z } from "zod";
 
+import { getExternalOpenApiDocument } from "../../lib/openapi";
 import { createModuleRouter } from "../../lib/router";
 import { credentialsLimiter, mailLimiter } from "../../middleware/rate-limit";
 import * as apiKeyService from "./api-key.service";
 
-// Keine dieser Routen hat einen `apiKeyScope`: Keys lassen sich nie mit einem Key verwalten.
+// Bis auf die Doku hat keine dieser Routen einen `apiKeyScope`: Keys lassen sich nie mit einem
+// Key verwalten.
 const apiKeys = createModuleRouter("/api-keys", "API-Keys");
 const idParams = z.object({ id: objectIdSchema });
+
+apiKeys.route({
+  method: "get",
+  path: "/openapi.json",
+  summary: "API-Doku für externe Apps",
+  description: "OpenAPI-Dokument mit allen Routen, die mit API-Keys erreichbar sind.",
+  auth: "any",
+  apiKeyScope: "any",
+  handler: () => getExternalOpenApiDocument(),
+});
 
 apiKeys.route({
   method: "get",
@@ -90,6 +102,23 @@ apiKeys.route({
   errors: [409, 429],
   middleware: [mailLimiter],
   handler: ({ params }) => apiKeyService.sendPickupLink(params.id),
+});
+
+apiKeys.route({
+  method: "post",
+  path: "/:id/renew",
+  summary: "API-Key erneuern",
+  description:
+    "Legt einen neuen Key mit denselben Einstellungen an und schickt einen Abhol-Link. Der alte " +
+    "bleibt bis zu seinem Ablauf gültig. Fehler: 409 `api_key_not_renewable`, " +
+    "`api_key_already_renewed`, `api_key_limit_reached`.",
+  auth: ["sysadmin"],
+  params: idParams,
+  status: 201,
+  response: adminApiKeySchema.extend(apiKeyPickupLinkResultSchema.shape),
+  errors: [409, 429],
+  middleware: [mailLimiter],
+  handler: ({ auth, params }) => apiKeyService.renewApiKey(auth, params.id),
 });
 
 apiKeys.route({

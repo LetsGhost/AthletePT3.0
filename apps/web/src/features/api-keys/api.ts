@@ -100,3 +100,12 @@ export function usePickUpApiKey() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.mine }),
   });
 }
+
+export function useRenewApiKey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<AdminApiKey & { mailSent: boolean }>(`${path(id)}/renew`, { method: "POST" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.admin }),
+  });
+}

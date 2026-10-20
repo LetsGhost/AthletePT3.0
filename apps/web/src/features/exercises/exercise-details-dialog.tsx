@@ -3,6 +3,7 @@ import { ExternalLink } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Dialog } from "@/components/ui/dialog";
+import { viaAppText } from "@/features/api-keys/labels";
 
 import { muscleList } from "./labels";
 
@@ -27,7 +28,7 @@ export type ExerciseDetails = Pick<
   | "executionNotes"
   | "videoUrl"
 > &
-  Partial<Pick<Exercise, "aliases" | "scope">>;
+  Partial<Pick<Exercise, "aliases" | "scope" | "lastWriteVia">>;
 
 /** Nur lesen, z. B. globale Übungen für Coaches oder Übungen im Plan für Athleten. */
 export function ExerciseDetailsDialog({
@@ -50,6 +51,9 @@ export function ExerciseDetailsDialog({
       description={exercise.scope ? origin[exercise.scope] : undefined}
     >
       <dl className="flex flex-col gap-4">
+        {exercise.lastWriteVia && (
+          <Row label="Herkunft">Zuletzt geändert {viaAppText(exercise.lastWriteVia)}</Row>
+        )}
         <Row label="Kategorie und Equipment">
           {exerciseCategoryLabels[exercise.category]} · {equipmentLabels[exercise.equipment]}
         </Row>

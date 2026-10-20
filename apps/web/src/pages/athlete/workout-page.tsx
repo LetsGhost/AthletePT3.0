@@ -6,6 +6,7 @@ import { Link, useParams } from "react-router";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryState, SkeletonList } from "@/components/ui/query-state";
+import { ViaApp } from "@/features/api-keys/via-app";
 import { PlanTypeBadge } from "@/features/plans/plan-type-badge";
 import { useMyWorkout } from "@/features/workouts/api";
 import { formatClock, formatLongDate } from "@/features/workouts/format";
@@ -75,6 +76,7 @@ export default function AthleteWorkoutPage() {
                 <span className="flex flex-wrap items-center gap-2">
                   {formatLongDate(log.date)} <PlanTypeBadge type={log.dayType} />
                   <WorkoutStatusBadge status={log.status} />
+                  <ViaApp source={log.lastWriteVia} />
                 </span>
               }
             />

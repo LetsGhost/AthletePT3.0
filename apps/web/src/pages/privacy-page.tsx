@@ -80,8 +80,8 @@ export default function PrivacyPage() {
       <Section title="4. Zweck und Empfänger">
         <p>
           Die Daten dienen dazu, dass dein Coach dich betreuen und Trainingspläne für dich erstellen
-          kann. Zugriff haben nur du und dein Coach. Wechselt dein Coach, übernimmt ein anderer
-          Coach deine Betreuung.
+          kann. Zugriff haben nur du, dein Coach und Apps, die du selbst verbunden hast (siehe 5).
+          Wechselt dein Coach, übernimmt ein anderer Coach deine Betreuung.
         </p>
         <p>
           Auftragsverarbeiter:{" "}
@@ -89,7 +89,25 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section title="5. Speicherdauer">
+      <Section title="5. Verbundene Apps (API-Zugänge)">
+        <p>
+          Auf Wunsch richtet der Betreiber für eine externe App einen API-Zugang ein. Die App greift
+          dann in deinem Namen auf AthletePT zu, und zwar nur in den Bereichen, die dir beim Abholen
+          angezeigt werden (z. B. Pläne lesen oder Trainings protokollieren), und nie mit mehr
+          Rechten als du selbst. Je nach Bereich gehören dazu auch Trainingsprotokolle und damit
+          Gesundheitsdaten. Aktiv wird der Zugang erst, wenn du ihn selbst abholst und den
+          Datenzugriff bestätigst; den Zeitpunkt deiner Bestätigung speichern wir.
+        </p>
+        <p>
+          Für die Verarbeitung deiner Daten in der App ist ihr Anbieter verantwortlich. Zu jedem
+          Zugang speichern wir, wann er zuletzt genutzt wurde, wie viele Anfragen er gestellt hat
+          und welche Änderungen er vorgenommen hat (Zeitpunkt, Art der Anfrage, Ergebnis, ohne
+          Inhalte). Diese Protokolle löschen wir nach 90 Tagen. Ein Zugang gilt höchstens ein Jahr.
+          Du kannst ihn jederzeit in den Einstellungen unter „Verbundene Apps“ zurückziehen.
+        </p>
+      </Section>
+
+      <Section title="6. Speicherdauer">
         <p>
           <Placeholder>
             Speicherdauer, Löschung nach Ende der Betreuung, Aufbewahrungspflichten
@@ -97,7 +115,7 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section title="6. Deine Rechte">
+      <Section title="7. Deine Rechte">
         <p>
           Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung,
           Datenübertragbarkeit und Widerspruch sowie das Recht, dich bei einer
@@ -106,7 +124,7 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section title="7. Cookies">
+      <Section title="8. Cookies">
         <p>
           Wir setzen nur ein technisch notwendiges Cookie, das dich angemeldet hält. Es gibt kein
           Tracking und keine Werbung.

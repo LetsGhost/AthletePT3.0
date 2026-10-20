@@ -8,6 +8,7 @@ import {
 } from "@athletept/shared";
 import { Schema, model, type Types } from "mongoose";
 
+import { writeSourceField, type StoredWriteSource } from "../api-keys/write-source";
 import type { StoredSet } from "../plans/plan-content.model";
 
 /**
@@ -71,6 +72,7 @@ export interface StoredWorkoutLog {
   stats: StoredExerciseStats[];
   /** Stand der Berechnung von `stats` (siehe `WORKOUT_STATS_VERSION`), `null` = noch nie. */
   statsVersion: number | null;
+  lastWriteVia?: StoredWriteSource | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -146,6 +148,7 @@ const workoutLogSchema = new Schema(
     completedAt: { type: Date, default: null },
     stats: { type: [exerciseStatsSchema], default: [] },
     statsVersion: nullableNumber,
+    ...writeSourceField,
   },
   { timestamps: true },
 );

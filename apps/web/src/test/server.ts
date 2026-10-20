@@ -77,6 +77,7 @@ export function buildExercise(overrides: Partial<Exercise> = {}): Exercise {
     archived: false,
     createdAt: "2026-10-01T00:00:00.000Z",
     updatedAt: "2026-10-01T00:00:00.000Z",
+    lastWriteVia: null,
     ...overrides,
   };
 }
@@ -166,6 +167,7 @@ export function buildPlan(overrides: Partial<Plan> = {}): Plan {
     archivedAt: null,
     createdAt: "2026-10-01T00:00:00.000Z",
     updatedAt: "2026-10-02T00:00:00.000Z",
+    lastWriteVia: null,
     ...overrides,
   };
 }
@@ -221,6 +223,7 @@ export function buildWorkoutLog(overrides: Partial<WorkoutLog> = {}): WorkoutLog
     editable: true,
     createdAt: "2026-10-13T16:00:00.000Z",
     updatedAt: "2026-10-13T16:00:00.000Z",
+    lastWriteVia: null,
     ...overrides,
   };
 }
@@ -239,6 +242,7 @@ export function buildWorkoutSummary(overrides: Partial<WorkoutLogSummary> = {}):
     exerciseCount: 1,
     doneSetCount: 4,
     completedAt: "2026-10-12T18:00:00.000Z",
+    lastWriteVia: null,
     ...overrides,
   };
 }

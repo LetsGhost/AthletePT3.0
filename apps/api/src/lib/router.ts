@@ -6,7 +6,7 @@ import type { ZodObject, ZodType, z } from "zod";
 import { authenticate, requireApiKeyScope, requireRole } from "../middleware/authenticate";
 import { apiKeyLimiter } from "../middleware/rate-limit";
 import type { AuthContext } from "../types/express";
-import { API_PREFIX, ProblemRef, registry } from "./openapi";
+import { API_PREFIX, ProblemRef, externalRegistry, registry } from "./openapi";
 import { parseOrThrow } from "./validation";
 
 type Method = "get" | "post" | "put" | "patch" | "delete";
@@ -173,4 +173,5 @@ function registerOpenApi(
     responses,
   };
   registry.registerPath(config);
+  if (def.auth !== false && def.apiKeyScope) externalRegistry.registerPath(config);
 }

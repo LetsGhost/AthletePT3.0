@@ -39,6 +39,10 @@ const apiKeySchema = new Schema(
     pickupExpiresAt: { type: Date, default: null },
     /** Wann der Nutzer beim Abholen den Datenzugriff der App bestätigt hat. */
     dataAccessAcceptedAt: { type: Date, default: null },
+    /** Gesetzt bei Erneuerung: der Key, den dieser ablöst. Der alte bleibt bis zu seinem Ablauf gültig. */
+    renewedFromId: { type: Schema.Types.ObjectId, ref: "ApiKey", default: null, index: true },
+    /** Wann der Nutzer per Mail auf den baldigen Ablauf hingewiesen wurde. */
+    expiryNoticeSentAt: { type: Date, default: null },
     lastUsedAt: { type: Date, default: null },
     requestCount: { type: Number, default: 0 },
   },

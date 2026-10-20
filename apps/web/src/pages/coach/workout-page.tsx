@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { QueryState, SkeletonList } from "@/components/ui/query-state";
+import { ViaApp } from "@/features/api-keys/via-app";
 import { PlanTypeBadge } from "@/features/plans/plan-type-badge";
 import { useAthleteWorkout } from "@/features/workouts/api";
 import { formatLongDate } from "@/features/workouts/format";
@@ -37,6 +38,7 @@ export default function CoachWorkoutPage() {
                       {formatDateTime(log.completedAt)}
                     </span>
                   )}
+                  <ViaApp source={log.lastWriteVia} />
                 </span>
               }
             />
