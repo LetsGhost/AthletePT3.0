@@ -80,3 +80,24 @@ export function passwordResetMail(params: {
     text: `Hallo ${name}!\n\n${intro}\n\n${url}\n\n${validity}`,
   };
 }
+
+export function apiKeyPickupMail(params: {
+  to: string;
+  name: string;
+  appName: string;
+  url: string;
+  validDays: number;
+}): Mail {
+  const { to, name, appName, url, validDays } = params;
+  const intro = `Für dich wurde ein API-Zugang für die App „${appName}“ eingerichtet. Melde dich über den Link an, um den Schlüssel abzuholen. Er wird dir nur ein einziges Mal angezeigt.`;
+  const validity = `Der Link ist ${validDays} Tage gültig. Wenn du keinen Zugang erwartet hast, ignoriere diese Mail. Ohne Abholung bleibt der Zugang inaktiv.`;
+  return {
+    to,
+    subject: "Dein API-Zugang für AthletePT",
+    html: layout(`Hallo ${escapeHtml(name)}!`, [escapeHtml(intro), escapeHtml(validity)], {
+      label: "Schlüssel abholen",
+      url,
+    }),
+    text: `Hallo ${name}!\n\n${intro}\n\n${url}\n\n${validity}`,
+  };
+}

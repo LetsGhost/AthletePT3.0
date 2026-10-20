@@ -59,6 +59,13 @@ export const routes: RouteObject[] = [
             children: [
               { path: "/settings", ...page(() => import("@/pages/settings-page")) },
               {
+                element: <RequireRole roles={["coach", "athlete"]} />,
+                children: [
+                  // Link aus der Mail, nur angemeldet als Empfänger (prüft die API).
+                  { path: "/api-zugang", ...page(() => import("@/pages/api-key-pickup-page")) },
+                ],
+              },
+              {
                 element: <RequireRole roles={["athlete"]} />,
                 children: [
                   { path: "/dashboard", ...page(() => import("@/pages/athlete/dashboard-page")) },
@@ -138,6 +145,7 @@ export const routes: RouteObject[] = [
                     path: "/admin/exercises",
                     ...page(() => import("@/pages/admin/exercises-page")),
                   },
+                  { path: "/admin/api-keys", ...page(() => import("@/pages/admin/api-keys-page")) },
                 ],
               },
               { path: "*", ...page(() => import("@/pages/not-found-page")) },

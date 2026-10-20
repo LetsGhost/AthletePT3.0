@@ -6,14 +6,23 @@ import { useSession } from "@/features/auth/session";
 
 import { homePath } from "./navigation";
 
-/** Nur für angemeldete Nutzer. Merkt sich das Ziel, um nach dem Login dorthin zurückzukehren. */
+/**
+ * Nur für angemeldete Nutzer. Merkt sich das Ziel, um nach dem Login dorthin zurückzukehren,
+ * inklusive Fragment: Links aus Mails (z. B. API-Zugang abholen) tragen ihr Token dort.
+ */
 export function RequireAuth() {
   const status = useSession((state) => state.status);
   const location = useLocation();
 
   if (status === "loading") return <PageSpinner label="Sitzung wird geprüft …" />;
   if (status === "anonymous") {
-    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location.pathname + location.search + location.hash }}
+      />
+    );
   }
   return <Outlet />;
 }

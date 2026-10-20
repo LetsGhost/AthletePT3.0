@@ -1,8 +1,9 @@
-import { KeyRound, Palette, Timer, UserRound } from "lucide-react";
+import { KeyRound, Palette, PlugZap, Timer, UserRound } from "lucide-react";
 
 import { roleLabel } from "@/app/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { MyApiKeys } from "@/features/api-keys/my-api-keys";
 import { useSession } from "@/features/auth/session";
 import { ChangePasswordForm } from "@/features/settings/change-password-form";
 import { RestTimerSettings } from "@/features/settings/rest-timer-settings";
@@ -42,6 +43,15 @@ export default function SettingsPage() {
             <CardHeader title="Training" icon={Timer} iconClassName="text-module-week" />
             <CardBody>
               <RestTimerSettings />
+            </CardBody>
+          </Card>
+        )}
+
+        {user.role !== "sysadmin" && (
+          <Card>
+            <CardHeader title="Verbundene Apps" icon={PlugZap} iconClassName="text-accent" />
+            <CardBody>
+              <MyApiKeys />
             </CardBody>
           </Card>
         )}
