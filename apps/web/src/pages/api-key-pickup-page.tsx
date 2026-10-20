@@ -11,6 +11,7 @@ import { CheckboxField } from "@/components/ui/checkbox-field";
 import { PageSpinner } from "@/components/ui/spinner";
 import { useApiKeyPickupInfo, usePickUpApiKey } from "@/features/api-keys/api";
 import { ScopeList } from "@/features/api-keys/api-key-parts";
+import { useSession } from "@/features/auth/session";
 import { useTokenFromHash } from "@/features/auth/use-token-from-hash";
 import { formatDate } from "@/lib/format";
 import { errorMessage } from "@/lib/http";
@@ -63,10 +64,24 @@ function IssuedKey({ result }: { result: ApiKeyPickupResponse }) {
 
 export default function ApiKeyPickupPage() {
   const token = useTokenFromHash();
-  const info = useApiKeyPickupInfo(token);
+  // Sysadmins bekommen nie einen Key, der Link gehört also sicher zu einem anderen Konto.
+  const isSysadmin = useSession((state) => state.user?.role === "sysadmin");
+  const info = useApiKeyPickupInfo(isSysadmin ? null : token);
   const pickUp = usePickUpApiKey();
   const [accepted, setAccepted] = useState(false);
   const [showMissing, setShowMissing] = useState(false);
+
+  if (isSysadmin) {
+    return (
+      <>
+        <PageHeader title="API-Zugang" />
+        <Alert variant="error">
+          Dieser Link gehört zu einem anderen Konto. Melde dich ab und mit dem Konto an, an das die
+          Mail ging.
+        </Alert>
+      </>
+    );
+  }
 
   if (pickUp.data) {
     return (

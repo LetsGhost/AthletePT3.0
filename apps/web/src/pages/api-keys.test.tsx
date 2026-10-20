@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { useSession } from "@/features/auth/session";
 import { renderApp } from "@/test/render";
-import { apiUrl, buildUser, buildWorkoutSummary, server } from "@/test/server";
+import { apiUrl, authResponse, buildUser, buildWorkoutSummary, server } from "@/test/server";
 
 const key = (overrides: Partial<ApiKey> = {}): ApiKey => ({
   id: "6acd3920c0072ec254663e01",
@@ -171,6 +171,28 @@ describe("API-Zugang abholen", () => {
     expect(await screen.findByRole("button", { name: "Anmelden" })).toBeVisible();
     expect(router.state.location.pathname).toBe("/login");
     expect(router.state.location.state).toEqual({ from: "/api-zugang#token=abc" });
+
+    let inspected: unknown;
+    server.use(
+      http.post(apiUrl("/auth/login"), () =>
+        HttpResponse.json(authResponse(buildUser({ role: "athlete" }))),
+      ),
+      http.post(apiUrl("/api-keys/pickup/inspect"), async ({ request }) => {
+        inspected = await request.json();
+        return HttpResponse.json({
+          name: "Trainings-Tracker",
+          scopes: ["plans:read"],
+          pickupExpiresAt: "2026-10-27T00:00:00.000Z",
+        });
+      }),
+    );
+    await userEvent.type(screen.getByLabelText(/E-Mail/), "max@example.com");
+    await userEvent.type(screen.getByLabelText(/^Passwort/, { selector: "input" }), "geheim1234");
+    await userEvent.click(screen.getByRole("button", { name: "Anmelden" }));
+
+    expect(await screen.findByText("App „Trainings-Tracker“")).toBeVisible();
+    expect(router.state.location.pathname).toBe("/api-zugang");
+    expect(inspected).toEqual({ token: "abc" });
   });
 
   it("zeigt den Schlüssel erst nach der Bestätigung und nur einmal", async () => {
@@ -225,6 +247,14 @@ describe("API-Zugang abholen", () => {
     renderApp("/api-zugang#token=abc");
 
     expect(await screen.findByText("Dieser Link gehört zu einem anderen Konto.")).toBeVisible();
+  });
+
+  it("schickt angemeldete Sysadmins nicht kommentarlos weg", async () => {
+    signInAs("sysadmin");
+    const { router } = renderApp("/api-zugang#token=abc");
+
+    expect(await screen.findByText(/Dieser Link gehört zu einem anderen Konto/)).toBeVisible();
+    expect(router.state.location.pathname).toBe("/api-zugang");
   });
 });
 
