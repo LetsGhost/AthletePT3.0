@@ -1,5 +1,6 @@
 import type { ClientSession, Types } from "mongoose";
 
+import { ApiKeyAuditModel, ApiKeyModel } from "../api-keys/api-key.model";
 import { SessionModel } from "../auth/session.model";
 import { ExerciseNoticeModel } from "../exercises/exercise-notice.model";
 import { ExerciseModel } from "../exercises/exercise.model";
@@ -24,5 +25,7 @@ export async function deleteAllAthleteData(athleteId: Types.ObjectId, session: C
   await ExerciseNoticeModel.deleteMany({ recipientId: athleteId }, { session });
   await UserTokenModel.deleteMany({ userId: athleteId }, { session });
   await SessionModel.deleteMany({ userId: athleteId }, { session });
+  await ApiKeyAuditModel.deleteMany({ userId: athleteId }, { session });
+  await ApiKeyModel.deleteMany({ userId: athleteId }, { session });
   await UserModel.deleteOne({ _id: athleteId }, { session });
 }

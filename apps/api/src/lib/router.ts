@@ -1,9 +1,10 @@
 import type { RouteConfig, ResponseConfig } from "@asteasolutions/zod-to-openapi";
-import type { UserRole } from "@athletept/shared";
+import type { ApiKeyScope, UserRole } from "@athletept/shared";
 import { Router, type Request, type RequestHandler, type Response } from "express";
 import type { ZodObject, ZodType, z } from "zod";
 
-import { authenticate, requireRole } from "../middleware/authenticate";
+import { authenticate, requireApiKeyScope, requireRole } from "../middleware/authenticate";
+import { apiKeyLimiter } from "../middleware/rate-limit";
 import type { AuthContext } from "../types/express";
 import { API_PREFIX, ProblemRef, registry } from "./openapi";
 import { parseOrThrow } from "./validation";
@@ -40,6 +41,11 @@ export interface RouteDefinition<
   summary: string;
   description?: string;
   auth: A;
+  /**
+   * Bereich, den ein API-Key für diese Route braucht. Ohne Angabe ist die Route für API-Keys
+   * gesperrt. `"any"`: jeder gültige Key. Gilt zusätzlich zu `auth`.
+   */
+  apiKeyScope?: ApiKeyScope | "any";
   body?: B;
   query?: Q;
   params?: P;
@@ -82,7 +88,7 @@ export function createModuleRouter(prefix: string, tag: string) {
     const status = def.status ?? 200;
     const guards: RequestHandler[] = [];
     if (def.auth !== false) {
-      guards.push(authenticate);
+      guards.push(authenticate, apiKeyLimiter, requireApiKeyScope(def.apiKeyScope));
       if (def.auth !== "any") {
         guards.push(requireRole(...(def.auth as readonly UserRole[])));
       }
@@ -142,13 +148,21 @@ function registerOpenApi(
     };
   }
 
+  const notes = [def.description];
+  if (Array.isArray(def.auth)) notes.push(`Rollen: ${def.auth.join(", ")}`);
+  if (def.auth !== false && def.apiKeyScope) {
+    notes.push(
+      def.apiKeyScope === "any"
+        ? "API-Key: jeder gültige Key"
+        : `API-Key: Bereich \`${def.apiKeyScope}\``,
+    );
+  }
+
   const config: RouteConfig = {
     method: def.method,
     path: toOpenApiPath(`${API_PREFIX}${prefix}${def.path === "/" ? "" : def.path}`),
     summary: def.summary,
-    description: Array.isArray(def.auth)
-      ? [def.description, `Rollen: ${def.auth.join(", ")}`].filter(Boolean).join("\n\n")
-      : def.description,
+    description: notes.filter(Boolean).join("\n\n") || undefined,
     tags: [tag],
     security: def.auth === false ? [] : [{ bearerAuth: [] }],
     request: {
