@@ -12,10 +12,14 @@ export function formatDateTime(value: string | Date) {
   return dateTimeFormat.format(typeof value === "string" ? new Date(value) : value);
 }
 
-/** Kalenderdatum `YYYY-MM-DD` ohne Zeitzonenverschiebung formatieren. */
-export function formatIsoDate(value: string) {
+/** Kalenderdatum `YYYY-MM-DD` als lokales Datum, ohne Zeitzonenverschiebung. */
+export function parseIsoDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
-  return dateFormat.format(new Date(year!, month! - 1, day!));
+  return new Date(year!, month! - 1, day!);
+}
+
+export function formatIsoDate(value: string) {
+  return dateFormat.format(parseIsoDate(value));
 }
 
 export function ageFromIsoDate(value: string, today = new Date()) {

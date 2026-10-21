@@ -18,6 +18,9 @@ clearCacheOnUserChange(queryClient);
 // Sitzung sofort wiederherstellen, parallel zum ersten Rendern.
 void initSession();
 registerServiceWorker();
+// Nach einem Deployment fehlen die Dateien der alten Version. Neu laden holt die aktuelle;
+// laufende Trainings liegen im localStorage.
+window.addEventListener("vite:preloadError", () => window.location.reload());
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
