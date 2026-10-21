@@ -6,13 +6,13 @@ Coaching-Plattform für Coaches und Athleten: Trainingspläne, Trainingsprotokol
 
 | Pfad | Inhalt |
 |---|---|
-| `apps/api` | REST-API: Node 22, Express 5, MongoDB (Mongoose), zod |
+| `apps/api` | REST-API: Node 26, Express 5, MongoDB (Mongoose), zod |
 | `apps/web` | Web-Frontend: React 19, TypeScript, Vite, React Router, TanStack Query, Tailwind CSS |
 | `packages/shared` | zod-Schemas und Typen, die API und Web gemeinsam nutzen |
 
 ## Voraussetzungen
 
-- Node.js 22 oder neuer
+- Node.js 26 oder neuer
 - Für die normale Entwicklung und das Bauen der Images: Docker. Für den Demo-Modus nicht nötig.
 
 ## Schnellstart ohne Docker: Demo-Modus
@@ -122,6 +122,7 @@ docker load -i athletept-images-<tag>.tar.gz     # nur bei -Save
 cp .env.example .env                              # ausfüllen: Images, DOMAIN, CERTBOT_EMAIL, MONGO_PASSWORD, ...
 cp mongo.env.example mongo.env                    # Root-Passwort für MongoDB
 docker network create athletept-proxy
+docker network create athletept-sports           # Netz von Proxy und Sport-Analytics-Backend
 docker compose -f docker-compose.app.yml up -d
 docker compose -f docker-compose.certbot.yml run --rm --service-ports certbot-init   # Port 80 muss frei sein
 docker compose -f docker-compose.proxy.yml up -d

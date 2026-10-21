@@ -104,10 +104,25 @@ export async function login(credentials: LoginRequest) {
   return response.user;
 }
 
+/** Trainingsentwürfe und Pausen-Timer (Gesundheitsdaten) nicht auf geteilten Geräten liegen lassen. */
+function clearWorkoutStorage() {
+  try {
+    const keys = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i));
+    for (const key of keys) {
+      if (key?.startsWith("athletept.workout.") || key?.startsWith("athletept.rest.")) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch {
+    // localStorage gesperrt: dann liegt dort auch nichts.
+  }
+}
+
 export async function logout() {
   try {
     await rawRequest("/auth/logout", { method: "POST" });
   } finally {
+    clearWorkoutStorage();
     clearSession();
     channel?.postMessage("logout");
   }

@@ -1,5 +1,4 @@
 import cookieParser from "cookie-parser";
-import cors from "cors";
 import express, { Router } from "express";
 import helmet from "helmet";
 import mongoose from "mongoose";
@@ -46,9 +45,6 @@ export function createApp() {
 
   app.use(requestId);
   app.use(helmet({ frameguard: { action: "deny" } }));
-  if (env.CORS_ORIGINS.length > 0) {
-    app.use(cors({ origin: env.CORS_ORIGINS, credentials: true }));
-  }
   app.use(express.json({ limit: "100kb" }));
   app.use(cookieParser());
   if (!env.isTest) {

@@ -51,11 +51,11 @@ function liveKeys(now = new Date()) {
 }
 
 /** Keys, die noch gültig sind oder es werden können. `except`: bei Erneuerung der alte Key. */
-function countLiveKeys(userId: Types.ObjectId, except?: Types.ObjectId, now = new Date()) {
+function countLiveKeys(userId: Types.ObjectId, except?: Types.ObjectId) {
   return ApiKeyModel.countDocuments({
     userId,
     ...(except ? { _id: { $ne: except } } : {}),
-    $or: [{ status: "pending" as const }, { status: "active" as const, expiresAt: { $gt: now } }],
+    ...liveKeys(),
   });
 }
 

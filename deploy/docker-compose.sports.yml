@@ -1,8 +1,11 @@
 # Zweites Projekt auf dem Server: Sport-Analytics-Backend unter https://${SPORTS_DOMAIN}.
 #   - sportanalytics: Express-API (Dockerfile im Projekt Sport-Analytics-Backend), Port 8084
 #
-# Veröffentlicht keinen Port. Hängt im externen Netz "athletept-proxy", über das der nginx-Proxy
+# Veröffentlicht keinen Port. Hängt im externen Netz "athletept-sports", über das der nginx-Proxy
 # (docker-compose.proxy.yml, nginx/sports.conf.template) ihn unter sportanalytics:8084 erreicht.
+# Bewusst nicht in "athletept-proxy": Sonst erreichte er die AthletePT-API direkt, am Proxy vorbei,
+# und könnte X-Forwarded-For fälschen (Rate-Limits pro IP umgehen). Einmalig vorher:
+#   docker network create athletept-sports
 #
 # Erwartet sports.env neben dieser Datei (Vorlage: sports.env.example). Getrennt von .env, damit
 # keiner der beiden Dienste die Geheimnisse des anderen sieht. Die gespeicherten Daten liegen in
@@ -29,9 +32,9 @@ services:
     security_opt:
       - no-new-privileges:true
     networks:
-      - proxy
+      - sports
 
 networks:
-  proxy:
-    name: athletept-proxy
+  sports:
+    name: athletept-sports
     external: true

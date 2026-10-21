@@ -466,6 +466,33 @@ describe("Training durchführen", () => {
     ).toBeChecked();
   });
 
+  it("versucht abgelehnte Änderungen nicht endlos erneut", async () => {
+    signInAsAthlete();
+    const log = buildWorkoutLog();
+    let puts = 0;
+    server.use(
+      http.get(apiUrl(`/me/workout-logs/${log.id}`), () => HttpResponse.json(log)),
+      http.put(apiUrl(`/me/workout-logs/${log.id}`), () => {
+        puts += 1;
+        return HttpResponse.json(
+          { status: 409, code: "workout_locked", detail: "Gesperrt" },
+          { status: 409 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(`/workouts/${log.id}`);
+
+    await user.click(await screen.findByRole("checkbox", { name: "Bankdrücken, Satz 1 erledigt" }));
+
+    expect(
+      await screen.findByRole("button", { name: /Neu laden/ }, { timeout: 4000 }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Speichern nicht möglich").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/neuer Versuch läuft/)).toBeNull();
+    expect(puts).toBe(1);
+  });
+
   it("verwirft einen lokalen Stand, der auf einer älteren Revision aufbaut", async () => {
     signInAsAthlete();
     const log = buildWorkoutLog({ revision: 5 });

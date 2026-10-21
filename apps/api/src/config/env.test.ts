@@ -56,11 +56,4 @@ describe("parseEnv", () => {
     const { RESEND_API_KEY: _unused, ...withoutKey } = valid;
     expect(parseEnv({ ...withoutKey, NODE_ENV: "development" }).mailTransport).toBe("console");
   });
-
-  it("zerlegt CORS_ORIGINS und prüft jede URL", () => {
-    expect(parseEnv({ ...valid, CORS_ORIGINS: "https://a.de, https://b.de" }).CORS_ORIGINS).toEqual(
-      ["https://a.de", "https://b.de"],
-    );
-    expect(() => parseEnv({ ...valid, CORS_ORIGINS: "kein-url" })).toThrow(EnvValidationError);
-  });
 });

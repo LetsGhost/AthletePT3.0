@@ -8,7 +8,7 @@ import { saveWorkout, workoutKeys } from "./api";
 import { draftFromLog, draftStorage, draftToRequest, type WorkoutDraft } from "./draft";
 
 export type SaveState =
-  "saved" | "pending" | "saving" | "offline" | "invalid" | "conflict" | "error";
+  "saved" | "pending" | "saving" | "offline" | "invalid" | "conflict" | "rejected" | "error";
 
 /** Pause nach der letzten Eingabe, bevor gespeichert wird. */
 export const AUTOSAVE_DELAY_MS = 1500;
@@ -62,6 +62,9 @@ export function useWorkoutAutosave(log: WorkoutLog, draft: WorkoutDraft, enabled
       } catch (error) {
         if (error instanceof ApiError && error.code === "workout_conflict") setState("conflict");
         else if (error instanceof ApiError && error.status === 0) setState("offline");
+        // Nur Server- und unbekannte Fehler gehen vorbei; abgelehnte Anfragen (z. B. gesperrt oder
+        // gelöscht) scheitern bei jedem Versuch gleich.
+        else if (error instanceof ApiError && error.status < 500) setState("rejected");
         else setState("error");
       }
     })();
@@ -77,7 +80,7 @@ export function useWorkoutAutosave(log: WorkoutLog, draft: WorkoutDraft, enabled
   useEffect(() => {
     if (!enabled || serialized === lastSaved.current) return;
     draftStorage.write(log.id, { revision: revision.current, draft: latest.current });
-    setState((s) => (s === "conflict" ? s : "pending"));
+    setState((s) => (s === "conflict" || s === "rejected" ? s : "pending"));
     timer.current = setTimeout(() => void save(), AUTOSAVE_DELAY_MS);
     return () => {
       if (timer.current) clearTimeout(timer.current);

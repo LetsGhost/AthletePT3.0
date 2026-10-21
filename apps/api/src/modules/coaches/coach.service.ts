@@ -163,10 +163,11 @@ async function reassignAthletes(
   return { to: target, count: athletes.length };
 }
 
-export async function updateCoach(id: string, input: UpdateCoachRequest) {
-  const { coach, reassigned } = await withTransaction(async (session) => {
+export async function updateCoach(id: string, input: UpdateCoachRequest, inviterName: string) {
+  const { coach, reassigned, token } = await withTransaction(async (session) => {
     const coach = await findCoach(id, session);
     let disabling = false;
+    let token: string | null = null;
 
     if (input.name !== undefined) coach.name = input.name;
     if (input.athleteQuota !== undefined) coach.athleteQuota = input.athleteQuota;
@@ -179,6 +180,17 @@ export async function updateCoach(id: string, input: UpdateCoachRequest) {
       }
       disabling = input.status === "disabled";
       coach.status = input.status;
+      // Vor dem Annehmen gesperrt: ohne Passwort wieder „eingeladen“, mit neuem Link (das Sperren
+      // hat den alten gelöscht). Wie `reactivateAthlete`.
+      if (input.status === "active") {
+        const withPassword = await UserModel.findById(coach._id)
+          .select("+passwordHash")
+          .session(session);
+        if (!withPassword?.passwordHash) {
+          coach.status = "invited";
+          token = await createInvitationToken(coach, session);
+        }
+      }
     }
     // Sperren schreibt den Coach in dieser Transaktion. Das kollidiert mit einer parallelen
     // Athleten-Anlage durch ihn (`lockCoachQuota`), sodass danach niemand mehr bei ihm landet.
@@ -187,7 +199,7 @@ export async function updateCoach(id: string, input: UpdateCoachRequest) {
     const reassigned = disabling
       ? await reassignAthletes(coach, input.reassignToCoachId, session)
       : null;
-    return { coach, reassigned };
+    return { coach, reassigned, token };
   });
 
   if (reassigned) {
@@ -201,6 +213,7 @@ export async function updateCoach(id: string, input: UpdateCoachRequest) {
     await revokeAllSessions(coach._id);
     await UserTokenModel.deleteMany({ userId: coach._id });
   }
+  if (token) await sendInvitationMail(coach, token, inviterName);
   return withCount(coach);
 }
 
