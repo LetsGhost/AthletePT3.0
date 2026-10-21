@@ -22,6 +22,7 @@ athletes.route({
   summary: "Eigene Athleten auflisten",
   description: "Alle Athleten des angemeldeten Coaches inklusive Kontingent.",
   auth: ["coach"],
+  apiKeyScope: "athletes:read",
   response: athleteListResponseSchema,
   handler: ({ auth }) => athleteService.listAthletes(auth.userId),
 });
@@ -131,6 +132,7 @@ me.route({
     "Was der Coach freigegeben hat: `ownPlan` (Pläne über `/athletes/{eigene ID}/plans` " +
     "verwalten) und `ownWeek` (Wochenplan über `/athletes/{eigene ID}/weekly-activities`).",
   auth: ["athlete"],
+  apiKeyScope: "any",
   response: athletePermissionsSchema,
   handler: ({ auth }) => athleteService.getMyPermissions(auth.userId),
 });

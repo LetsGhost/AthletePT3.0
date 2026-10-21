@@ -116,6 +116,7 @@ auth.route({
   path: "/me",
   summary: "Angemeldeten Benutzer abrufen",
   auth: "any",
+  apiKeyScope: "any",
   response: userSchema,
   errors: [404],
   handler: ({ auth }) => authService.getCurrentUser(auth.userId),

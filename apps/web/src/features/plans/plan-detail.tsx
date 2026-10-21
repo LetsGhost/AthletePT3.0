@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { QueryState, SkeletonList } from "@/components/ui/query-state";
 import { toast } from "@/components/ui/toast-store";
+import { ViaApp } from "@/features/api-keys/via-app";
 import { formatDateTime } from "@/lib/format";
 import { ApiError, errorMessage } from "@/lib/http";
 
@@ -153,6 +154,7 @@ export function PlanDetail({ plan, athleteName }: { plan: Plan; athleteName: str
             <PlanStatusBadge status={plan.status} />
             <PlanTypeBadge type={plan.type} />
             <span>{owner ? `${owner} · ${hint}` : hint}</span>
+            <ViaApp source={plan.lastWriteVia} />
           </span>
         }
         actions={

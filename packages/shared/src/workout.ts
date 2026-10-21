@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { writeSourceSchema } from "./api-key";
 import { isoWeekSchema } from "./calendar";
 import { isoDateSchema, objectIdSchema, paginationQuerySchema } from "./common";
 import { MAX_EXERCISE_SETS, planSetOutputSchema, planTypeSchema, setKindSchema } from "./plan";
@@ -172,6 +173,7 @@ export const workoutLogSchema = z.object({
   editableUntil: z.string().nullable(),
   /** Der angemeldete Nutzer darf das Protokoll jetzt ändern. */
   editable: z.boolean(),
+  lastWriteVia: writeSourceSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -199,6 +201,7 @@ export const workoutLogSummarySchema = z.object({
   exerciseCount: z.number().int(),
   doneSetCount: z.number().int(),
   completedAt: z.string().nullable(),
+  lastWriteVia: writeSourceSchema,
 });
 
 export const workoutLogListQuerySchema = paginationQuerySchema;

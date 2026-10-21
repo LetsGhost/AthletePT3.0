@@ -11,6 +11,7 @@ import { API_PREFIX, getOpenApiDocument } from "./lib/openapi";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { apiLimiter } from "./middleware/rate-limit";
 import { requestId } from "./middleware/request-id";
+import { apiKeyRouter, myApiKeyRouter } from "./modules/api-keys/api-key.routes";
 import { athleteRouter, myPermissionsRouter } from "./modules/athletes/athlete.routes";
 import { authRouter } from "./modules/auth/auth.routes";
 import { coachRouter } from "./modules/coaches/coach.routes";
@@ -33,6 +34,8 @@ const modules = [
   athleteWorkoutRouter,
   myStatsRouter,
   athleteStatsRouter,
+  apiKeyRouter,
+  myApiKeyRouter,
 ];
 
 export function createApp() {

@@ -67,8 +67,9 @@ export default defineConfig({
     // Fester Port: Links in Mails (APP_URL) zeigen auf genau diese Adresse.
     strictPort: true,
     // Gleiche Origin wie die App: Das Refresh-Cookie (SameSite=Strict) funktioniert ohne CORS.
+    // Mit Schrägstrich, sonst landen auch App-Seiten wie `/api-zugang` bei der API.
     proxy: {
-      "/api": "http://localhost:3000",
+      "/api/": "http://localhost:3000",
     },
   },
   test: {

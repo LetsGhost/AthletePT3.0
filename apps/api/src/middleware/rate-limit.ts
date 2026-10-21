@@ -9,9 +9,13 @@ import { sendProblem } from "./error-handler";
 
 interface LimiterOptions {
   windowMinutes: number;
-  limit: number;
+  limit: number | ((req: Request) => number);
   /** Nur fehlgeschlagene Requests zählen (für Login & Co.). */
   onlyFailures?: boolean;
+  /** Eigener Bucket-Schlüssel statt `limiterKey`. */
+  key?: (req: Request) => string;
+  /** Requests, die dieser Limiter nicht zählt. */
+  skip?: (req: Request) => boolean;
 }
 
 let enforcedInTests = false;
@@ -28,6 +32,9 @@ export function enforceRateLimitsInTests(enabled: boolean) {
  * Der `apiLimiter` läuft vor `authenticate`; deshalb wird das Token hier selbst geprüft, aber nur
  * die Signatur (ohne Datenbank). Ein gesperrter User mit noch signiertem Token zählt also weiter
  * auf sein Konto, wird von `authenticate` aber abgewiesen.
+ *
+ * API-Keys (`apt_…`) sind keine JWTs und zählen hier pro IP. Sie haben zusätzlich einen eigenen
+ * Bucket (`apiKeyLimiter`), damit eine externe App nicht das Kontingent der Web-App aufbraucht.
  */
 function limiterKey(req: Request) {
   if (req.auth) return `user:${req.auth.userId}`;
@@ -48,7 +55,7 @@ function limiterKey(req: Request) {
  */
 function createLimiter(
   name: string,
-  { windowMinutes, limit, onlyFailures = false }: LimiterOptions,
+  { windowMinutes, limit, onlyFailures = false, key = limiterKey, skip }: LimiterOptions,
 ) {
   return rateLimit({
     windowMs: windowMinutes * 60 * 1000,
@@ -56,8 +63,8 @@ function createLimiter(
     skipSuccessfulRequests: onlyFailures,
     standardHeaders: "draft-8",
     legacyHeaders: false,
-    skip: () => env.isTest && !enforcedInTests,
-    keyGenerator: limiterKey,
+    skip: (req) => (env.isTest && !enforcedInTests) || (skip?.(req) ?? false),
+    keyGenerator: key,
     handler: (req, res) => {
       logger.warn("Rate-Limit überschritten", { limiter: name, ip: req.ip, path: req.path });
       sendProblem(res, 429, "rate_limited", "Zu viele Anfragen. Bitte versuche es später erneut.");
@@ -74,3 +81,13 @@ export const credentialsLimiter = createLimiter("credentials", {
 });
 /** Endpunkte, die Mails auslösen. Zählt jeden Aufruf (Schutz vor Mail-Spam). */
 export const mailLimiter = createLimiter("mail", { windowMinutes: 15, limit: 10 });
+/**
+ * Eigener Bucket pro API-Key mit dem beim Key hinterlegten Limit. Läuft nach `authenticate`;
+ * Requests mit Login-Sitzung zählt er nicht.
+ */
+export const apiKeyLimiter = createLimiter("api-key", {
+  windowMinutes: 15,
+  limit: (req) => req.auth?.apiKey?.rateLimit ?? 0,
+  key: (req) => `apikey:${req.auth?.apiKey?.id}`,
+  skip: (req) => !req.auth?.apiKey,
+});

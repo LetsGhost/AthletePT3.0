@@ -58,6 +58,9 @@ export const routes: RouteObject[] = [
             element: <AppShell />,
             children: [
               { path: "/settings", ...page(() => import("@/pages/settings-page")) },
+              // Link aus der Mail, nur angemeldet als Empfänger (prüft die API). Ohne Rollen-Guard,
+              // damit falsch Angemeldete einen Hinweis bekommen statt auf ihrer Startseite landen.
+              { path: "/api-zugang", ...page(() => import("@/pages/api-key-pickup-page")) },
               {
                 element: <RequireRole roles={["athlete"]} />,
                 children: [
@@ -138,6 +141,7 @@ export const routes: RouteObject[] = [
                     path: "/admin/exercises",
                     ...page(() => import("@/pages/admin/exercises-page")),
                   },
+                  { path: "/admin/api-keys", ...page(() => import("@/pages/admin/api-keys-page")) },
                 ],
               },
               { path: "*", ...page(() => import("@/pages/not-found-page")) },

@@ -4,6 +4,7 @@ import {
   Dumbbell,
   History,
   House,
+  KeyRound,
   TrendingUp,
   Users,
   type LucideIcon,
@@ -45,6 +46,7 @@ export const navigation: Record<UserRole, NavItem[]> = {
   sysadmin: [
     { to: "/admin/coaches", label: "Coaches", icon: Users },
     { to: "/admin/exercises", label: "Übungskatalog", icon: Dumbbell },
+    { to: "/admin/api-keys", label: "API-Zugänge", icon: KeyRound },
   ],
 };
 
