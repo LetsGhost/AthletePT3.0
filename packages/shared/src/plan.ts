@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { writeSourceSchema } from "./api-key";
 import { objectIdSchema } from "./common";
 import {
   exerciseSchema,
@@ -328,6 +329,7 @@ export const planSchema = z.object({
   status: planStatusSchema,
   createdBy: planCreatorSchema,
   ...planContentOutput,
+  lastWriteVia: writeSourceSchema,
   activatedAt: z.string().nullable(),
   archivedAt: z.string().nullable(),
   createdAt: z.string(),
@@ -341,6 +343,7 @@ export const planSummarySchema = z.object({
   type: planTypeSchema,
   createdBy: planCreatorSchema,
   dayCount: z.number().int(),
+  lastWriteVia: writeSourceSchema,
   activatedAt: z.string().nullable(),
   archivedAt: z.string().nullable(),
   updatedAt: z.string(),
@@ -373,6 +376,7 @@ export const myPlanResponseSchema = z.object({ plan: planSchema.nullable() });
 export const planTemplateSchema = z.object({
   id: objectIdSchema,
   ...planContentOutput,
+  lastWriteVia: writeSourceSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
 });

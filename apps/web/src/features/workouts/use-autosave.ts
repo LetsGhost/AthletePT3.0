@@ -8,7 +8,7 @@ import { saveWorkout, workoutKeys } from "./api";
 import { draftFromLog, draftStorage, draftToRequest, type WorkoutDraft } from "./draft";
 
 export type SaveState =
-  "saved" | "pending" | "saving" | "offline" | "invalid" | "conflict" | "error";
+  "saved" | "pending" | "saving" | "offline" | "invalid" | "conflict" | "rejected" | "error";
 
 /** Pause nach der letzten Eingabe, bevor gespeichert wird. */
 export const AUTOSAVE_DELAY_MS = 1500;
@@ -27,6 +27,8 @@ export function useWorkoutAutosave(log: WorkoutLog, draft: WorkoutDraft, enabled
   const lastSaved = useRef(JSON.stringify(draftFromLog(log)));
   const inFlight = useRef<Promise<void> | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Konflikt oder abgelehnt: Jeder weitere Versuch scheitert gleich, also nur noch lokal sichern.
+  const stuck = useRef(false);
   const latest = useRef(draft);
   useLayoutEffect(() => {
     latest.current = draft;
@@ -36,6 +38,7 @@ export function useWorkoutAutosave(log: WorkoutLog, draft: WorkoutDraft, enabled
 
   const save = useCallback(async (): Promise<void> => {
     while (inFlight.current) await inFlight.current;
+    if (stuck.current) return;
     const json = JSON.stringify(latest.current);
     if (json === lastSaved.current) {
       setState("saved");
@@ -57,12 +60,22 @@ export function useWorkoutAutosave(log: WorkoutLog, draft: WorkoutDraft, enabled
           draftStorage.remove(log.id);
           setState("saved");
         } else {
+          // Inzwischen Eingegebenes baut jetzt auf der neuen Revision auf, sonst verwirft der
+          // nächste Start den lokalen Stand.
+          draftStorage.write(log.id, { revision: saved.revision, draft: latest.current });
           setState("pending");
         }
       } catch (error) {
-        if (error instanceof ApiError && error.code === "workout_conflict") setState("conflict");
-        else if (error instanceof ApiError && error.status === 0) setState("offline");
-        else setState("error");
+        if (error instanceof ApiError && error.code === "workout_conflict") {
+          stuck.current = true;
+          setState("conflict");
+        } else if (error instanceof ApiError && error.status === 0) setState("offline");
+        // Nur Server-, unbekannte und Rate-Limit-Fehler gehen vorbei; abgelehnte Anfragen (z. B.
+        // gesperrt oder gelöscht) scheitern bei jedem Versuch gleich.
+        else if (error instanceof ApiError && error.status < 500 && error.status !== 429) {
+          stuck.current = true;
+          setState("rejected");
+        } else setState("error");
       }
     })();
     inFlight.current = run;
@@ -77,7 +90,8 @@ export function useWorkoutAutosave(log: WorkoutLog, draft: WorkoutDraft, enabled
   useEffect(() => {
     if (!enabled || serialized === lastSaved.current) return;
     draftStorage.write(log.id, { revision: revision.current, draft: latest.current });
-    setState((s) => (s === "conflict" ? s : "pending"));
+    if (stuck.current) return;
+    setState("pending");
     timer.current = setTimeout(() => void save(), AUTOSAVE_DELAY_MS);
     return () => {
       if (timer.current) clearTimeout(timer.current);

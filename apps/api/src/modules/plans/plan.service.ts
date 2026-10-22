@@ -14,6 +14,7 @@ import type { z } from "zod";
 
 import { withTransaction } from "../../lib/db";
 import { ConflictError, NotFoundError } from "../../lib/errors";
+import { toWriteSourceDto, writeSource } from "../api-keys/write-source";
 import type { AuthContext } from "../../types/express";
 import { getAccessibleAthlete } from "../athletes/athlete-access";
 import { assertComplete, buildContent, toContentDto, type PlanCatalog } from "./plan-content";
@@ -36,6 +37,7 @@ async function toPlanDto(plan: StoredPlan, catalog: PlanCatalog | null): Promise
     status: plan.status,
     createdBy: creator(plan),
     ...(await toContentDto(plan, catalog)),
+    lastWriteVia: toWriteSourceDto(plan.lastWriteVia),
     activatedAt: plan.activatedAt?.toISOString() ?? null,
     archivedAt: plan.archivedAt?.toISOString() ?? null,
     createdAt: plan.createdAt.toISOString(),
@@ -51,6 +53,7 @@ function toSummary(plan: StoredPlan): PlanSummary {
     type: plan.type,
     createdBy: creator(plan),
     dayCount: plan.days.length,
+    lastWriteVia: toWriteSourceDto(plan.lastWriteVia),
     activatedAt: plan.activatedAt?.toISOString() ?? null,
     archivedAt: plan.archivedAt?.toISOString() ?? null,
     updatedAt: plan.updatedAt.toISOString(),
@@ -127,6 +130,7 @@ export async function createPlan(auth: AuthContext, athleteId: string, input: Cr
     status: "draft",
     revision: 0,
     ...content,
+    lastWriteVia: writeSource(auth),
   });
   return toPlanDto(await reload(created._id), catalog);
 }
@@ -180,7 +184,7 @@ export async function updatePlan(
     }
     const result = await TrainingPlanModel.updateOne(
       { _id: plan._id, revision: input.revision },
-      { $set: content, $inc: { revision: 1 } },
+      { $set: { ...content, lastWriteVia: writeSource(auth) }, $inc: { revision: 1 } },
       { session },
     );
     if (result.matchedCount === 0) throw planConflict();
@@ -203,7 +207,15 @@ export async function activatePlan(auth: AuthContext, athleteId: string, planId:
     );
     await TrainingPlanModel.updateOne(
       { _id: plan._id },
-      { $set: { status: "active", activatedAt: now, archivedAt: null }, $inc: { revision: 1 } },
+      {
+        $set: {
+          status: "active",
+          activatedAt: now,
+          archivedAt: null,
+          lastWriteVia: writeSource(auth),
+        },
+        $inc: { revision: 1 },
+      },
       { session },
     );
     return { plan: await reload(plan._id, session), catalog };
@@ -217,7 +229,10 @@ export async function archivePlan(auth: AuthContext, athleteId: string, planId: 
   if (plan.status !== "archived") {
     await TrainingPlanModel.updateOne(
       { _id: plan._id },
-      { $set: { status: "archived", archivedAt: new Date() }, $inc: { revision: 1 } },
+      {
+        $set: { status: "archived", archivedAt: new Date(), lastWriteVia: writeSource(auth) },
+        $inc: { revision: 1 },
+      },
     );
   }
   return toPlanDto(await reload(plan._id), catalog);

@@ -13,6 +13,7 @@ import {
 import { z } from "zod";
 
 import { createModuleRouter } from "../../lib/router";
+import { writeSource } from "../api-keys/write-source";
 import * as templateService from "./plan-template.service";
 import * as planService from "./plan.service";
 
@@ -29,6 +30,7 @@ plans.route({
   summary: "Pläne eines Athleten auflisten",
   description: "Aktiver Plan zuerst, dann Entwürfe, dann archivierte.",
   auth: roles,
+  apiKeyScope: "plans:read",
   params: athleteParams,
   response: planListResponseSchema,
   errors: [404],
@@ -43,6 +45,7 @@ plans.route({
     "Legt einen Entwurf an. Übungen müssen für den Coach sichtbar und aktiv sein (bei Athleten: " +
     "für ihren Coach). Übungsnamen und Plan-Typ setzt der Server.",
   auth: roles,
+  apiKeyScope: "plans:write",
   params: athleteParams,
   body: createPlanRequestSchema,
   status: 201,
@@ -57,6 +60,7 @@ plans.route({
   summary: "Plan abrufen",
   description: "Inklusive Details aller verwendeten Übungen (`exercises`).",
   auth: roles,
+  apiKeyScope: "plans:read",
   params: planParams,
   response: planSchema,
   errors: [404],
@@ -72,6 +76,7 @@ plans.route({
     "`plan_conflict`. Bei aktiven Plänen wird der bisherige Stand als Version gesichert. " +
     "Archivierte Pläne: 409 `plan_archived`.",
   auth: roles,
+  apiKeyScope: "plans:write",
   params: planParams,
   body: updatePlanRequestSchema,
   response: planSchema,
@@ -88,6 +93,7 @@ plans.route({
     "Gibt den Plan für den Athleten frei und archiviert den bisher aktiven. Unvollständige " +
     "Pläne: 400 `plan_incomplete`.",
   auth: roles,
+  apiKeyScope: "plans:write",
   params: planParams,
   response: planSchema,
   errors: [404],
@@ -99,6 +105,7 @@ plans.route({
   path: "/:athleteId/plans/:planId/archive",
   summary: "Plan archivieren",
   auth: roles,
+  apiKeyScope: "plans:write",
   params: planParams,
   response: planSchema,
   errors: [404],
@@ -111,6 +118,7 @@ plans.route({
   summary: "Entwurf löschen",
   description: "Nur Entwürfe, sonst 409 `plan_not_draft`.",
   auth: roles,
+  apiKeyScope: "plans:write",
   params: planParams,
   status: 204,
   errors: [404, 409],
@@ -124,6 +132,7 @@ plans.route({
   path: "/:athleteId/plans/:planId/versions",
   summary: "Frühere Versionen eines Plans",
   auth: roles,
+  apiKeyScope: "plans:read",
   params: planParams,
   response: planVersionListResponseSchema,
   errors: [404],
@@ -135,6 +144,7 @@ plans.route({
   path: "/:athleteId/plans/:planId/versions/:revision",
   summary: "Frühere Version abrufen",
   auth: roles,
+  apiKeyScope: "plans:read",
   params: planParams.extend({ revision: z.coerce.number().int().min(0) }),
   response: planVersionSchema,
   errors: [404],
@@ -154,6 +164,7 @@ me.route({
     "Aktiver Plan des angemeldeten Athleten mit Details der verwendeten Übungen, `plan: null`, " +
     "solange es keinen gibt.",
   auth: ["athlete"],
+  apiKeyScope: "plans:read",
   response: myPlanResponseSchema,
   handler: ({ auth }) => planService.getMyPlan(auth.userId),
 });
@@ -168,6 +179,7 @@ templates.route({
   path: "/",
   summary: "Eigene Vorlagen auflisten",
   auth: ["coach"],
+  apiKeyScope: "plans:read",
   response: planTemplateListResponseSchema,
   handler: ({ auth }) => templateService.listTemplates(auth.userId),
 });
@@ -177,10 +189,11 @@ templates.route({
   path: "/",
   summary: "Vorlage anlegen",
   auth: ["coach"],
+  apiKeyScope: "plans:write",
   body: createPlanRequestSchema,
   status: 201,
   response: planTemplateSchema,
-  handler: ({ auth, body }) => templateService.createTemplate(auth.userId, body),
+  handler: ({ auth, body }) => templateService.createTemplate(auth.userId, body, writeSource(auth)),
 });
 
 templates.route({
@@ -188,6 +201,7 @@ templates.route({
   path: "/:id",
   summary: "Vorlage abrufen",
   auth: ["coach"],
+  apiKeyScope: "plans:read",
   params: templateParams,
   response: planTemplateSchema,
   errors: [404],
@@ -200,11 +214,13 @@ templates.route({
   summary: "Vorlage speichern",
   description: "Wie beim Plan: `revision` mitschicken, sonst 409 `plan_conflict`.",
   auth: ["coach"],
+  apiKeyScope: "plans:write",
   params: templateParams,
   body: updatePlanRequestSchema,
   response: planTemplateSchema,
   errors: [404, 409],
-  handler: ({ auth, params, body }) => templateService.updateTemplate(auth.userId, params.id, body),
+  handler: ({ auth, params, body }) =>
+    templateService.updateTemplate(auth.userId, params.id, body, writeSource(auth)),
 });
 
 templates.route({
@@ -213,6 +229,7 @@ templates.route({
   summary: "Vorlage löschen",
   description: "Pläne, die aus der Vorlage entstanden sind, bleiben erhalten.",
   auth: ["coach"],
+  apiKeyScope: "plans:write",
   params: templateParams,
   status: 204,
   errors: [404],

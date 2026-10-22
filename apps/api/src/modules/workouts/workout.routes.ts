@@ -15,6 +15,7 @@ import {
 import { z } from "zod";
 
 import { createModuleRouter } from "../../lib/router";
+import { writeSource } from "../api-keys/write-source";
 import * as weekService from "./week.service";
 import * as workoutService from "./workout.service";
 
@@ -29,6 +30,7 @@ me.route({
     "Tage des aktiven Plans mit Status, Protokolle und Wochenplan der ISO-Woche (`week`, z. B. " +
     "`2026-W42`, ohne Angabe die aktuelle). Wird berechnet, nichts davon ist gespeichert.",
   auth: ["athlete"],
+  apiKeyScope: "workouts:read",
   query: weekQuerySchema,
   response: weekViewSchema,
   handler: ({ auth, query }) => weekService.getMyWeek(auth.userId, query.week),
@@ -40,6 +42,7 @@ me.route({
   summary: "Eigene Trainings auflisten",
   description: "Neueste zuerst, inklusive laufender und abgesagter.",
   auth: ["athlete"],
+  apiKeyScope: "workouts:read",
   query: workoutLogListQuerySchema,
   response: workoutLogListResponseSchema,
   handler: ({ auth, query }) => workoutService.listMyWorkouts(auth.userId, query),
@@ -54,11 +57,12 @@ me.route({
     "Vorgaben. `date` (ohne Angabe heute) darf höchstens 14 Tage zurückliegen. Läuft schon ein " +
     "Training: 409 `workout_in_progress`. Ohne aktiven Plan: 409 `no_active_plan`.",
   auth: ["athlete"],
+  apiKeyScope: "workouts:write",
   body: startWorkoutRequestSchema,
   status: 201,
   response: workoutLogSchema,
   errors: [404, 409],
-  handler: ({ auth, body }) => workoutService.startWorkout(auth.userId, body),
+  handler: ({ auth, body }) => workoutService.startWorkout(auth.userId, body, writeSource(auth)),
 });
 
 me.route({
@@ -69,11 +73,12 @@ me.route({
     "Legt ein abgesagtes Protokoll an, optional mit Grund (`notes`). Ist der Tag in dieser Woche " +
     "schon erledigt oder abgesagt: 409 `workout_already_logged`.",
   auth: ["athlete"],
+  apiKeyScope: "workouts:write",
   body: skipWorkoutRequestSchema,
   status: 201,
   response: workoutLogSchema,
   errors: [404, 409],
-  handler: ({ auth, body }) => workoutService.skipWorkout(auth.userId, body),
+  handler: ({ auth, body }) => workoutService.skipWorkout(auth.userId, body, writeSource(auth)),
 });
 
 me.route({
@@ -82,6 +87,7 @@ me.route({
   summary: "Eigenes Training abrufen",
   description: "Mit den zuletzt geschafften Sätzen je Übung (`previous`).",
   auth: ["athlete"],
+  apiKeyScope: "workouts:read",
   params: logParams,
   response: workoutLogSchema,
   errors: [404],
@@ -97,11 +103,13 @@ me.route({
     "entsprechen, sonst 409 `workout_conflict`. Abgeschlossene Trainings lassen sich 7 Tage lang " +
     "korrigieren (danach 409 `workout_locked`), abgesagte gar nicht (409 `workout_skipped`).",
   auth: ["athlete"],
+  apiKeyScope: "workouts:write",
   params: logParams,
   body: updateWorkoutRequestSchema,
   response: workoutLogSchema,
   errors: [404, 409],
-  handler: ({ auth, params, body }) => workoutService.updateMyWorkout(auth.userId, params.id, body),
+  handler: ({ auth, params, body }) =>
+    workoutService.updateMyWorkout(auth.userId, params.id, body, writeSource(auth)),
 });
 
 me.route({
@@ -113,12 +121,13 @@ me.route({
     "Bestwerte, die das Training verbessert hat (nicht beim ersten Mal einer Übung). " +
     "`averageDurationMinutes`: Durchschnitt der letzten 10 früheren Trainings.",
   auth: ["athlete"],
+  apiKeyScope: "workouts:write",
   params: logParams,
   body: updateWorkoutRequestSchema,
   response: completeWorkoutResponseSchema,
   errors: [404, 409],
   handler: ({ auth, params, body }) =>
-    workoutService.completeMyWorkout(auth.userId, params.id, body),
+    workoutService.completeMyWorkout(auth.userId, params.id, body, writeSource(auth)),
 });
 
 me.route({
@@ -127,6 +136,7 @@ me.route({
   summary: "Training verwerfen oder Absage zurücknehmen",
   description: "Abgeschlossene Trainings lassen sich nicht löschen (409 `workout_completed`).",
   auth: ["athlete"],
+  apiKeyScope: "workouts:write",
   params: logParams,
   status: 204,
   errors: [404, 409],
@@ -147,6 +157,7 @@ athletes.route({
   summary: "Trainingswoche eines Athleten",
   description: "Wie `GET /me/week`, aber ohne laufende Trainings.",
   auth: ["coach"],
+  apiKeyScope: "workouts:read",
   params: athleteParams,
   query: weekQuerySchema,
   response: weekViewSchema,
@@ -164,6 +175,7 @@ athletes.route({
     "Unabhängig vom Trainingsplan. Athleten mit der Berechtigung `ownWeek` setzen ihn mit ihrer " +
     "eigenen ID selbst.",
   auth: ["coach", "athlete"],
+  apiKeyScope: "plans:write",
   params: athleteParams,
   body: updateWeeklyActivitiesRequestSchema,
   response: weeklyActivitiesResponseSchema,
@@ -178,6 +190,7 @@ athletes.route({
   summary: "Trainings eines Athleten auflisten",
   description: "Abgeschlossene und abgesagte Trainings, neueste zuerst.",
   auth: ["coach"],
+  apiKeyScope: "workouts:read",
   params: athleteParams,
   query: workoutLogListQuerySchema,
   response: workoutLogListResponseSchema,
@@ -191,6 +204,7 @@ athletes.route({
   path: "/:athleteId/workout-logs/:id",
   summary: "Training eines Athleten abrufen",
   auth: ["coach"],
+  apiKeyScope: "workouts:read",
   params: athleteParams.extend({ id: objectIdSchema }),
   response: workoutLogSchema,
   errors: [404],

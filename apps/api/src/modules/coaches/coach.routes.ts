@@ -49,13 +49,16 @@ coaches.route({
   description:
     "Name, Kontingent oder Status ändern. Sperren meldet den Coach überall ab. Hat er Athleten, " +
     "gehen sie in derselben Transaktion an `reassignToCoachId` (aktiver Coach mit genug freiem " +
-    "Kontingent). Fehler: 409 `reassignment_required`, `reassignment_invalid`, `quota_exceeded`.",
+    "Kontingent). Fehler: 409 `reassignment_required`, `reassignment_invalid`, `quota_exceeded`. " +
+    "Entsperrt man einen Coach, der die Einladung nie angenommen hat, ist er wieder eingeladen " +
+    "und bekommt einen neuen Link.",
   auth: ["sysadmin"],
   params: idParams,
   body: updateCoachRequestSchema,
   response: coachSchema,
   errors: [404, 409],
-  handler: ({ params, body }) => coachService.updateCoach(params.id, body),
+  handler: async ({ auth, params, body }) =>
+    coachService.updateCoach(params.id, body, await actorName(auth.userId)),
 });
 
 coaches.route({

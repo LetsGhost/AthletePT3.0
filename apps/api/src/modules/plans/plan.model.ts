@@ -1,6 +1,7 @@
 import { planStatuses, type PlanStatus } from "@athletept/shared";
 import { Schema, model, type Types } from "mongoose";
 
+import { writeSourceField, type StoredWriteSource } from "../api-keys/write-source";
 import { contentFields, type StoredContent } from "./plan-content.model";
 
 /**
@@ -17,6 +18,7 @@ const trainingPlanSchema = new Schema(
     createdByCoachId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     status: { type: String, enum: planStatuses, required: true, default: "draft" },
     ...contentFields,
+    ...writeSourceField,
     activatedAt: { type: Date, default: null },
     archivedAt: { type: Date, default: null },
   },
@@ -36,6 +38,7 @@ export interface StoredPlan extends StoredContent {
   status: PlanStatus;
   activatedAt: Date | null;
   archivedAt: Date | null;
+  lastWriteVia?: StoredWriteSource | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -1,6 +1,12 @@
 import { equipmentTypes, exerciseCategories, muscleGroups, type Exercise } from "@athletept/shared";
 import { Schema, model, type HydratedDocumentFromSchema } from "mongoose";
 
+import {
+  toWriteSourceDto,
+  writeSourceField,
+  type StoredWriteSource,
+} from "../api-keys/write-source";
+
 /**
  * Übung im Katalog. Ohne Besitzer ist sie global (vom Sysadmin gepflegt). Mit `ownerCoachId`
  * gehört sie diesem Coach (er und seine Athleten sehen sie), mit `ownerAthleteId` ist sie die
@@ -35,6 +41,7 @@ const exerciseSchema = new Schema(
      */
     mergedIntoId: { type: Schema.Types.ObjectId, ref: "Exercise", default: null, index: true },
     archivedAt: { type: Date, default: null },
+    ...writeSourceField,
   },
   { timestamps: true },
 );
@@ -71,7 +78,7 @@ type ExerciseLike = Pick<
   | "archivedAt"
   | "createdAt"
   | "updatedAt"
->;
+> & { lastWriteVia?: StoredWriteSource | null };
 
 export function toExerciseDto(exercise: ExerciseLike): Exercise {
   return {
@@ -88,6 +95,7 @@ export function toExerciseDto(exercise: ExerciseLike): Exercise {
     scope: exercise.ownerAthleteId ? "private" : exercise.ownerCoachId ? "own" : "global",
     submitted: Boolean(exercise.submittedAt),
     archived: Boolean(exercise.archivedAt),
+    lastWriteVia: toWriteSourceDto(exercise.lastWriteVia),
     createdAt: exercise.createdAt.toISOString(),
     updatedAt: exercise.updatedAt.toISOString(),
   };

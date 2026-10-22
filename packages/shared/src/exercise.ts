@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { writeSourceSchema } from "./api-key";
 import { objectIdSchema, paginationQuerySchema } from "./common";
 
 /** Körperregion. Grundlage für die automatische Plan-Typ-Erkennung (Ober-/Unterkörper). */
@@ -192,6 +193,7 @@ export const exerciseSchema = z.object({
   /** Coach-Übung, die der Coach für den globalen Katalog vorgeschlagen hat. */
   submitted: z.boolean(),
   archived: z.boolean(),
+  lastWriteVia: writeSourceSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
 });

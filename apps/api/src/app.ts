@@ -1,5 +1,4 @@
 import cookieParser from "cookie-parser";
-import cors from "cors";
 import express, { Router } from "express";
 import helmet from "helmet";
 import mongoose from "mongoose";
@@ -11,6 +10,7 @@ import { API_PREFIX, getOpenApiDocument } from "./lib/openapi";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { apiLimiter } from "./middleware/rate-limit";
 import { requestId } from "./middleware/request-id";
+import { apiKeyRouter, myApiKeyRouter } from "./modules/api-keys/api-key.routes";
 import { athleteRouter, myPermissionsRouter } from "./modules/athletes/athlete.routes";
 import { authRouter } from "./modules/auth/auth.routes";
 import { coachRouter } from "./modules/coaches/coach.routes";
@@ -33,6 +33,8 @@ const modules = [
   athleteWorkoutRouter,
   myStatsRouter,
   athleteStatsRouter,
+  apiKeyRouter,
+  myApiKeyRouter,
 ];
 
 export function createApp() {
@@ -43,9 +45,6 @@ export function createApp() {
 
   app.use(requestId);
   app.use(helmet({ frameguard: { action: "deny" } }));
-  if (env.CORS_ORIGINS.length > 0) {
-    app.use(cors({ origin: env.CORS_ORIGINS, credentials: true }));
-  }
   app.use(express.json({ limit: "100kb" }));
   app.use(cookieParser());
   if (!env.isTest) {

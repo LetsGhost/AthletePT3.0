@@ -55,6 +55,7 @@ const saveStateText: Record<SaveState, string> = {
   offline: "Offline: auf dem Gerät gesichert, wird gesendet, sobald du wieder Netz hast",
   invalid: "Bitte die markierten Felder korrigieren",
   conflict: "Das Training wurde an anderer Stelle geändert",
+  rejected: "Speichern nicht möglich",
   error: "Speichern fehlgeschlagen, neuer Versuch läuft",
 };
 
@@ -72,7 +73,7 @@ function SaveIndicator({ state }: { state: SaveState }) {
       role="status"
       className={cn(
         "flex items-center gap-1.5 text-sm",
-        state === "invalid" || state === "conflict" || state === "error"
+        state === "invalid" || state === "conflict" || state === "rejected" || state === "error"
           ? "text-danger"
           : "text-muted",
       )}
@@ -241,11 +242,18 @@ export function WorkoutEditor({ log, onReload, onCompleted }: WorkoutEditorProps
   return (
     <div className="flex flex-col gap-3">
       <WorkoutProgress draft={draft} state={autosave.state} />
-      {autosave.state === "conflict" && (
-        <Alert variant="error" title="Neuerer Stand vorhanden">
+      {(autosave.state === "conflict" || autosave.state === "rejected") && (
+        <Alert
+          variant="error"
+          title={
+            autosave.state === "conflict" ? "Neuerer Stand vorhanden" : "Speichern nicht möglich"
+          }
+        >
           <p>
-            Das Training wurde inzwischen auf einem anderen Gerät geändert. Lade den neuen Stand;
-            deine Änderungen hier gehen dabei verloren.
+            {autosave.state === "conflict"
+              ? "Das Training wurde inzwischen auf einem anderen Gerät geändert."
+              : "Der Server nimmt die Änderungen nicht mehr an, z. B. weil das Training gesperrt oder gelöscht ist."}{" "}
+            Lade den neuen Stand; deine Änderungen hier gehen dabei verloren.
           </p>
           <Button
             variant="secondary"

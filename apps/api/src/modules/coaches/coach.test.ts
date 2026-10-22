@@ -117,6 +117,30 @@ describe("Coaches (Sysadmin)", () => {
     expect(res.body.code).toBe("invitation_pending");
   });
 
+  it("lädt einen vor dem Annehmen gesperrten Coach beim Entsperren neu ein", async () => {
+    const { bearer } = await sysadmin();
+    const created = await api()
+      .post("/api/v1/coaches")
+      .set("Authorization", bearer)
+      .send({ email: "spaet@example.com", name: "Spät", athleteQuota: 1 });
+    const patch = (status: string) =>
+      api()
+        .patch(`/api/v1/coaches/${created.body.id}`)
+        .set("Authorization", bearer)
+        .send({ status });
+
+    await patch("disabled").expect(200);
+    const res = await patch("active");
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("invited");
+    const { token } = lastMailTo("spaet@example.com");
+    const accepted = await api()
+      .post("/api/v1/auth/invitations/accept")
+      .send({ token, password: "neues-coach-passwort" });
+    expect(accepted.status).toBe(200);
+  });
+
   it("macht beim erneuten Einladen den alten Link ungültig", async () => {
     const { bearer } = await sysadmin();
     await api()

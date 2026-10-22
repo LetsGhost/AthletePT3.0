@@ -61,6 +61,7 @@ describe("Nächstes Training", () => {
     const week = buildWeekView({
       inProgress: {
         id: "6acd3920c0072ec254663e09",
+        lastWriteVia: null,
         planId: "6acd3920c0072ec254663d01",
         dayId: "a",
         dayName: "a",

@@ -7,6 +7,8 @@ import {
   type WorkoutSet,
 } from "@athletept/shared";
 
+import { jsonStore } from "@/lib/json-store";
+
 import { decimalToText, parseDecimal } from "./format";
 
 /** Eingaben als Text, damit Zwischenstände wie „82,“ beim Tippen erhalten bleiben. */
@@ -231,30 +233,5 @@ interface StoredDraft {
   draft: WorkoutDraft;
 }
 
-const storageKey = (logId: string) => `athletept.workout.${logId}`;
-
 /** Lokaler Puffer für noch nicht gesendete Änderungen (z. B. ohne Netz im Studio). */
-export const draftStorage = {
-  read(logId: string): StoredDraft | null {
-    try {
-      const raw = localStorage.getItem(storageKey(logId));
-      return raw ? (JSON.parse(raw) as StoredDraft) : null;
-    } catch {
-      return null;
-    }
-  },
-  write(logId: string, value: StoredDraft) {
-    try {
-      localStorage.setItem(storageKey(logId), JSON.stringify(value));
-    } catch {
-      // Speicher voll oder gesperrt: dann bleibt nur der Server.
-    }
-  },
-  remove(logId: string) {
-    try {
-      localStorage.removeItem(storageKey(logId));
-    } catch {
-      // ignorieren
-    }
-  },
-};
+export const draftStorage = jsonStore<StoredDraft>("athletept.workout.");

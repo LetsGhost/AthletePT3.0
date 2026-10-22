@@ -1,7 +1,7 @@
 import { addDays, isoWeekday, type Weekday, type WorkoutSet } from "@athletept/shared";
 
 import { formatDuration } from "@/features/plans/format";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, parseIsoDate } from "@/lib/format";
 
 const shortDate = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "short" });
 const weekdayDate = new Intl.DateTimeFormat("de-DE", {
@@ -21,30 +21,25 @@ const dayMonth = new Intl.DateTimeFormat("de-DE", {
   month: "long",
 });
 
-function toLocal(date: string) {
-  const [year, month, day] = date.split("-").map(Number);
-  return new Date(year!, month! - 1, day!);
-}
-
 /** „Di., 13. Okt.“ */
 export function formatWeekdayDate(date: string) {
-  return weekdayDate.format(toLocal(date));
+  return weekdayDate.format(parseIsoDate(date));
 }
 
 /** „Dienstag, 13. Oktober 2026“ */
 export function formatLongDate(date: string) {
-  return longDate.format(toLocal(date));
+  return longDate.format(parseIsoDate(date));
 }
 
 /** „Dienstag, 13. Oktober“ */
 export function formatDayMonth(date: string) {
-  return dayMonth.format(toLocal(date));
+  return dayMonth.format(parseIsoDate(date));
 }
 
 /** „KW 42 · 12.–18. Okt.“ */
 export function formatWeek(week: string, startDate: string) {
   const end = addDays(startDate, 6);
-  return `KW ${Number(week.slice(6))} · ${shortDate.format(toLocal(startDate))} – ${shortDate.format(toLocal(end))}`;
+  return `KW ${Number(week.slice(6))} · ${shortDate.format(parseIsoDate(startDate))} – ${shortDate.format(parseIsoDate(end))}`;
 }
 
 /** Datum eines Wochentags in der Woche ab `startDate` (Montag). */

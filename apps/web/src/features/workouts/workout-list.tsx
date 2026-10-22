@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import { viaAppText } from "@/features/api-keys/labels";
 
 import { WORKOUT_PAGE_SIZE } from "./api";
 import { formatWeekdayDate } from "./format";
@@ -77,6 +78,7 @@ export function WorkoutList({
                 </span>
                 <span className="text-muted block text-sm">
                   {formatWeekdayDate(log.date)} · {summaryText(log)}
+                  {log.lastWriteVia && ` · ${viaAppText(log.lastWriteVia)}`}
                 </span>
                 {log.status !== "skipped" && log.notes && (
                   <span className="mt-1 line-clamp-2 block text-sm">„{log.notes}“</span>

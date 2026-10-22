@@ -7,6 +7,7 @@ import type {
 import type { z } from "zod";
 
 import { ConflictError, NotFoundError } from "../../lib/errors";
+import { toWriteSourceDto, type WriteSourceInput } from "../api-keys/write-source";
 import { buildContent, toContentDto } from "./plan-content";
 import { PlanTemplateModel, type StoredPlanTemplate } from "./plan-template.model";
 
@@ -17,6 +18,7 @@ async function toTemplateDto(template: StoredPlanTemplate, coachId: string): Pro
   return {
     id: template._id.toString(),
     ...(await toContentDto(template, { coachId })),
+    lastWriteVia: toWriteSourceDto(template.lastWriteVia),
     createdAt: template.createdAt.toISOString(),
     updatedAt: template.updatedAt.toISOString(),
   };
@@ -52,22 +54,32 @@ export async function getTemplate(coachId: string, id: string) {
   return toTemplateDto(await findTemplate(coachId, id), coachId);
 }
 
-export async function createTemplate(coachId: string, input: CreateInput) {
+export async function createTemplate(
+  coachId: string,
+  input: CreateInput,
+  via: WriteSourceInput = null,
+) {
   const content = await buildContent({ coachId }, input, null);
   const created = await PlanTemplateModel.create({
     ownerCoachId: coachId,
     revision: 0,
     ...content,
+    lastWriteVia: via,
   });
   return getTemplate(coachId, created._id.toString());
 }
 
-export async function updateTemplate(coachId: string, id: string, input: UpdateInput) {
+export async function updateTemplate(
+  coachId: string,
+  id: string,
+  input: UpdateInput,
+  via: WriteSourceInput = null,
+) {
   const template = await findTemplate(coachId, id);
   const content = await buildContent({ coachId }, input, template);
   const result = await PlanTemplateModel.updateOne(
     { _id: template._id, revision: input.revision },
-    { $set: content, $inc: { revision: 1 } },
+    { $set: { ...content, lastWriteVia: via }, $inc: { revision: 1 } },
   );
   if (result.matchedCount === 0) {
     throw new ConflictError(

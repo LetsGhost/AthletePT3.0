@@ -3,7 +3,7 @@
 # proxy.conf.template). Den resolver erbt dieser Server aus proxy.conf.template (http-Ebene),
 # ein zweiter resolver-Eintrag wäre ein Fehler.
 #
-# Der Container "sportanalytics" hängt im Netz "athletept-proxy" und lauscht auf Port 8084
+# Der Container "sportanalytics" hängt im Netz "athletept-sports" (nicht "athletept-proxy") und lauscht auf Port 8084
 # (docker-compose.yml im Projekt Sport-Analytics-Backend).
 
 server {

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { QueryState, SkeletonList } from "@/components/ui/query-state";
+import { viaAppText } from "@/features/api-keys/labels";
 import { formatDate } from "@/lib/format";
 
 import { usePlans } from "./api";
@@ -58,6 +59,7 @@ function PlanItem({
           </span>
           <span className="text-muted block text-sm">
             {plan.dayCount} {plan.dayCount === 1 ? "Trainingstag" : "Trainingstage"} · {date}
+            {plan.lastWriteVia && ` · ${viaAppText(plan.lastWriteVia)}`}
           </span>
         </span>
         <ChevronRight aria-hidden="true" className="text-muted size-5 shrink-0" />

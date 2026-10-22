@@ -22,16 +22,6 @@ const envSchema = z
     REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
 
     APP_URL: z.url("APP_URL muss eine gültige URL sein"),
-    CORS_ORIGINS: z
-      .string()
-      .default("")
-      .transform((value) =>
-        value
-          .split(",")
-          .map((origin) => origin.trim())
-          .filter(Boolean),
-      )
-      .pipe(z.array(z.url("CORS_ORIGINS enthält eine ungültige URL"))),
     TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
 
     API_DOCS_ENABLED: booleanString.optional(),

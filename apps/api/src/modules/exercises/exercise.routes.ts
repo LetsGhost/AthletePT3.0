@@ -76,6 +76,7 @@ exercises.route({
     "Katalog, Athleten mit eigenem Trainingsplan den Katalog ihres Coaches und ihre privaten " +
     "Übungen (sonst 403). Treffer, deren Name mit dem Suchbegriff beginnt, stehen vorne.",
   auth: roles,
+  apiKeyScope: "exercises:read",
   query: exerciseListQuerySchema,
   response: exerciseListResponseSchema,
   handler: ({ auth, query }) => exerciseService.listExercises(auth, query),
@@ -86,6 +87,7 @@ exercises.route({
   path: "/:id",
   summary: "Übung abrufen",
   auth: roles,
+  apiKeyScope: "exercises:read",
   params: idParams,
   response: exerciseSchema,
   errors: [404],
@@ -101,6 +103,7 @@ exercises.route({
     "Katalog eindeutig (409 `exercise_name_taken`). Athleten können nichts anlegen, dessen Name " +
     "oder Synonym eine sichtbare Übung trifft (409 `exercise_exists`).",
   auth: roles,
+  apiKeyScope: "exercises:write",
   body: createExerciseRequestSchema,
   status: 201,
   response: exerciseSchema,
@@ -115,6 +118,7 @@ exercises.route({
   description:
     "Nur Übungen des eigenen Katalogs, andere sichtbare liefern 403 `exercise_readonly`.",
   auth: roles,
+  apiKeyScope: "exercises:write",
   params: idParams,
   body: updateExerciseRequestSchema,
   response: exerciseSchema,
@@ -130,6 +134,7 @@ exercises.route({
     "Verschwindet aus der Auswahl, bestehende Pläne behalten sie. Ein Vorschlag für den " +
     "globalen Katalog wird zurückgezogen.",
   auth: roles,
+  apiKeyScope: "exercises:write",
   params: idParams,
   response: exerciseSchema,
   errors: [404],
@@ -141,6 +146,7 @@ exercises.route({
   path: "/:id/restore",
   summary: "Archivierte Übung wiederherstellen",
   auth: roles,
+  apiKeyScope: "exercises:write",
   params: idParams,
   response: exerciseSchema,
   errors: [404, 409],

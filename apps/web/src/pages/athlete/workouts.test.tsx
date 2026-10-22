@@ -12,6 +12,7 @@ import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 
 import { useSession } from "@/features/auth/session";
+import { AUTOSAVE_DELAY_MS } from "@/features/workouts/use-autosave";
 import { renderApp } from "@/test/render";
 import {
   apiUrl,
@@ -464,6 +465,94 @@ describe("Training durchführen", () => {
     expect(
       await screen.findByRole("checkbox", { name: "Bankdrücken, Satz 1 erledigt" }),
     ).toBeChecked();
+  });
+
+  it("versucht abgelehnte Änderungen nicht endlos erneut", async () => {
+    signInAsAthlete();
+    const log = buildWorkoutLog();
+    let puts = 0;
+    server.use(
+      http.get(apiUrl(`/me/workout-logs/${log.id}`), () => HttpResponse.json(log)),
+      http.put(apiUrl(`/me/workout-logs/${log.id}`), () => {
+        puts += 1;
+        return HttpResponse.json(
+          { status: 409, code: "workout_locked", detail: "Gesperrt" },
+          { status: 409 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(`/workouts/${log.id}`);
+
+    await user.click(await screen.findByRole("checkbox", { name: "Bankdrücken, Satz 1 erledigt" }));
+
+    expect(
+      await screen.findByRole("button", { name: /Neu laden/ }, { timeout: 4000 }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Speichern nicht möglich").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/neuer Versuch läuft/)).toBeNull();
+    expect(puts).toBe(1);
+
+    // Weitere Eingaben nur noch lokal sichern, nicht erneut senden.
+    await user.type(screen.getByLabelText("Kommentar für deinen Coach"), "x");
+    await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_DELAY_MS + 300));
+    expect(puts).toBe(1);
+    expect(localStorage.getItem(`athletept.workout.${log.id}`)).toContain('"notes":"x"');
+  });
+
+  it("versucht es nach einem Rate-Limit erneut, statt aufzugeben", async () => {
+    signInAsAthlete();
+    const log = buildWorkoutLog();
+    server.use(
+      http.get(apiUrl(`/me/workout-logs/${log.id}`), () => HttpResponse.json(log)),
+      http.put(apiUrl(`/me/workout-logs/${log.id}`), () =>
+        HttpResponse.json(
+          { status: 429, code: "rate_limited", detail: "Zu viele Anfragen" },
+          { status: 429 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderApp(`/workouts/${log.id}`);
+
+    await user.click(await screen.findByRole("checkbox", { name: "Bankdrücken, Satz 1 erledigt" }));
+
+    expect(
+      await screen.findByText(/neuer Versuch läuft/, undefined, { timeout: 4000 }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Neu laden/ })).toBeNull();
+  });
+
+  it("behält Eingaben während eines laufenden Speicherns, auch wenn danach das Netz fehlt", async () => {
+    signInAsAthlete();
+    let current = buildWorkoutLog();
+    let release!: () => void;
+    const firstSave = new Promise<void>((resolve) => (release = resolve));
+    let puts = 0;
+    server.use(
+      http.get(apiUrl(`/me/workout-logs/${current.id}`), () => HttpResponse.json(current)),
+      http.put(apiUrl(`/me/workout-logs/${current.id}`), async () => {
+        puts += 1;
+        if (puts > 1) return HttpResponse.error();
+        await firstSave;
+        current = { ...current, revision: current.revision + 1 };
+        return HttpResponse.json(current);
+      }),
+    );
+    const user = userEvent.setup();
+    const { unmount } = renderApp(`/workouts/${current.id}`);
+
+    await user.click(await screen.findByRole("checkbox", { name: "Bankdrücken, Satz 1 erledigt" }));
+    await waitFor(() => expect(puts).toBe(1), { timeout: 4000 });
+    await user.type(screen.getByLabelText("Kommentar für deinen Coach"), "Schulter zwickt");
+    release();
+    expect(await screen.findByText(/Offline/, undefined, { timeout: 4000 })).toBeInTheDocument();
+    unmount();
+
+    renderApp(`/workouts/${current.id}`);
+    expect(await screen.findByLabelText("Kommentar für deinen Coach")).toHaveValue(
+      "Schulter zwickt",
+    );
   });
 
   it("verwirft einen lokalen Stand, der auf einer älteren Revision aufbaut", async () => {

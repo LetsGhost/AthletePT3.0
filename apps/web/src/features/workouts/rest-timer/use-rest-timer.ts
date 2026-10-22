@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { jsonStore } from "@/lib/json-store";
+
 import { playAlarm } from "./alarm";
 
 /** So lange bleibt „Pause vorbei“ stehen, bevor der Timer verschwindet. */
@@ -15,41 +17,27 @@ export interface RestTimer {
   total: number;
 }
 
-const storageKey = (logId: string) => `athletept.rest.${logId}`;
-
 /** Überlebt ein Neuladen der Seite; abgelaufene Timer werden verworfen. */
-const restStorage = {
-  read(logId: string): RestTimer | null {
-    try {
-      const raw = localStorage.getItem(storageKey(logId));
-      const timer = raw ? (JSON.parse(raw) as RestTimer) : null;
-      return timer && timer.endsAt + REST_FINISHED_MS > Date.now() ? timer : null;
-    } catch {
-      return null;
-    }
-  },
-  write(logId: string, timer: RestTimer | null) {
-    try {
-      if (timer) localStorage.setItem(storageKey(logId), JSON.stringify(timer));
-      else localStorage.removeItem(storageKey(logId));
-    } catch {
-      // Speicher gesperrt: Der Timer läuft trotzdem, nur nicht über ein Neuladen hinweg.
-    }
-  },
-};
+const restStorage = jsonStore<RestTimer>("athletept.rest.");
+
+function readTimer(logId: string) {
+  const timer = restStorage.read(logId);
+  return timer && timer.endsAt + REST_FINISHED_MS > Date.now() ? timer : null;
+}
 
 /**
  * Pausen-Timer zwischen den Sätzen. Rechnet immer vom Endzeitpunkt aus, damit die Anzeige stimmt,
  * auch wenn der Browser Timer im Hintergrund bremst oder der Bildschirm gesperrt war.
  */
 export function useRestTimer(logId: string) {
-  const [timer, setTimerState] = useState(() => restStorage.read(logId));
+  const [timer, setTimerState] = useState(() => readTimer(logId));
   const [now, setNow] = useState(() => Date.now());
   const alarmedFor = useRef<number | null>(null);
 
   const setTimer = useCallback(
     (next: RestTimer | null) => {
-      restStorage.write(logId, next);
+      if (next) restStorage.write(logId, next);
+      else restStorage.remove(logId);
       setTimerState(next);
       setNow(Date.now());
     },
