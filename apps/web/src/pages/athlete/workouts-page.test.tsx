@@ -24,10 +24,7 @@ describe("Verlauf (Athlet)", () => {
       notes: "Erkältet",
     });
     const pages: Record<string, ReturnType<typeof buildWorkoutSummary>[]> = {
-      "1": [
-        buildWorkoutSummary({ id: "6acd3920c0072ec254663e01", date: "2025-10-15" }),
-        skipped,
-      ],
+      "1": [buildWorkoutSummary({ id: "6acd3920c0072ec254663e01", date: "2025-10-15" }), skipped],
       // Inzwischen kam ein Training dazu: Seite 2 beginnt mit dem letzten von Seite 1.
       "2": [skipped, buildWorkoutSummary({ id: "6acd3920c0072ec254663e03", date: "2025-10-06" })],
     };
