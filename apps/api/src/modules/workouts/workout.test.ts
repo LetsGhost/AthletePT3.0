@@ -487,6 +487,51 @@ describe("Zwischenspeichern und Abschließen", () => {
     expect(second.exercises[0]!.sets[0]).toMatchObject({ weightKg: 14, reps: 12, done: false });
   });
 
+  it("liefert dem Plan-Editor das Protokoll einer Übung, Athleten nur mit ownPlan", async () => {
+    const { coach, athlete, athleteId, armDay, curl } = await setup();
+    const log = await started(athlete.bearer, {
+      dayId: armDay.id,
+      date: addDays(todayIsoDate(), -2),
+    });
+    await complete(
+      athlete.bearer,
+      log,
+      asUpdate(log, (body) => {
+        body.exercises[0]!.sets[0] = { weightKg: 14, reps: 12, done: true };
+        body.exercises[0]!.notes = "Zu leicht";
+      }),
+    );
+    const url = `/api/v1/athletes/${athleteId}/exercises/${curl.id}/log`;
+
+    const res = await api().get(url).set("Authorization", coach.bearer);
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0]).toMatchObject({
+      logId: log.id,
+      date: addDays(todayIsoDate(), -2),
+      targets: log.exercises[0]!.targets,
+      notes: "Zu leicht",
+    });
+    expect(res.body.items[0].sets[0]).toEqual({
+      kind: "working",
+      weightKg: 14,
+      reps: 12,
+      durationSeconds: null,
+      done: true,
+    });
+
+    expect((await api().get(url).set("Authorization", athlete.bearer)).status).toBe(403);
+    await api()
+      .patch(`/api/v1/athletes/${athleteId}`)
+      .set("Authorization", coach.bearer)
+      .send({ permissions: { ownPlan: true } })
+      .expect(200);
+    expect((await api().get(url).set("Authorization", athlete.bearer)).body).toEqual(res.body);
+
+    const other = await createAndLogin({ role: "coach" });
+    expect((await api().get(url).set("Authorization", other.bearer)).status).toBe(404);
+  });
+
   it("meldet beim Abschließen die durchschnittliche Dauer früherer Trainings", async () => {
     const { athlete, legDay, armDay } = await setup();
     const first = await started(athlete.bearer, { dayId: legDay.id });

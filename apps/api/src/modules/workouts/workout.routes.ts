@@ -1,4 +1,5 @@
 import {
+  exerciseLogResponseSchema,
   objectIdSchema,
   skipWorkoutRequestSchema,
   startWorkoutRequestSchema,
@@ -210,6 +211,23 @@ athletes.route({
   errors: [404],
   handler: ({ auth, params }) =>
     workoutService.getAthleteWorkout(auth.userId, params.athleteId, params.id),
+});
+
+athletes.route({
+  method: "get",
+  path: "/:athleteId/exercises/:exerciseId/log",
+  summary: "Protokoll einer Übung",
+  description:
+    "Für den Plan-Editor: die letzten abgeschlossenen Einheiten einer Übung aus allen Plänen, " +
+    "neueste zuerst, mit Vorgabe, Sätzen und Notiz des Athleten. Ausgelassene Übungen zählen " +
+    "nicht. Athleten mit der Berechtigung `ownPlan` nutzen ihre eigene ID.",
+  auth: ["coach", "athlete"],
+  apiKeyScope: "workouts:read",
+  params: athleteParams.extend({ exerciseId: objectIdSchema }),
+  response: exerciseLogResponseSchema,
+  errors: [404],
+  handler: ({ auth, params }) =>
+    workoutService.getExerciseLog(auth, params.athleteId, params.exerciseId),
 });
 
 export const athleteWorkoutRouter = athletes;

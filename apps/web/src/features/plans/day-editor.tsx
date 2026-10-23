@@ -7,7 +7,8 @@ import {
   type MuscleGroup,
 } from "@athletept/shared";
 import { ArrowLeft, ArrowRight, Copy, Plus, Trash2 } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import {
   Controller,
   get,
@@ -25,6 +26,7 @@ import { cn } from "@/lib/cn";
 import { shortWeekday, typeInputs, type InfoMap } from "./editor-helpers";
 import { emptySet, type EditorValues } from "./editor-values";
 import { ExerciseEntryEditor } from "./exercise-entry-editor";
+import { ExerciseLogPanel } from "./exercise-log-panel";
 import { PlanTypeBadge } from "./plan-type-badge";
 import { WarmupEditor } from "./warmup-editor";
 
@@ -38,6 +40,23 @@ interface DayEditorProps {
   onRemove: () => void;
   onPick: (exercise: Exercise) => void;
   onCreateExercise: ((name: string, onCreated: (exercise: Exercise) => void) => void) | undefined;
+  /** Athlet des Plans für das Übungsprotokoll; fehlt bei Vorlagen. */
+  athlete?: { id: string; name: string | null } | undefined;
+  /** Platz in der rechten Spalte für das Protokoll (breite Ansicht); nur beim sichtbaren Tag. */
+  logSlot?: HTMLElement | null;
+}
+
+const wideQuery = "(min-width: 80rem)"; // Tailwind `xl`, ab da gibt es die rechte Spalte.
+
+function useWide() {
+  return useSyncExternalStore(
+    (onChange) => {
+      const media = window.matchMedia(wideQuery);
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(wideQuery).matches,
+  );
 }
 
 /** Ein Trainingstag: Name, Wochentag, Warm-up und die Übungen mit ihren Sätzen. */
@@ -51,6 +70,8 @@ export function DayEditor({
   onRemove,
   onPick,
   onCreateExercise,
+  athlete,
+  logSlot = null,
 }: DayEditorProps) {
   const id = useId();
   const base = `days.${index}` as const;
@@ -74,6 +95,9 @@ export function DayEditor({
     onPick(exercise);
     exercises.append({ exerciseId: exercise.id, sets: [emptySet(), emptySet(), emptySet()] });
   };
+  const [logFocus, setLogFocus] = useState<string | null>(() => exercises.fields[0]?.key ?? null);
+  const [logHidden, setLogHidden] = useState<string | null>(null);
+
   // Neu hinzugefügte Übungen gleich aufklappen.
   const knownKeys = useRef(new Set(exercises.fields.map((field) => field.key)));
   useEffect(() => {
@@ -84,10 +108,32 @@ export function DayEditor({
         ...current,
         ...Object.fromEntries(added.map((field) => [field.key, true])),
       }));
+      setLogFocus(added[added.length - 1]!.key);
     }
   }, [exercises.fields]);
   const setAll = (value: boolean) =>
     setOpen(Object.fromEntries(exercises.fields.map((field) => [field.key, value])));
+
+  // Protokoll der zuletzt aufgeklappten bzw. angeklickten Übung, sonst der ersten offenen.
+  const wide = useWide();
+  const logField =
+    exercises.fields.find((field) => field.key === logFocus && open[field.key]) ??
+    exercises.fields.find((field) => open[field.key]);
+  const logPanel = athlete && logField && logField.key !== logHidden && (
+    <ExerciseLogPanel
+      key={logField.exerciseId}
+      athleteId={athlete.id}
+      athleteName={athlete.name}
+      exerciseId={logField.exerciseId}
+      exerciseName={infos[logField.exerciseId]?.name ?? "Übung"}
+      onClose={() => setLogHidden(logField.key)}
+    />
+  );
+  const focusLog = (key: string) => {
+    if (key === logField?.key) return;
+    setLogFocus(key);
+    setLogHidden(null);
+  };
 
   const usedIds = (watched?.exercises ?? []).map((entry) => entry.exerciseId);
   const topMuscle = mostFrequentMuscle(
@@ -248,19 +294,28 @@ export function DayEditor({
       ) : (
         <ol className="flex flex-col gap-3">
           {exercises.fields.map((field, e) => (
-            <li key={field.key}>
+            <li
+              key={field.key}
+              className="flex flex-col gap-3"
+              onFocusCapture={() => open[field.key] && focusLog(field.key)}
+            >
               <ExerciseEntryEditor
                 dayIndex={index}
                 index={e}
                 count={exercises.fields.length}
                 info={infos[field.exerciseId]}
                 open={Boolean(open[field.key]) || Boolean(get(errors, `${base}.exercises.${e}`))}
-                onToggle={() =>
-                  setOpen((current) => ({ ...current, [field.key]: !current[field.key] }))
-                }
+                onToggle={() => {
+                  if (!open[field.key]) {
+                    setLogFocus(field.key);
+                    setLogHidden(null);
+                  }
+                  setOpen((current) => ({ ...current, [field.key]: !current[field.key] }));
+                }}
                 onMove={(to) => exercises.move(e, to)}
                 onRemove={() => exercises.remove(e)}
               />
+              {!wide && field.key === logField?.key && logPanel}
             </li>
           ))}
         </ol>
@@ -281,6 +336,7 @@ export function DayEditor({
       ) : (
         <p className="text-muted text-sm">Höchstens {MAX_DAY_EXERCISES} Übungen pro Tag.</p>
       )}
+      {wide && logSlot && logPanel && createPortal(logPanel, logSlot)}
     </div>
   );
 }

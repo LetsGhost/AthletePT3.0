@@ -239,6 +239,7 @@ export function PlanDetail({ plan, athleteName }: { plan: Plan; athleteName: str
           onReload={() => void planQuery.refetch()}
           onDirtyChange={setDirty}
           exerciseCatalog={isCoach ? "own" : "private"}
+          athlete={{ id: plan.athleteId, name: isCoach ? athleteName : null }}
           aside={plan.status !== "draft" && <Versions plan={plan} />}
         />
       )}
