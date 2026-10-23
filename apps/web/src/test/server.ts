@@ -4,6 +4,7 @@ import type {
   AuthResponse,
   Exercise,
   ExerciseStatsDetail,
+  ExerciseLogResponse,
   ExerciseStatsListResponse,
   ExerciseStatsSummary,
   Plan,
@@ -42,6 +43,9 @@ export const server = setupServer(
   ),
   http.get(apiUrl("/athletes/:id/activity"), () => HttpResponse.json(buildActivity())),
   http.get(apiUrl("/me/activity"), () => HttpResponse.json(buildActivity())),
+  http.get(apiUrl("/athletes/:id/exercises/:exerciseId/log"), () =>
+    HttpResponse.json({ items: [] } satisfies ExerciseLogResponse),
+  ),
   http.get(apiUrl("/athletes/:id/workout-logs"), () =>
     HttpResponse.json({ items: [], total: 0 } satisfies WorkoutLogListResponse),
   ),
