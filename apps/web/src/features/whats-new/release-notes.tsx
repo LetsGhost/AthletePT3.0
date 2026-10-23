@@ -4,6 +4,7 @@
  */
 import {
   CalendarCheck,
+  CalendarDays,
   Globe,
   History,
   Inbox,
@@ -83,6 +84,34 @@ export const releaseNotes: WhatsNewRelease[] = [
         roles: ["athlete"],
         permissions: ["ownPlan"],
         preview: protocolPreview("Dein Protokoll"),
+      },
+      {
+        title: "Verlauf nach Wochen",
+        text: "Deine Trainings stehen jetzt nach Wochen sortiert, mit Sätzen und Bewertung auf einen Blick. Ältere lädst du einfach unten nach.",
+        icon: CalendarDays,
+        roles: ["athlete"],
+        preview: (
+          <PreviewStack>
+            <PreviewRow>
+              <PreviewText grow>Diese Woche</PreviewText>
+              <PreviewText size="sm" muted>
+                2 Einheiten · 31 Sätze
+              </PreviewText>
+            </PreviewRow>
+            <PreviewCard>
+              <PreviewRow>
+                <PreviewTextGroup grow>
+                  <PreviewText>Oberkörper B</PreviewText>
+                  <PreviewText size="sm" muted>
+                    Do · 15 Sätze
+                  </PreviewText>
+                </PreviewTextGroup>
+                <PreviewChip>★ 8</PreviewChip>
+              </PreviewRow>
+            </PreviewCard>
+            <PreviewButton variant="outline">Ältere Trainings laden</PreviewButton>
+          </PreviewStack>
+        ),
       },
     ],
   },
