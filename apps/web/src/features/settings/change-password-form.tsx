@@ -20,7 +20,7 @@ const formSchema = changePasswordRequestSchema
 
 type FormValues = z.infer<typeof formSchema>;
 
-export function ChangePasswordForm() {
+export function ChangePasswordForm({ onDone }: { onDone?: () => void }) {
   const [formError, setFormError] = useState<string | null>(null);
   const {
     register,
@@ -39,13 +39,14 @@ export function ChangePasswordForm() {
       });
       reset();
       toast("Passwort geändert. Andere Geräte wurden abgemeldet.");
+      onDone?.();
     } catch (error) {
       setFormError(applyApiErrors(error, setError, ["currentPassword", "newPassword"]));
     }
   });
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex max-w-md flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       {formError && <Alert variant="error">{formError}</Alert>}
       <PasswordField
         label="Aktuelles Passwort"
@@ -69,7 +70,7 @@ export function ChangePasswordForm() {
         error={errors.confirmPassword?.message}
         {...register("confirmPassword")}
       />
-      <Button type="submit" loading={isSubmitting} className="self-start">
+      <Button type="submit" loading={isSubmitting}>
         Passwort ändern
       </Button>
     </form>

@@ -5,12 +5,16 @@ export interface RestSettings {
   enabled: boolean;
   /** Pause in Sekunden für Übungen ohne Vorgabe vom Coach. */
   defaultSeconds: number;
+  /** Piepton am Pausenende. */
+  sound: boolean;
+  /** Vibration am Pausenende (wo das Gerät es kann). */
+  vibrate: boolean;
 }
 
 /** Auswahl in den Einstellungen. */
 export const restDefaultOptions = [30, 45, 60, 90, 120, 150, 180, 240, 300] as const;
 
-const DEFAULTS: RestSettings = { enabled: true, defaultSeconds: 90 };
+const DEFAULTS: RestSettings = { enabled: true, defaultSeconds: 90, sound: true, vibrate: true };
 const STORAGE_KEY = "atp-rest-timer";
 const listeners = new Set<() => void>();
 /** Fallback, falls localStorage nicht beschreibbar ist. */
@@ -18,7 +22,7 @@ let memory: RestSettings | null = null;
 /** Gleiche Referenz für gleichen Inhalt, sonst rendert useSyncExternalStore endlos. */
 let cache: { raw: string | null; value: RestSettings } | null = null;
 
-function read(): RestSettings {
+export function readRestSettings(): RestSettings {
   if (memory) return memory;
   let raw: string | null = null;
   try {
@@ -37,6 +41,8 @@ function read(): RestSettings {
       )
         ? parsed.defaultSeconds!
         : DEFAULTS.defaultSeconds,
+      sound: typeof parsed.sound === "boolean" ? parsed.sound : DEFAULTS.sound,
+      vibrate: typeof parsed.vibrate === "boolean" ? parsed.vibrate : DEFAULTS.vibrate,
     };
   } catch {
     // Kaputter Eintrag: Standardwerte.
@@ -47,7 +53,7 @@ function read(): RestSettings {
 
 /** Gilt nur für dieses Gerät, wie das Farbschema. */
 export function setRestSettings(change: Partial<RestSettings>) {
-  const next = { ...read(), ...change };
+  const next = { ...readRestSettings(), ...change };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     memory = null;
@@ -64,5 +70,5 @@ function subscribe(listener: () => void) {
 }
 
 export function useRestSettings(): RestSettings {
-  return useSyncExternalStore(subscribe, read);
+  return useSyncExternalStore(subscribe, readRestSettings);
 }

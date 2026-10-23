@@ -340,7 +340,8 @@ describe("Training durchführen", () => {
     const { unmount } = renderApp("/settings");
 
     expect(await screen.findByRole("heading", { name: "Training" })).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText("Standardpause"), "1:00 min");
+    await user.click(screen.getByRole("button", { name: /Standardpause/ }));
+    await user.click(screen.getByRole("radio", { name: "1:00 min" }));
     unmount();
 
     const workout = renderApp(`/workouts/${log.id}`);
@@ -352,8 +353,8 @@ describe("Training durchführen", () => {
     workout.unmount();
 
     const settingsAgain = renderApp("/settings");
-    await user.click(await screen.findByRole("checkbox", { name: "Pausen-Timer" }));
-    expect(screen.getByLabelText("Standardpause")).toBeDisabled();
+    await user.click(await screen.findByRole("switch", { name: "Pausen-Timer" }));
+    expect(screen.queryByRole("button", { name: /Standardpause/ })).not.toBeInTheDocument();
     settingsAgain.unmount();
 
     renderApp(`/workouts/${log.id}`);

@@ -3,7 +3,8 @@ import { DropdownMenu } from "radix-ui";
 import { useNavigate } from "react-router";
 
 import { roleLabel } from "@/app/navigation";
-import { logout, useSession } from "@/features/auth/session";
+import { useSession } from "@/features/auth/session";
+import { useLogout } from "@/features/auth/use-logout";
 import { openWhatsNew, useHasWhatsNew } from "@/features/whats-new/store";
 import { cn } from "@/lib/cn";
 import { initials } from "@/lib/format";
@@ -16,12 +17,9 @@ export function AccountMenu({ showName = false }: { showName?: boolean }) {
   const navigate = useNavigate();
   const hasWhatsNew = useHasWhatsNew();
 
-  if (!user) return null;
+  const handleLogout = useLogout();
 
-  const handleLogout = async () => {
-    await logout().catch(() => undefined);
-    navigate("/login", { replace: true });
-  };
+  if (!user) return null;
 
   return (
     <DropdownMenu.Root>
