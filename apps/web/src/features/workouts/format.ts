@@ -36,10 +36,14 @@ export function formatDayMonth(date: string) {
   return dayMonth.format(parseIsoDate(date));
 }
 
-/** „KW 42 · 12.–18. Okt.“ */
+/** „12. Okt. – 18. Okt.“ */
+export function formatWeekRange(startDate: string) {
+  return `${shortDate.format(parseIsoDate(startDate))} – ${shortDate.format(parseIsoDate(addDays(startDate, 6)))}`;
+}
+
+/** „KW 42 · 12. Okt. – 18. Okt.“ */
 export function formatWeek(week: string, startDate: string) {
-  const end = addDays(startDate, 6);
-  return `KW ${Number(week.slice(6))} · ${shortDate.format(parseIsoDate(startDate))} – ${shortDate.format(parseIsoDate(end))}`;
+  return `KW ${Number(week.slice(6))} · ${formatWeekRange(startDate)}`;
 }
 
 /** Datum eines Wochentags in der Woche ab `startDate` (Montag). */
