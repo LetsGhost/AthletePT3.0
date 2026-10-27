@@ -1,3 +1,5 @@
+import { readRestSettings } from "./rest-settings";
+
 let context: AudioContext | null = null;
 
 /**
@@ -14,10 +16,11 @@ export function unlockAlarm() {
   }
 }
 
-/** Drei kurze Pieptöne und, wo möglich (Android), Vibration. */
+/** Drei kurze Pieptöne und, wo möglich (Android), Vibration, je nach Einstellung. */
 export function playAlarm() {
-  if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
-  if (!context || context.state !== "running") return;
+  const { sound, vibrate } = readRestSettings();
+  if (vibrate && "vibrate" in navigator) navigator.vibrate([200, 100, 200]);
+  if (!sound || !context || context.state !== "running") return;
   const start = context.currentTime;
   for (let i = 0; i < 3; i++) {
     const at = start + i * 0.25;

@@ -16,18 +16,16 @@ export function ThemePicker() {
   const current = useThemePreference(role);
 
   return (
-    <fieldset>
-      <legend className="mb-3 text-sm font-medium">Farbschema</legend>
-      <div className="grid max-w-md grid-cols-3 gap-2">
+    <fieldset className="p-3.5">
+      <legend className="float-left mb-2.5 w-full text-sm font-medium">Farbschema</legend>
+      <div className="bg-inset clear-both grid grid-cols-3 gap-1 rounded-card p-1">
         {options.map(({ value, label, icon: Icon }) => (
           <label
             key={value}
             className={cn(
-              "flex cursor-pointer flex-col items-center gap-2 rounded-card border-2 p-3 text-sm",
+              "flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-lg text-sm font-medium",
               "has-[:focus-visible]:outline-accent has-[:focus-visible]:outline-2",
-              current === value
-                ? "border-accent bg-inset"
-                : "border-border hover:border-border-strong",
+              current === value ? "bg-primary text-on-primary" : "text-muted hover:text-text",
             )}
           >
             <input
@@ -38,7 +36,7 @@ export function ThemePicker() {
               onChange={() => setThemePreference(value)}
               className="sr-only"
             />
-            <Icon aria-hidden="true" className="size-5" />
+            <Icon aria-hidden="true" className="size-4" />
             {label}
           </label>
         ))}

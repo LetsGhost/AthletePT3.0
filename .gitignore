@@ -7,6 +7,7 @@ logs/
 !.env.example
 *.local
 test-results/
+*.tsbuildinfo
 .DS_Store
 
 # Deployment: Vorlagen und Konfiguration ins Repo, Geheimnisse und Artefakte nicht

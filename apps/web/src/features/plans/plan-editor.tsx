@@ -58,6 +58,8 @@ interface PlanEditorProps {
    * als private Übung des Athleten.
    */
   exerciseCatalog?: "own" | "private";
+  /** Athlet des Plans: zeigt beim Aufklappen einer Übung sein Protokoll. Fehlt bei Vorlagen. */
+  athlete?: { id: string; name: string | null };
 }
 
 /** Index des ersten Tags mit Fehlern, sonst -1. */
@@ -93,8 +95,10 @@ export function PlanEditor({
   onDirtyChange,
   aside,
   exerciseCatalog = "own",
+  athlete,
 }: PlanEditorProps) {
   const id = useId();
+  const [logSlot, setLogSlot] = useState<HTMLElement | null>(null);
   const [infos, setInfos] = useState<InfoMap>(() => toInfoMap(content.exercises));
   const [active, setActive] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
@@ -242,6 +246,8 @@ export function PlanEditor({
                   onRemove={removeDay}
                   onPick={remember}
                   onCreateExercise={(name, onCreated) => setCreateRequest({ name, onCreated })}
+                  athlete={d === activeIndex ? athlete : undefined}
+                  logSlot={d === activeIndex ? logSlot : null}
                 />
               </div>
             ))}
@@ -253,6 +259,7 @@ export function PlanEditor({
           </div>
 
           <div className="flex flex-col gap-4">
+            <div ref={setLogSlot} className="empty:hidden" />
             <section
               aria-labelledby={`${id}-plan`}
               className="bg-surface flex flex-col gap-3 rounded-tile p-4"

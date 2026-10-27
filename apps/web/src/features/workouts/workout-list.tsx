@@ -23,20 +23,10 @@ interface WorkoutListProps {
   page: number;
   onPageChange: (page: number) => void;
   loading?: boolean;
-  /** Wo die Blätter-Navigation sitzt; Standard ist unter der Liste. */
-  paginationPosition?: "top" | "bottom";
 }
 
 /** Trainings, neueste zuerst, mit Blättern. */
-export function WorkoutList({
-  data,
-  label,
-  href,
-  page,
-  onPageChange,
-  loading,
-  paginationPosition = "bottom",
-}: WorkoutListProps) {
+export function WorkoutList({ data, label, href, page, onPageChange, loading }: WorkoutListProps) {
   const pages = Math.max(1, Math.ceil(data.total / WORKOUT_PAGE_SIZE));
   const pagination = pages > 1 && (
     <nav aria-label="Seiten" className="flex items-center justify-between gap-2">
@@ -63,7 +53,6 @@ export function WorkoutList({
   );
   return (
     <div className="flex flex-col gap-3" aria-busy={loading || undefined}>
-      {paginationPosition === "top" && pagination}
       <ul className="flex flex-col gap-2" aria-label={label}>
         {data.items.map((log) => (
           <li key={log.id}>
@@ -89,7 +78,7 @@ export function WorkoutList({
           </li>
         ))}
       </ul>
-      {paginationPosition === "bottom" && pagination}
+      {pagination}
     </div>
   );
 }

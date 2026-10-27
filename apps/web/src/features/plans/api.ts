@@ -1,5 +1,6 @@
 import type {
   CreatePlanRequest,
+  ExerciseLogResponse,
   MyPlanResponse,
   Plan,
   PlanListResponse,
@@ -193,5 +194,16 @@ export function useDeleteTemplate(id: string) {
       queryClient.removeQueries({ queryKey: templateKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: templateKeys.list() });
     },
+  });
+}
+
+/** Protokoll einer Übung im Plan-Editor. Unter `workouts`, damit neue Trainings es neu laden. */
+export function useExerciseLog(athleteId: string, exerciseId: string) {
+  return useQuery({
+    queryKey: [...workoutKeys.athlete(athleteId), "exercise-log", exerciseId],
+    queryFn: () =>
+      api<ExerciseLogResponse>(
+        `/athletes/${encodeURIComponent(athleteId)}/exercises/${encodeURIComponent(exerciseId)}/log`,
+      ),
   });
 }

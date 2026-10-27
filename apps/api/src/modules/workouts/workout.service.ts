@@ -1,5 +1,6 @@
 import {
   AVERAGE_DURATION_WORKOUTS,
+  EXERCISE_LOG_LIMIT,
   MAX_CUSTOM_WORKOUT_EXERCISES,
   WORKOUT_BACKFILL_DAYS,
   WORKOUT_EDIT_DAYS,
@@ -8,6 +9,7 @@ import {
   isoWeekStart,
   todayIsoDate,
   type CompleteWorkoutResponse,
+  type ExerciseLogResponse,
   type PreviousPerformance,
   type WorkoutLog,
   type WorkoutLogListResponse,
@@ -21,7 +23,8 @@ import { Types } from "mongoose";
 import type { z } from "zod";
 
 import { ConflictError, NotFoundError, ValidationError } from "../../lib/errors";
-import { getAthleteOfCoach } from "../athletes/athlete-access";
+import type { AuthContext } from "../../types/express";
+import { getAccessibleAthlete, getAthleteOfCoach } from "../athletes/athlete-access";
 import { durationMinutes } from "../stats/activity.service";
 import {
   WORKOUT_STATS_VERSION,
@@ -30,7 +33,7 @@ import {
 } from "../stats/exercise-stats.service";
 import { toWriteSourceDto, type WriteSourceInput } from "../api-keys/write-source";
 import { toDayDtos } from "../plans/plan-content";
-import type { StoredDay } from "../plans/plan-content.model";
+import type { StoredDay, StoredSet } from "../plans/plan-content.model";
 import { TrainingPlanModel, type StoredPlan } from "../plans/plan.model";
 import {
   WorkoutLogModel,
@@ -64,6 +67,17 @@ function toSetDto(set: StoredWorkoutSet) {
     reps: set.reps ?? null,
     durationSeconds: set.durationSeconds ?? null,
     done: Boolean(set.done),
+  };
+}
+
+function toTargetDto(t: StoredSet) {
+  return {
+    kind: t.kind,
+    repsMin: t.repsMin ?? null,
+    repsMax: t.repsMax ?? null,
+    durationSeconds: t.durationSeconds ?? null,
+    weightKg: t.weightKg ?? null,
+    rir: t.rir ?? null,
   };
 }
 
@@ -138,6 +152,52 @@ async function previousPerformances(
   );
 }
 
+/**
+ * Die letzten `EXERCISE_LOG_LIMIT` abgeschlossenen Einheiten einer Übung aus allen Plänen, für
+ * den Plan-Editor. Gleicher Zugriff wie auf die Pläne: der Coach oder der Athlet mit `ownPlan`.
+ */
+export async function getExerciseLog(
+  auth: AuthContext,
+  athleteId: string,
+  exerciseId: string,
+): Promise<ExerciseLogResponse> {
+  await getAccessibleAthlete(auth, athleteId, "ownPlan");
+  const exercise = new Types.ObjectId(exerciseId);
+  const rows = await WorkoutLogModel.aggregate<{
+    _id: Types.ObjectId;
+    date: string;
+    exercise: StoredWorkoutExercise;
+  }>([
+    {
+      $match: {
+        athleteId: new Types.ObjectId(athleteId),
+        status: "completed",
+        "exercises.exerciseId": exercise,
+      },
+    },
+    { $unwind: "$exercises" },
+    {
+      $match: {
+        "exercises.exerciseId": exercise,
+        "exercises.skipped": false,
+        "exercises.sets.done": true,
+      },
+    },
+    { $sort: { date: -1, completedAt: -1 } },
+    { $limit: EXERCISE_LOG_LIMIT },
+    { $project: { date: 1, exercise: "$exercises" } },
+  ]);
+  return {
+    items: rows.map((row) => ({
+      logId: row._id.toString(),
+      date: row.date,
+      targets: row.exercise.targets.map(toTargetDto),
+      sets: row.exercise.sets.map(toSetDto),
+      notes: row.exercise.notes ?? null,
+    })),
+  };
+}
+
 async function toLogDto(log: StoredWorkoutLog, viewer: "athlete" | "coach"): Promise<WorkoutLog> {
   const previous =
     log.status === "skipped"
@@ -167,14 +227,7 @@ async function toLogDto(log: StoredWorkoutLog, viewer: "athlete" | "coach"): Pro
       exerciseName: x.exerciseName,
       restSeconds: x.restSeconds ?? null,
       planNotes: x.planNotes ?? null,
-      targets: x.targets.map((t) => ({
-        kind: t.kind,
-        repsMin: t.repsMin ?? null,
-        repsMax: t.repsMax ?? null,
-        durationSeconds: t.durationSeconds ?? null,
-        weightKg: t.weightKg ?? null,
-        rir: t.rir ?? null,
-      })),
+      targets: x.targets.map(toTargetDto),
       skipped: Boolean(x.skipped),
       notes: x.notes ?? null,
       sets: x.sets.map(toSetDto),

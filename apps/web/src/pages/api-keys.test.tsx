@@ -274,6 +274,7 @@ describe("Verbundene Apps (Einstellungen)", () => {
     signInAs("athlete");
     renderApp("/settings");
 
+    await userEvent.click(await screen.findByRole("button", { name: /Verbundene Apps/ }));
     expect(await screen.findByText("Trainings-Tracker")).toBeVisible();
     expect(screen.getByText(/apt_Xy3k…/)).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Zugang zurückziehen" }));
@@ -290,7 +291,7 @@ describe("Verbundene Apps (Einstellungen)", () => {
     signInAs("sysadmin");
     renderApp("/settings");
 
-    expect(await screen.findByRole("heading", { name: "Passwort ändern" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Passwort ändern" })).toBeVisible();
     expect(screen.queryByText("Verbundene Apps")).not.toBeInTheDocument();
   });
 });

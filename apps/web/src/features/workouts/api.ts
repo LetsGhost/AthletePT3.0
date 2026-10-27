@@ -9,7 +9,13 @@ import type {
   WorkoutLog,
   WorkoutLogListResponse,
 } from "@athletept/shared";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import { api } from "@/lib/api";
 
@@ -19,7 +25,7 @@ export const workoutKeys = {
   all: ["workouts"] as const,
   myWeeks: () => [...workoutKeys.all, "my-week"] as const,
   myWeek: (week: string | null) => [...workoutKeys.myWeeks(), week] as const,
-  myList: (page: number) => [...workoutKeys.all, "my-list", page] as const,
+  myList: () => [...workoutKeys.all, "my-list"] as const,
   mine: (id: string) => [...workoutKeys.all, "mine", id] as const,
   athlete: (athleteId: string) => [...workoutKeys.all, "athlete", athleteId] as const,
   athleteWeek: (athleteId: string, week: string | null) =>
@@ -41,12 +47,17 @@ export function useMyWeek(week: string | null = null) {
   });
 }
 
-export function useMyWorkouts(page: number) {
-  return useQuery({
-    queryKey: workoutKeys.myList(page),
-    queryFn: () =>
-      api<WorkoutLogListResponse>(`/me/workout-logs?page=${page}&pageSize=${WORKOUT_PAGE_SIZE}`),
-    placeholderData: keepPreviousData,
+/** Eigene Trainings seitenweise („Ältere Trainings laden“). */
+export function useMyWorkouts() {
+  return useInfiniteQuery({
+    queryKey: workoutKeys.myList(),
+    queryFn: ({ pageParam }) =>
+      api<WorkoutLogListResponse>(
+        `/me/workout-logs?page=${pageParam}&pageSize=${WORKOUT_PAGE_SIZE}`,
+      ),
+    initialPageParam: 1,
+    getNextPageParam: (last, pages) =>
+      pages.length * WORKOUT_PAGE_SIZE < last.total ? pages.length + 1 : undefined,
   });
 }
 

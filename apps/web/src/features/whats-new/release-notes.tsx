@@ -4,7 +4,9 @@
  */
 import {
   CalendarCheck,
+  CalendarDays,
   Globe,
+  History,
   Inbox,
   LayoutGrid,
   ListPlus,
@@ -37,7 +39,82 @@ import {
 } from "./preview-kit";
 import type { WhatsNewRelease } from "./types";
 
+/** Mini-Protokoll für 3.3: letzte Einheit, ein Satz unter der Vorgabe. */
+function protocolPreview(name: string) {
+  return (
+    <PreviewCard tone="accent">
+      <PreviewTextGroup>
+        <PreviewText size="sm" muted>
+          {name}
+        </PreviewText>
+        <PreviewText>Bankdrücken · 15.10.</PreviewText>
+      </PreviewTextGroup>
+      <PreviewGrid columns={3}>
+        <PreviewRow variant="box">
+          <PreviewText>80 kg × 8</PreviewText>
+        </PreviewRow>
+        <PreviewRow variant="box">
+          <PreviewText>80 kg × 8</PreviewText>
+        </PreviewRow>
+        <PreviewRow variant="box">
+          <PreviewText tone="records">80 kg × 5</PreviewText>
+        </PreviewRow>
+      </PreviewGrid>
+    </PreviewCard>
+  );
+}
+
 export const releaseNotes: WhatsNewRelease[] = [
+  {
+    id: "3.3",
+    version: "3.3",
+    date: "2026-10-23",
+    items: [
+      {
+        title: "Protokoll beim Planen",
+        text: "Klapp im Plan eine Übung auf und du siehst, was dein Athlet zuletzt geschafft hat. So trägst du leicht passende Gewichte ein.",
+        icon: History,
+        roles: ["coach"],
+        preview: protocolPreview("Protokoll von Max"),
+      },
+      {
+        title: "Dein Protokoll beim Planen",
+        text: "Klapp im Plan eine Übung auf und du siehst, was du zuletzt geschafft hast. So planst du die nächsten Gewichte leichter.",
+        icon: History,
+        roles: ["athlete"],
+        permissions: ["ownPlan"],
+        preview: protocolPreview("Dein Protokoll"),
+      },
+      {
+        title: "Verlauf nach Wochen",
+        text: "Deine Trainings stehen jetzt nach Wochen sortiert, mit Sätzen und Bewertung auf einen Blick. Ältere lädst du einfach unten nach.",
+        icon: CalendarDays,
+        roles: ["athlete"],
+        preview: (
+          <PreviewStack>
+            <PreviewRow>
+              <PreviewText grow>Diese Woche</PreviewText>
+              <PreviewText size="sm" muted>
+                2 Einheiten · 31 Sätze
+              </PreviewText>
+            </PreviewRow>
+            <PreviewCard>
+              <PreviewRow>
+                <PreviewTextGroup grow>
+                  <PreviewText>Oberkörper B</PreviewText>
+                  <PreviewText size="sm" muted>
+                    Do · 15 Sätze
+                  </PreviewText>
+                </PreviewTextGroup>
+                <PreviewChip>★ 8</PreviewChip>
+              </PreviewRow>
+            </PreviewCard>
+            <PreviewButton variant="outline">Ältere Trainings laden</PreviewButton>
+          </PreviewStack>
+        ),
+      },
+    ],
+  },
   {
     id: "3.2",
     version: "3.2",

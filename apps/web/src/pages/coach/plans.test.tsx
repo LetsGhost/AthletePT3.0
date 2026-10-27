@@ -2,6 +2,7 @@ import type {
   AthleteDetail,
   CreatePlanRequest,
   ExerciseListResponse,
+  ExerciseLogResponse,
   Plan,
   PlanTemplate,
   PlanTemplateListResponse,
@@ -250,6 +251,69 @@ describe("Plan-Editor (Coach)", () => {
     await user.click(within(dialog).getByRole("button", { name: "Weiter bearbeiten" }));
     expect(router.state.location.pathname).toBe(planPath(plan));
     expect(screen.getByRole("button", { name: "Aktivieren" })).toBeDisabled();
+  });
+
+  it("zeigt zur aufgeklappten Übung das Protokoll des Athleten", async () => {
+    signInAsCoach();
+    const base = buildPlan();
+    const day = base.days[0]!;
+    const squatEntry = {
+      ...day.exercises[0]!,
+      id: "6acd3920c0072ec254663d22",
+      exerciseId: squat.id,
+      exerciseName: squat.name,
+    };
+    const plan = buildPlan({
+      days: [{ ...day, exercises: [...day.exercises, squatEntry] }],
+      exercises: [...base.exercises, buildPlanExerciseInfo({ id: squat.id, name: squat.name })],
+    });
+    mockPlan(plan);
+    const working = { kind: "working" as const, durationSeconds: null };
+    const target = { ...working, repsMin: 6, repsMax: 8, weightKg: 80, rir: 2 };
+    server.use(
+      http.get(apiUrl(`/athletes/${athleteId}/exercises/:exerciseId/log`), () =>
+        HttpResponse.json({
+          items: [
+            {
+              logId: "6acd3920c0072ec254663e01",
+              date: "2026-10-15",
+              targets: [target, target],
+              sets: [
+                { ...working, weightKg: 80, reps: 8, done: true },
+                { ...working, weightKg: 80, reps: 5, done: true },
+              ],
+              notes: "Letzter Satz zäh",
+            },
+            {
+              logId: "6acd3920c0072ec254663e02",
+              date: "2026-10-08",
+              targets: [target],
+              sets: [{ ...working, weightKg: 77.5, reps: 8, done: true }],
+              notes: null,
+            },
+          ],
+        } satisfies ExerciseLogResponse),
+      ),
+    );
+    const user = userEvent.setup();
+    renderApp(planPath(plan));
+
+    const panel = await screen.findByRole("region", { name: /Protokoll von Max Muster/ });
+    expect(within(panel).getByText("Letzter Satz zäh")).toBeInTheDocument();
+    expect(within(panel).getByText("↑ +2,5 kg seit 08.10.")).toBeInTheDocument();
+    // 80 × 5 (zu wenige Wdh.) und 77,5 × 8 (zu leicht).
+    expect(within(panel).getAllByText("unter der Vorgabe")).toHaveLength(2);
+
+    expect(panel).toHaveTextContent("Bankdrücken");
+
+    await user.click(within(panel).getByRole("button", { name: "Protokoll ausblenden" }));
+    expect(screen.queryByRole("region", { name: /Protokoll von/ })).not.toBeInTheDocument();
+
+    // Eine andere Übung aufklappen holt das Panel für diese Übung zurück.
+    await user.click(screen.getByRole("button", { name: /Kniebeuge/, expanded: false }));
+    expect(await screen.findByRole("region", { name: /Protokoll von/ })).toHaveTextContent(
+      "Kniebeuge",
+    );
   });
 
   it("zeigt archivierte Pläne nur lesend", async () => {

@@ -132,6 +132,23 @@ export const previousPerformanceSchema = z.object({
   sets: z.array(workoutSetSchema),
 });
 
+/** So viele zurückliegende Einheiten zeigt das Protokoll einer Übung im Plan-Editor. */
+export const EXERCISE_LOG_LIMIT = 4;
+
+/** Eine Einheit im Protokoll einer Übung: Vorgabe beim Start, geschaffte Sätze, Notiz. */
+export const exerciseLogEntrySchema = z.object({
+  logId: objectIdSchema,
+  date: z.string(),
+  targets: z.array(planSetOutputSchema),
+  sets: z.array(workoutSetSchema),
+  notes: z.string().nullable(),
+});
+
+export const exerciseLogResponseSchema = z.object({
+  /** Neueste zuerst. */
+  items: z.array(exerciseLogEntrySchema),
+});
+
 export const workoutExerciseSchema = z.object({
   id: objectIdSchema,
   /** Vom Athleten nur für dieses Training hinzugefügt, ohne Plan- und Katalogeintrag. */
@@ -272,6 +289,8 @@ export type StartWorkoutRequest = z.input<typeof startWorkoutRequestSchema>;
 export type SkipWorkoutRequest = z.input<typeof skipWorkoutRequestSchema>;
 export type WorkoutSet = z.infer<typeof workoutSetSchema>;
 export type PreviousPerformance = z.infer<typeof previousPerformanceSchema>;
+export type ExerciseLogEntry = z.infer<typeof exerciseLogEntrySchema>;
+export type ExerciseLogResponse = z.infer<typeof exerciseLogResponseSchema>;
 export type WorkoutExercise = z.infer<typeof workoutExerciseSchema>;
 export type WorkoutLog = z.infer<typeof workoutLogSchema>;
 export type CompleteWorkoutResponse = z.infer<typeof completeWorkoutResponseSchema>;
