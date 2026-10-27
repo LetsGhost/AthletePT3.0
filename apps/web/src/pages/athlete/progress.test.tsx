@@ -44,14 +44,14 @@ function mockStats(response: ExerciseStatsListResponse, path = "/me/exercise-sta
   server.use(http.get(apiUrl(path), () => HttpResponse.json(response)));
 }
 
-describe("Entwicklung (Athlet)", () => {
+describe("Fortschritt (Athlet)", () => {
   it("zeigt eingeklappt nur die Rekorde, aufgeklappt alle Übungen", async () => {
     signIn("athlete");
     mockStats({ items: [bench, pullUps], records: [bench] });
-    renderApp("/entwicklung");
+    renderApp("/fortschritt");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Entwicklung" }),
+      await screen.findByRole("heading", { level: 1, name: "Fortschritt" }),
     ).toBeInTheDocument();
     await screen.findByRole("region", { name: "Rekorde" });
     expect(screen.queryByRole("region", { name: "Alle Übungen" })).not.toBeInTheDocument();
@@ -65,7 +65,7 @@ describe("Entwicklung (Athlet)", () => {
 
     const records = await screen.findByRole("region", { name: "Rekorde" });
     const record = within(records).getByRole("link", { name: /Bankdrücken/ });
-    expect(record).toHaveAttribute("href", `/entwicklung/${bench.exerciseId}`);
+    expect(record).toHaveAttribute("href", `/fortschritt/${bench.exerciseId}`);
     expect(record).toHaveTextContent("105 kg");
     expect(record).toHaveTextContent("max. 82,5 kg");
     expect(record).toHaveTextContent("+5 % seit Mo., 5. Okt.");
@@ -80,7 +80,7 @@ describe("Entwicklung (Athlet)", () => {
   it("erklärt, dass es noch keine Daten gibt", async () => {
     signIn("athlete");
     mockStats({ items: [], records: [] });
-    renderApp("/entwicklung");
+    renderApp("/fortschritt");
 
     expect(await screen.findByText("Noch keine Daten")).toBeInTheDocument();
   });
@@ -92,7 +92,7 @@ describe("Entwicklung (Athlet)", () => {
         HttpResponse.json(buildExerciseStatsDetail()),
       ),
     );
-    renderApp(`/entwicklung/${bench.exerciseId}`);
+    renderApp(`/fortschritt/${bench.exerciseId}`);
 
     expect(
       await screen.findByRole("heading", { level: 1, name: "Bankdrücken" }),
@@ -116,7 +116,7 @@ describe("Entwicklung (Athlet)", () => {
   it("meldet eine Übung ohne Trainings", async () => {
     signIn("athlete");
     server.use(http.get(apiUrl("/me/exercise-stats/:id"), () => problem(404, "not_found")));
-    renderApp("/entwicklung/6acd3920c0072ec254663fff");
+    renderApp("/fortschritt/6acd3920c0072ec254663fff");
 
     expect(await screen.findByText("Keine Daten zu dieser Übung")).toBeInTheDocument();
   });
@@ -126,7 +126,7 @@ describe("Streak", () => {
   it("zeigt Streak, Trainingszeit und Kalender mit Wochenstatus", async () => {
     signIn("athlete");
     mockStats({ items: [], records: [] });
-    renderApp("/entwicklung");
+    renderApp("/fortschritt");
 
     expect(await screen.findByRole("heading", { name: "Oktober" })).toBeInTheDocument();
     expect(screen.getByText("2 Wochen")).toBeInTheDocument();
@@ -160,7 +160,7 @@ describe("Streak", () => {
         ),
       ),
     );
-    renderApp("/entwicklung");
+    renderApp("/fortschritt");
 
     await userEvent.click(await screen.findByRole("button", { name: "Vorheriger Monat" }));
     expect(await screen.findByRole("heading", { name: "September" })).toBeInTheDocument();
@@ -169,15 +169,18 @@ describe("Streak", () => {
     ).toBeInTheDocument();
   });
 
-  it("leitet alte Links auf /entwicklung um", async () => {
-    signIn("athlete");
-    mockStats({ items: [], records: [] });
-    renderApp("/progress");
+  it.each(["/progress", "/entwicklung"])(
+    "leitet alte Links (%s) auf /fortschritt um",
+    async (path) => {
+      signIn("athlete");
+      mockStats({ items: [], records: [] });
+      renderApp(path);
 
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "Entwicklung" }),
-    ).toBeInTheDocument();
-  });
+      expect(
+        await screen.findByRole("heading", { level: 1, name: "Fortschritt" }),
+      ).toBeInTheDocument();
+    },
+  );
 });
 
 describe("Entwicklung (Coach)", () => {

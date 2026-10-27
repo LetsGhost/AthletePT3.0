@@ -2,6 +2,7 @@ import type {
   ActivityResponse,
   AthletePermissions,
   AuthResponse,
+  ChallengeDetail,
   Exercise,
   ExerciseStatsDetail,
   ExerciseLogResponse,
@@ -25,6 +26,9 @@ export const apiUrl = (path: string) => `http://localhost:3000/api/v1${path}`;
 
 /** Standard-Antworten, die Tests bei Bedarf mit `server.use` überschreiben. */
 export const server = setupServer(
+  http.get(apiUrl("/me/challenges"), () => HttpResponse.json({ items: [] })),
+  http.get(apiUrl("/coach/challenges"), () => HttpResponse.json({ items: [] })),
+  http.get(apiUrl("/athletes/:id/challenges"), () => HttpResponse.json({ items: [] })),
   http.get(apiUrl("/athletes/:id/plans"), () =>
     HttpResponse.json({ items: [] } satisfies PlanListResponse),
   ),
@@ -367,6 +371,65 @@ export function buildActivity(overrides: Partial<ActivityResponse> = {}): Activi
     workoutCount: 4,
     totalMinutes: 185,
     averageMinutes: 62,
+    ...overrides,
+  };
+}
+
+/** Laufende Coach-Challenge (Rangliste, Volumen), heute Do., 15.10.: Max auf Platz 2 von 3. */
+export function buildChallenge(overrides: Partial<ChallengeDetail> = {}): ChallengeDetail {
+  const standings = [
+    {
+      athleteId: "6acd3920c0072ec254663a02",
+      name: "Lena S.",
+      score: 36_800,
+      rank: 1,
+      achieved: null,
+      isMe: false,
+    },
+    {
+      athleteId: "6acd3920c0072ec254663a01",
+      name: "Max Muster",
+      score: 31_400,
+      rank: 2,
+      achieved: null,
+      isMe: true,
+    },
+    {
+      athleteId: "6acd3920c0072ec254663a03",
+      name: "Tim K.",
+      score: 0,
+      rank: 3,
+      achieved: null,
+      isMe: false,
+    },
+  ];
+  return {
+    id: "6acd3920c0072ec254663c99",
+    kind: "coach",
+    metric: "volume",
+    scoring: "ranking",
+    title: "Team-Volumen Oktober",
+    description: null,
+    exerciseId: null,
+    exerciseName: null,
+    manualMode: null,
+    dailyTarget: null,
+    goalValue: null,
+    startDate: "2026-10-01",
+    endDate: "2026-10-31",
+    status: "running",
+    endedEarly: false,
+    today: "2026-10-15",
+    prize: "Gratis-Session",
+    ownerName: "Clara Coach",
+    participantCount: 3,
+    teamScore: 68_200,
+    achievedCount: 0,
+    leader: standings[0]!,
+    me: standings[1]!,
+    todayValue: null,
+    standings,
+    entries: [],
     ...overrides,
   };
 }

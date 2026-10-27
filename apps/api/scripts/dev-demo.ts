@@ -44,6 +44,8 @@ const templateService = await import("../src/modules/plans/plan-template.service
 const workoutService = await import("../src/modules/workouts/workout.service");
 const weekService = await import("../src/modules/workouts/week.service");
 const { WorkoutLogModel } = await import("../src/modules/workouts/workout-log.model");
+const { ChallengeEntryModel, ChallengeModel } =
+  await import("../src/modules/challenges/challenge.model");
 
 await connectDatabase();
 const passwordHash = await hashPassword(DEMO_PASSWORD);
@@ -319,6 +321,57 @@ await weekService.updateWeeklyActivities(asCoach, athlete.id, [
   null,
 ]);
 
+// Challenges von Clara: Team-Volumen (Rangliste, seit Montag) mit Max und Lena, dazu eine freie
+// Vorgabe für Max. Direkt angelegt, weil der Service keinen Start in der Vergangenheit erlaubt.
+const teammate = await UserModel.create({
+  email: "lena@demo.local",
+  name: "Lena Beispiel",
+  role: "athlete",
+  status: "active",
+  coachId: coach._id,
+  passwordHash,
+  healthDataConsent: { grantedAt: new Date(), privacyPolicyVersion: PRIVACY_POLICY_VERSION },
+});
+await ChallengeModel.create({
+  kind: "coach",
+  coachId: coach._id,
+  title: "Team-Volumen",
+  description: "Wer bewegt bis Monatsende am meisten? Nur Arbeitssätze zählen.",
+  metric: "volume",
+  scoring: "ranking",
+  startDate: monday,
+  endDate: addDays(monday, 27),
+  participantIds: [athlete._id, teammate._id],
+  prize: "Gratis-Session",
+});
+const pullUps = await ChallengeModel.create({
+  kind: "coach",
+  coachId: coach._id,
+  title: "100 Klimmzüge am Tag",
+  description: "Egal wie aufgeteilt, Hauptsache 100 saubere Wiederholungen pro Tag.",
+  metric: "manual",
+  manualMode: "quantity",
+  dailyTarget: 100,
+  scoring: "goal",
+  goalValue: 10,
+  startDate: addDays(today, -4),
+  endDate: addDays(today, 9),
+  participantIds: [athlete._id],
+});
+for (const [daysAgo, value] of [
+  [4, 100],
+  [3, 80],
+  [2, 100],
+  [1, 120],
+] as const) {
+  await ChallengeEntryModel.create({
+    challengeId: pullUps._id,
+    athleteId: athlete._id,
+    date: addDays(today, -daysAgo),
+    value,
+  });
+}
+
 console.log(`
 ┌─────────────────────────────────────────────────────────┐
 │  AthletePT Demo-Modus (Daten nur im Speicher)            │
@@ -327,7 +380,8 @@ console.log(`
 │  Passwort für alle Konten: ${DEMO_PASSWORD}                 │
 │    Sysadmin  admin@demo.local                            │
 │    Coach     coach@demo.local, coach2@demo.local         │
-│    Athlet    athlet@demo.local, athletin@demo.local      │
+│    Athlet    athlet@demo.local, athletin@demo.local,     │
+│              lena@demo.local                             │
 │                                                          │
 │  Mails (Einladungen, Passwort-Reset) erscheinen im Log.  │
 └─────────────────────────────────────────────────────────┘

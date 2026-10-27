@@ -124,3 +124,29 @@ export function apiKeyExpiryMail(params: {
     text: `Hallo ${name}!\n\n${intro}\n\n${action}`,
   };
 }
+
+export function challengeAssignedMail(params: {
+  to: string;
+  name: string;
+  coachName: string;
+  title: string;
+  period: string;
+  prize: string | null;
+  url: string;
+}): Mail {
+  const { to, name, coachName, title, period, prize, url } = params;
+  const intro = `${coachName} hat dich zur Challenge „${title}“ angemeldet. Sie läuft ${period}.`;
+  const prizeText = prize ? `Preis: ${prize}` : null;
+  const counts =
+    "Gezählt wird automatisch, was du in diesem Zeitraum trainierst bzw. einträgst. Du musst nichts weiter tun.";
+  const paragraphs = [intro, ...(prizeText ? [prizeText] : []), counts];
+  return {
+    to,
+    subject: `Neue Challenge: ${title}`,
+    html: layout(`Hallo ${escapeHtml(name)}!`, paragraphs.map(escapeHtml), {
+      label: "Challenge ansehen",
+      url,
+    }),
+    text: `Hallo ${name}!\n\n${paragraphs.join("\n\n")}\n\n${url}`,
+  };
+}

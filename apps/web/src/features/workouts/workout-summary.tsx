@@ -21,6 +21,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import { WorkoutChallenges } from "@/features/challenges/workout-challenges";
 import { formatPercent } from "@/features/stats/format";
 import { cn } from "@/lib/cn";
 import { formatNumber } from "@/lib/format";
@@ -312,6 +313,8 @@ export function WorkoutSummary({ log, onEdit }: WorkoutSummaryProps) {
           {volume > 0 && change !== null && <VolumeChange change={change} />}
         </StatTile>
       </dl>
+
+      <WorkoutChallenges updates={log.challenges} />
 
       {showWeek && <WeekProgress week={weekData} log={log} />}
 

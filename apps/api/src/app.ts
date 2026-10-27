@@ -13,6 +13,11 @@ import { requestId } from "./middleware/request-id";
 import { apiKeyRouter, myApiKeyRouter } from "./modules/api-keys/api-key.routes";
 import { athleteRouter, myPermissionsRouter } from "./modules/athletes/athlete.routes";
 import { authRouter } from "./modules/auth/auth.routes";
+import {
+  athleteChallengeRouter,
+  coachChallengeRouter,
+  myChallengeRouter,
+} from "./modules/challenges/challenge.routes";
 import { coachRouter } from "./modules/coaches/coach.routes";
 import { exerciseRouter } from "./modules/exercises/exercise.routes";
 import { myPlanRouter, planRouter, planTemplateRouter } from "./modules/plans/plan.routes";
@@ -35,6 +40,9 @@ const modules = [
   athleteStatsRouter,
   apiKeyRouter,
   myApiKeyRouter,
+  coachChallengeRouter,
+  athleteChallengeRouter,
+  myChallengeRouter,
 ];
 
 export function createApp() {

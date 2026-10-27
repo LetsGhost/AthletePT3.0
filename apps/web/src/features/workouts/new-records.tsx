@@ -96,7 +96,7 @@ export function NewRecords({ records, exercises }: NewRecordsProps) {
           return (
             <li key={record.exerciseId}>
               <Link
-                to={`/entwicklung/${record.exerciseId}`}
+                to={`/fortschritt/${record.exerciseId}`}
                 className="bg-inset hover:border-border-strong flex items-center gap-3 rounded-card border border-transparent px-3 py-2.5"
               >
                 <span className="min-w-0 flex-1">

@@ -616,6 +616,7 @@ describe("Training durchführen", () => {
             },
           ],
           averageDurationMinutes: 55,
+          challenges: [],
         });
       }),
     );

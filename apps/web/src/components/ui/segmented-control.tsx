@@ -1,10 +1,10 @@
-import { useRef, type KeyboardEvent } from "react";
+import { useRef, type KeyboardEvent, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 
 interface SegmentedControlProps<T extends string> {
   label: string;
-  options: readonly { value: T; label: string }[];
+  options: readonly { value: T; label: ReactNode }[];
   value: T;
   onChange: (value: T) => void;
   className?: string;

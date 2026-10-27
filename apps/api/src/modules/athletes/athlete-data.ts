@@ -2,6 +2,7 @@ import type { ClientSession, Types } from "mongoose";
 
 import { ApiKeyAuditModel, ApiKeyModel } from "../api-keys/api-key.model";
 import { SessionModel } from "../auth/session.model";
+import { ChallengeEntryModel, ChallengeModel } from "../challenges/challenge.model";
 import { ExerciseNoticeModel } from "../exercises/exercise-notice.model";
 import { ExerciseModel } from "../exercises/exercise.model";
 import { TrainingPlanModel, TrainingPlanVersionModel } from "../plans/plan.model";
@@ -17,6 +18,12 @@ import { AthleteProfileModel } from "./athlete-profile.model";
 export async function deleteAllAthleteData(athleteId: Types.ObjectId, session: ClientSession) {
   await WorkoutLogModel.deleteMany({ athleteId }, { session });
   await WeeklyActivitiesModel.deleteMany({ athleteId }, { session });
+  await ChallengeEntryModel.deleteMany({ athleteId }, { session });
+  await ChallengeModel.updateMany(
+    { participantIds: athleteId },
+    { $pull: { participantIds: athleteId } },
+    { session },
+  );
   await TrainingPlanVersionModel.deleteMany({ athleteId }, { session });
   await TrainingPlanModel.deleteMany({ athleteId }, { session });
   await AthleteProfileModel.deleteMany({ athleteId }, { session });
