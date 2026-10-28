@@ -98,7 +98,7 @@ export const releaseNotes: WhatsNewRelease[] = [
       },
       {
         title: "Fordere jemanden heraus",
-        text: "Starte ein Duell per E-Mail, über 1, 2 oder 4 Wochen. Wer mehr trainiert, gewinnt. Aufgeben und Revanche inklusive.",
+        text: "Starte ein Duell per E-Mail, über 1, 2 oder 4 Wochen. Wer in der gewählten Wertung vorne liegt, gewinnt. Aufgeben und Revanche inklusive.",
         icon: Swords,
         roles: ["athlete"],
         preview: (
@@ -121,7 +121,7 @@ export const releaseNotes: WhatsNewRelease[] = [
       },
       {
         title: "Globale Challenges",
-        text: "Unter Challenges → Entdecken trittst du System-Challenges bei. In der weltweiten Rangliste erscheinst du nur mit deinem Spitznamen.",
+        text: "Unter Fortschritt → Challenges → Entdecken trittst du System-Challenges bei. In der weltweiten Rangliste erscheinst du nur mit deinem Spitznamen.",
         icon: Globe,
         roles: ["athlete"],
         preview: (
