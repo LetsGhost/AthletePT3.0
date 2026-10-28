@@ -1,12 +1,7 @@
 import {
-  challengeStatusOn,
   createCoachChallengeRequestSchema,
   todayIsoDate,
-  type ChallengeDetail,
-  type ChallengeEntry,
   type ChallengeListResponse,
-  type ChallengeStanding,
-  type ChallengeSummary,
   type ChallengeWorkoutUpdate,
   type updateCoachChallengeRequestSchema,
 } from "@athletept/shared";
@@ -20,30 +15,27 @@ import { challengeAssignedMail } from "../../lib/mail/templates";
 import type { AuthContext } from "../../types/express";
 import { getAthleteOfCoach } from "../athletes/athlete-access";
 import { getExercise } from "../exercises/exercise.service";
+import { notify, type NewNotification } from "../notifications/notification.service";
 import { UserModel } from "../users/user.model";
-import { WorkoutLogModel, type StoredWorkoutLog } from "../workouts/workout-log.model";
+import type { StoredWorkoutLog } from "../workouts/workout-log.model";
 import {
-  computeStandings,
-  type ScoreEntry,
-  type ScoreLog,
-  type ScoreResult,
-} from "./challenge-score";
-import {
-  ChallengeEntryModel,
-  ChallengeModel,
-  type StoredChallenge,
-  type StoredChallengeEntry,
-} from "./challenge.model";
+  athletePerspective,
+  buildDetail,
+  coachPerspective,
+  displayName,
+  isListed,
+  loadScoreData,
+  score,
+  sortForList,
+  statusOf,
+  toSummary,
+  usersOf,
+  type Perspective,
+} from "./challenge-view";
+import { ChallengeEntryModel, ChallengeModel, type StoredChallenge } from "./challenge.model";
 
 type CreateInput = z.output<typeof createCoachChallengeRequestSchema>;
 type UpdateInput = z.output<typeof updateCoachChallengeRequestSchema>;
-
-/** Aus wessen Sicht der Stand gezeigt wird: der Athlet selbst, oder ein Athlet für seinen Coach. */
-interface Perspective {
-  athleteId: string | null;
-  /** Eigene Einträge nur für den Athleten selbst. */
-  withEntries: boolean;
-}
 
 const dateFormat = new Intl.DateTimeFormat("de-DE", {
   day: "numeric",
@@ -51,170 +43,7 @@ const dateFormat = new Intl.DateTimeFormat("de-DE", {
   year: "numeric",
   timeZone: "UTC",
 });
-const formatDay = (date: string) => dateFormat.format(new Date(`${date}T00:00:00Z`));
-
-/** Letzter Tag, der zählt: das Ende oder heute, was früher ist. */
-function lastCountingDate(challenge: StoredChallenge, today: string) {
-  return challenge.endDate < today ? challenge.endDate : today;
-}
-
-type LogForScore = Pick<StoredWorkoutLog, "_id" | "athleteId" | "date" | "completedAt" | "stats">;
-
-function toScoreLog(log: LogForScore): ScoreLog {
-  return {
-    id: log._id.toString(),
-    athleteId: log.athleteId.toString(),
-    date: log.date,
-    completedAt: log.completedAt,
-    stats: log.stats.map((s) => ({
-      exerciseId: s.exerciseId.toString(),
-      volumeKg: s.volumeKg,
-      setCount: s.setCount,
-      estimated1rm: s.estimated1rm,
-    })),
-  };
-}
-
-function toScoreEntry(entry: StoredChallengeEntry): ScoreEntry {
-  return {
-    athleteId: entry.athleteId.toString(),
-    date: entry.date,
-    value: entry.value,
-    updatedAt: entry.updatedAt,
-  };
-}
-
-/** Trainings bzw. Einträge, aus denen sich der Stand einer Challenge ergibt. */
-async function loadScoreData(challenge: StoredChallenge, today: string) {
-  const lastDate = lastCountingDate(challenge, today);
-  if (lastDate < challenge.startDate || challenge.participantIds.length === 0) {
-    return { logs: [], entries: [] };
-  }
-  const range = { $gte: challenge.startDate, $lte: lastDate };
-  if (challenge.metric === "manual") {
-    const entries = await ChallengeEntryModel.find({
-      challengeId: challenge._id,
-      date: range,
-    }).lean<StoredChallengeEntry[]>();
-    return { logs: [], entries: entries.map(toScoreEntry) };
-  }
-  const logs = await WorkoutLogModel.find(
-    { athleteId: { $in: challenge.participantIds }, status: "completed", date: range },
-    { athleteId: 1, date: 1, completedAt: 1, stats: 1 },
-  ).lean<LogForScore[]>();
-  return { logs: logs.map(toScoreLog), entries: [] };
-}
-
-function score(
-  challenge: StoredChallenge,
-  today: string,
-  data: { logs: ScoreLog[]; entries: ScoreEntry[] },
-): ScoreResult {
-  return computeStandings(
-    {
-      metric: challenge.metric,
-      exerciseId: challenge.exerciseId?.toString() ?? null,
-      manualMode: challenge.manualMode,
-      dailyTarget: challenge.dailyTarget,
-      scoring: challenge.scoring,
-      goalValue: challenge.goalValue,
-      startDate: challenge.startDate,
-      lastDate: lastCountingDate(challenge, today),
-      finished: challengeStatusOn(challenge, today) === "finished",
-    },
-    challenge.participantIds.map((id) => id.toString()),
-    data.logs,
-    data.entries,
-  );
-}
-
-async function namesOf(ids: readonly Types.ObjectId[]) {
-  const users = await UserModel.find({ _id: { $in: ids } }, { name: 1 }).lean<
-    { _id: Types.ObjectId; name: string }[]
-  >();
-  return new Map(users.map((u) => [u._id.toString(), u.name]));
-}
-
-async function buildDetail(
-  challenge: StoredChallenge,
-  perspective: Perspective,
-): Promise<ChallengeDetail> {
-  const today = todayIsoDate();
-  const data = await loadScoreData(challenge, today);
-  const result = score(challenge, today, data);
-  const names = await namesOf([
-    ...challenge.participantIds,
-    ...(challenge.coachId ? [challenge.coachId] : []),
-  ]);
-
-  // Teilnehmer ohne Konto (gelöscht) fallen weg.
-  const standings: ChallengeStanding[] = result.standings
-    .filter((s) => names.has(s.athleteId))
-    .map((s) => ({
-      athleteId: s.athleteId,
-      name: names.get(s.athleteId)!,
-      score: s.score,
-      rank: s.rank,
-      achieved: s.achieved,
-      isMe: s.athleteId === perspective.athleteId,
-    }));
-  const me = standings.find((s) => s.isMe) ?? null;
-
-  let entries: ChallengeEntry[] = [];
-  let todayValue: number | null = null;
-  if (challenge.metric === "manual" && perspective.athleteId) {
-    const own = data.entries
-      .filter((e) => e.athleteId === perspective.athleteId)
-      .sort((a, b) => a.date.localeCompare(b.date));
-    todayValue = own.find((e) => e.date === today)?.value ?? null;
-    if (perspective.withEntries) entries = own.map((e) => ({ date: e.date, value: e.value }));
-  }
-
-  return {
-    id: challenge._id.toString(),
-    kind: challenge.kind,
-    metric: challenge.metric,
-    scoring: challenge.scoring,
-    title: challenge.title,
-    description: challenge.description,
-    exerciseId: challenge.exerciseId?.toString() ?? null,
-    exerciseName: challenge.exerciseName,
-    manualMode: challenge.manualMode,
-    dailyTarget: challenge.dailyTarget,
-    goalValue: challenge.goalValue,
-    startDate: challenge.startDate,
-    endDate: challenge.endDate,
-    status: challengeStatusOn(challenge, today),
-    endedEarly: challenge.endedEarly,
-    today,
-    prize: challenge.prize,
-    ownerName: challenge.coachId ? (names.get(challenge.coachId.toString()) ?? null) : null,
-    participantCount: standings.length,
-    teamScore: result.teamScore,
-    achievedCount: standings.filter((s) => s.achieved).length,
-    leader: standings[0] ?? null,
-    me,
-    todayValue,
-    standings,
-    entries,
-  };
-}
-
-function toSummary({ standings: _s, entries: _e, ...summary }: ChallengeDetail): ChallengeSummary {
-  return summary;
-}
-
-/** Laufende zuerst, dann geplante, dann beendete (neueste zuerst). */
-function sortForList(items: ChallengeSummary[]) {
-  const order = { running: 0, planned: 1, finished: 2 } as const;
-  return items.sort(
-    (a, b) =>
-      order[a.status] - order[b.status] ||
-      (a.status === "finished"
-        ? b.endDate.localeCompare(a.endDate)
-        : a.endDate.localeCompare(b.endDate)),
-  );
-}
+export const formatDay = (date: string) => dateFormat.format(new Date(`${date}T00:00:00Z`));
 
 // ---------------------------------------------------------------------------------------------
 // Coach
@@ -254,6 +83,15 @@ function periodText(startDate: string, endDate: string) {
 
 async function notifyParticipants(challenge: StoredChallenge, athleteIds: readonly string[]) {
   if (athleteIds.length === 0 || !challenge.coachId) return;
+  await notify(
+    athleteIds.map((userId) => ({
+      userId,
+      kind: "challenge_started" as const,
+      title: `Neue Challenge: ${challenge.title}`,
+      text: `${formatDay(challenge.startDate)} bis ${formatDay(challenge.endDate)}${challenge.prize ? ` · Preis: ${challenge.prize}` : ""}`,
+      challengeId: challenge._id,
+    })),
+  );
   const [coach, athletes] = await Promise.all([
     UserModel.findById(challenge.coachId, { name: 1 }).lean<{ name: string }>(),
     UserModel.find({ _id: { $in: athleteIds }, status: "active" }, { name: 1, email: 1 }).lean<
@@ -303,7 +141,7 @@ export async function createCoachChallenge(auth: AuthContext, input: CreateInput
   });
   const challenge = created.toObject<StoredChallenge>();
   await notifyParticipants(challenge, input.participantIds);
-  return buildDetail(challenge, { athleteId: null, withEntries: false });
+  return buildDetail(challenge, coachPerspective(auth.userId));
 }
 
 export async function listCoachChallenges(coachId: string): Promise<ChallengeListResponse> {
@@ -311,20 +149,20 @@ export async function listCoachChallenges(coachId: string): Promise<ChallengeLis
     StoredChallenge[]
   >();
   const details = await Promise.all(
-    challenges.map((c) => buildDetail(c, { athleteId: null, withEntries: false })),
+    challenges.map((c) => buildDetail(c, coachPerspective(coachId))),
   );
   return { items: sortForList(details.map(toSummary)) };
 }
 
 export async function getCoachChallenge(coachId: string, id: string) {
   const challenge = await findOwnChallenge(coachId, id);
-  return buildDetail(challenge, { athleteId: null, withEntries: false });
+  return buildDetail(challenge, coachPerspective(coachId));
 }
 
 export async function updateCoachChallenge(auth: AuthContext, id: string, input: UpdateInput) {
   const challenge = await findOwnChallenge(auth.userId, id);
   const today = todayIsoDate();
-  const status = challengeStatusOn(challenge, today);
+  const status = statusOf(challenge, today);
   if (status === "finished") {
     throw new ConflictError("Die Challenge ist bereits beendet.", "challenge_finished");
   }
@@ -382,14 +220,14 @@ export async function updateCoachChallenge(auth: AuthContext, id: string, input:
     { returnDocument: "after" },
   ).lean<StoredChallenge>();
   await notifyParticipants(updated!, added);
-  return buildDetail(updated!, { athleteId: null, withEntries: false });
+  return buildDetail(updated!, coachPerspective(auth.userId));
 }
 
 /** Beendet eine laufende Challenge heute. Geplante werden stattdessen gelöscht. */
 export async function endCoachChallenge(coachId: string, id: string) {
   const challenge = await findOwnChallenge(coachId, id);
   const today = todayIsoDate();
-  const status = challengeStatusOn(challenge, today);
+  const status = statusOf(challenge, today);
   if (status === "planned") {
     throw new ConflictError(
       "Die Challenge hat noch nicht begonnen. Lösche sie stattdessen.",
@@ -404,13 +242,13 @@ export async function endCoachChallenge(coachId: string, id: string) {
     { $set: { endedEarly: true, endDate: today } },
     { returnDocument: "after" },
   ).lean<StoredChallenge>();
-  return buildDetail(updated!, { athleteId: null, withEntries: false });
+  return buildDetail(updated!, coachPerspective(coachId));
 }
 
 /** Nur vor dem Start, danach gehören die Ergebnisse den Athleten. */
 export async function deleteCoachChallenge(coachId: string, id: string) {
   const challenge = await findOwnChallenge(coachId, id);
-  if (challengeStatusOn(challenge, todayIsoDate()) !== "planned") {
+  if (statusOf(challenge, todayIsoDate()) !== "planned") {
     throw new ConflictError(
       "Gestartete Challenges lassen sich nicht löschen, nur beenden.",
       "challenge_started",
@@ -425,36 +263,46 @@ export async function listAthleteChallenges(
   athleteId: string,
 ): Promise<ChallengeListResponse> {
   await getAthleteOfCoach(coachId, athleteId);
-  return listFor(athleteId, { athleteId, withEntries: false });
+  return listFor(athleteId, coachPerspective(coachId, athleteId));
 }
 
 // ---------------------------------------------------------------------------------------------
 // Athlet
 
-async function listFor(athleteId: string, perspective: Perspective) {
-  const challenges = await ChallengeModel.find({
-    participantIds: new Types.ObjectId(athleteId),
-  }).lean<StoredChallenge[]>();
-  const details = await Promise.all(challenges.map((c) => buildDetail(c, perspective)));
+/** Teilnehmer oder zu einem Duell eingeladen. */
+export const involving = (athleteId: string) => {
+  const id = new Types.ObjectId(athleteId);
+  return { $or: [{ participantIds: id }, { "invite.athleteId": id }] };
+};
+
+export async function listFor(
+  athleteId: string,
+  perspective: Perspective,
+): Promise<ChallengeListResponse> {
+  const today = todayIsoDate();
+  const challenges = await ChallengeModel.find(involving(athleteId)).lean<StoredChallenge[]>();
+  const details = await Promise.all(
+    challenges.filter((c) => isListed(c, today)).map((c) => buildDetail(c, perspective)),
+  );
   return { items: sortForList(details.map(toSummary)) };
 }
 
-async function findParticipating(athleteId: string, id: string) {
+export async function findInvolving(athleteId: string, id: string) {
   const challenge = await ChallengeModel.findOne({
     _id: id,
-    participantIds: new Types.ObjectId(athleteId),
+    ...involving(athleteId),
   }).lean<StoredChallenge>();
   if (!challenge) throw new NotFoundError("Challenge nicht gefunden");
   return challenge;
 }
 
-export function listMyChallenges(athleteId: string): Promise<ChallengeListResponse> {
-  return listFor(athleteId, { athleteId, withEntries: true });
+export async function listMyChallenges(athleteId: string): Promise<ChallengeListResponse> {
+  return listFor(athleteId, await athletePerspective(athleteId));
 }
 
 export async function getMyChallenge(athleteId: string, id: string) {
-  const challenge = await findParticipating(athleteId, id);
-  return buildDetail(challenge, { athleteId, withEntries: true });
+  const challenge = await findInvolving(athleteId, id);
+  return buildDetail(challenge, await athletePerspective(athleteId));
 }
 
 /**
@@ -462,7 +310,7 @@ export async function getMyChallenge(athleteId: string, id: string) {
  * nachträgliches Eintragen würde die Rangliste beliebig verschieben.
  */
 export async function setMyEntry(athleteId: string, id: string, date: string, value: number) {
-  const challenge = await findParticipating(athleteId, id);
+  const challenge = await findInvolving(athleteId, id);
   if (challenge.metric !== "manual") {
     throw new ConflictError(
       "Diese Challenge wird automatisch aus deinen Trainings gewertet.",
@@ -470,7 +318,7 @@ export async function setMyEntry(athleteId: string, id: string, date: string, va
     );
   }
   const today = todayIsoDate();
-  if (challengeStatusOn(challenge, today) !== "running") {
+  if (statusOf(challenge, today) !== "running") {
     throw new ConflictError("Die Challenge läuft gerade nicht.", "challenge_not_running");
   }
   if (date !== today) {
@@ -482,13 +330,13 @@ export async function setMyEntry(athleteId: string, id: string, date: string, va
     { $set: { value: stored } },
     { upsert: true },
   );
-  return buildDetail(challenge, { athleteId, withEntries: true });
+  return buildDetail(challenge, await athletePerspective(athleteId));
 }
 
 /**
  * Wirkung eines eben abgeschlossenen Trainings: Stand mit und ohne dieses Training in allen
  * laufenden Challenges, in denen es zählt. Dazu freie Vorgaben, für die heute noch nichts
- * eingetragen ist.
+ * eingetragen ist. Wer in einer Rangliste überholt wurde, bekommt eine Benachrichtigung.
  */
 export async function updatesAfterWorkout(
   athleteId: string,
@@ -501,9 +349,11 @@ export async function updatesAfterWorkout(
     endDate: { $gte: today },
     endedEarly: false,
   }).lean<StoredChallenge[]>();
+  const overtaken: { challenge: StoredChallenge; athleteIds: string[] }[] = [];
 
   const updates = await Promise.all(
     challenges.map(async (challenge): Promise<ChallengeWorkoutUpdate | null> => {
+      if (statusOf(challenge, today) !== "running") return null;
       const manual = challenge.metric === "manual";
       if (!manual && (log.date < challenge.startDate || log.date > challenge.endDate)) return null;
       const data = await loadScoreData(challenge, today);
@@ -521,6 +371,20 @@ export async function updatesAfterWorkout(
         manual && !data.entries.some((e) => e.athleteId === athleteId && e.date === today);
       const gained = Math.round((mine.score - previous.score) * 10) / 10;
       if (manual ? !entryPending : gained <= 0) return null;
+
+      if (challenge.scoring === "ranking" && mine.rank < previous.rank) {
+        const passed = before.standings.filter(
+          (s) =>
+            s.athleteId !== athleteId &&
+            s.score > 0 &&
+            s.rank <= previous.rank &&
+            after.standings.find((a) => a.athleteId === s.athleteId)!.rank > mine.rank,
+        );
+        if (passed.length > 0) {
+          overtaken.push({ challenge, athleteIds: passed.map((p) => p.athleteId) });
+        }
+      }
+
       return {
         id: challenge._id.toString(),
         kind: challenge.kind,
@@ -538,5 +402,38 @@ export async function updatesAfterWorkout(
       };
     }),
   );
+  await notifyOvertaken(athleteId, overtaken);
   return updates.filter((u) => u !== null);
+}
+
+async function notifyOvertaken(
+  athleteId: string,
+  overtaken: readonly { challenge: StoredChallenge; athleteIds: string[] }[],
+) {
+  if (overtaken.length === 0) return;
+  const users = await usersOf([athleteId, ...overtaken.flatMap((o) => o.athleteIds)]);
+  const me = users.get(athleteId);
+  if (!me) return;
+  const notifications: NewNotification[] = overtaken.flatMap(({ challenge, athleteIds }) =>
+    athleteIds.flatMap((id) => {
+      const recipient = users.get(id);
+      if (!recipient) return [];
+      // Name so, wie ihn der Überholte sehen darf.
+      const name = displayName(athleteId, me, {
+        athleteId: id,
+        teamCoachId: recipient.coachId,
+        withEntries: false,
+      });
+      return [
+        {
+          userId: id,
+          kind: "challenge_overtaken" as const,
+          title: `${name} hat dich überholt`,
+          text: challenge.title,
+          challengeId: challenge._id,
+        },
+      ];
+    }),
+  );
+  await notify(notifications);
 }

@@ -81,6 +81,45 @@ describe("Challenges (Coach)", () => {
     expect(screen.getByRole("link", { name: /Winter/ })).toHaveTextContent("3 Athleten angemeldet");
   });
 
+  it("zeigt die Duelle der eigenen Athleten", async () => {
+    signIn();
+    const duel = buildChallenge({
+      kind: "duel",
+      metric: "training_days",
+      title: "Meiste Trainingstage",
+      participantCount: 2,
+      teamScore: 7,
+      me: { ...coachView.standings[0]!, name: "Max Muster", score: 4, rank: 1 },
+      duel: {
+        state: "active",
+        iAmChallenger: null,
+        durationDays: 14,
+        expiresAt: "2026-10-15T09:00:00.000Z",
+        invitedEmail: null,
+        opponentName: "Lena B.",
+        gaveUpName: null,
+      },
+    });
+    server.use(
+      http.get(apiUrl("/athletes"), () => HttpResponse.json(athletes)),
+      http.get(apiUrl("/coach/challenges/duels"), () =>
+        HttpResponse.json({
+          items: [
+            { athleteId: "6acd3920c0072ec254663a01", athleteName: "Max Muster", challenge: duel },
+          ],
+        }),
+      ),
+    );
+    renderApp("/coach/challenges");
+
+    const section = await screen.findByRole("region", { name: "Deine Athleten in Duellen" });
+    expect(
+      await within(section).findByText(/gegen Lena B. · Meiste Trainingstage/),
+    ).toBeInTheDocument();
+    expect(section).toHaveTextContent("4 : 3 Trainingstage · führt");
+    expect(section).toHaveTextContent("1 laufend · 0 offen");
+  });
+
   it("legt über den Assistenten eine Challenge an", async () => {
     signIn();
     let body: CreateCoachChallengeRequest | null = null;

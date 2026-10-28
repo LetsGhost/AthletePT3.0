@@ -2,10 +2,13 @@ import type {
   ChallengeDetail,
   ChallengeListResponse,
   CreateCoachChallengeRequest,
+  CreateDuelRequest,
+  TeamDuelListResponse,
   UpdateCoachChallengeRequest,
 } from "@athletept/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { notificationKeys } from "@/features/notifications/api";
 import { api } from "@/lib/api";
 
 /** Unter `workouts`, damit ein abgeschlossenes Training den Stand automatisch neu lädt. */
@@ -110,6 +113,62 @@ export function useDeleteChallenge(id: string) {
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: challengeKeys.coachDetail(id) });
       void queryClient.invalidateQueries({ queryKey: challengeKeys.all });
+    },
+  });
+}
+
+export function useTeamDuels() {
+  return useQuery({
+    queryKey: [...challengeKeys.coach(), "duels"],
+    queryFn: () => api<TeamDuelListResponse>("/coach/challenges/duels"),
+  });
+}
+
+/** Nach jeder Duell-Aktion: Detail setzen, Listen und Benachrichtigungen neu laden. */
+function useDuelMutation<TVariables>(request: (variables: TVariables) => Promise<ChallengeDetail>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: request,
+    onSuccess: (detail) => {
+      queryClient.setQueryData(challengeKeys.myDetail(detail.id), detail);
+      void queryClient.invalidateQueries({ queryKey: challengeKeys.mine(), exact: true });
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+    },
+  });
+}
+
+export function useCreateDuel() {
+  return useDuelMutation((body: CreateDuelRequest) =>
+    api<ChallengeDetail>("/me/duels", { method: "POST", body }),
+  );
+}
+
+export function useAcceptDuel(id: string) {
+  return useDuelMutation(() =>
+    api<ChallengeDetail>(`/me/duels/${path(id)}/accept`, { method: "POST" }),
+  );
+}
+
+export function useGiveUpDuel(id: string) {
+  return useDuelMutation(() =>
+    api<ChallengeDetail>(`/me/duels/${path(id)}/give-up`, { method: "POST" }),
+  );
+}
+
+export function useRematchDuel(id: string) {
+  return useDuelMutation(() =>
+    api<ChallengeDetail>(`/me/duels/${path(id)}/rematch`, { method: "POST" }),
+  );
+}
+
+export function useDeclineDuel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`/me/duels/${path(id)}/decline`, { method: "POST" }),
+    onSuccess: (_, id) => {
+      queryClient.removeQueries({ queryKey: challengeKeys.myDetail(id) });
+      void queryClient.invalidateQueries({ queryKey: challengeKeys.mine(), exact: true });
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     },
   });
 }

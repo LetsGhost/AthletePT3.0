@@ -91,6 +91,14 @@ export const routes: RouteObject[] = [
                   },
                   { path: "/challenges", ...page(() => import("@/pages/athlete/challenges-page")) },
                   {
+                    path: "/challenges/duell",
+                    ...page(() => import("@/pages/athlete/new-duel-page")),
+                  },
+                  {
+                    path: "/benachrichtigungen",
+                    ...page(() => import("@/pages/athlete/notifications-page")),
+                  },
+                  {
                     path: "/challenges/:challengeId",
                     ...page(() => import("@/pages/athlete/challenge-page")),
                   },

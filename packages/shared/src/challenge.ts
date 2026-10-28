@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { isoDateSchema, objectIdSchema } from "./common";
+import { emailSchema } from "./user";
 
 /**
  * Challenges: zeitlich begrenzte Ziele oder Wettbewerbe. Gewertet wird automatisch aus
@@ -240,6 +241,65 @@ export const challengeEntrySchema = z.object({
   value: z.number().int(),
 });
 
+// ---------------------------------------------------------------------------------------------
+// Duelle: ein Athlet fordert einen anderen per E-Mail heraus, auch über Coach-Grenzen hinweg.
+
+/** Laufzeiten in Tagen, die ein Herausforderer wählen kann. */
+export const DUEL_DURATIONS = [7, 14, 28] as const;
+/** So lange kann eine Einladung angenommen werden. */
+export const DUEL_INVITE_DAYS = 3;
+/** Offene Duelle (eingeladen oder laufend) je Athlet. */
+export const MAX_OPEN_DUELS = 3;
+
+/** Nur automatische Metriken: Duelle laufen über Coach-Grenzen, manuelle Werte wären unfair. */
+export const duelMetrics = ["training_days", "workouts", "volume", "sets", "e1rm"] as const;
+export const duelMetricSchema = z.enum(duelMetrics);
+export type DuelMetric = z.infer<typeof duelMetricSchema>;
+export const duelMetricLabels: Record<DuelMetric, string> = {
+  training_days: "Meiste Trainingstage",
+  workouts: "Meiste erledigte Trainings",
+  volume: "Meistes Volumen",
+  sets: "Meiste Sätze",
+  e1rm: "Höchstes e1RM",
+};
+
+export const duelStates = ["pending", "declined", "expired", "active", "finished"] as const;
+export const duelStateSchema = z.enum(duelStates);
+export type DuelState = z.infer<typeof duelStateSchema>;
+
+export const createDuelRequestSchema = z
+  .object({
+    metric: duelMetricSchema,
+    exerciseId: objectIdSchema.nullish().transform((value) => value ?? null),
+    durationDays: z
+      .number({ error: "Bitte eine Laufzeit wählen" })
+      .refine((days) => (DUEL_DURATIONS as readonly number[]).includes(days), {
+        error: "Bitte 1, 2 oder 4 Wochen wählen",
+      }),
+    email: emailSchema,
+  })
+  .superRefine((value, ctx) => {
+    if (value.metric === "e1rm" && !value.exerciseId) {
+      ctx.addIssue({ code: "custom", path: ["exerciseId"], message: "Bitte eine Übung wählen" });
+    }
+  });
+
+/** Duell aus Sicht des Betrachters. */
+export const duelInfoSchema = z.object({
+  state: duelStateSchema,
+  /** `null` aus Sicht eines Coaches. */
+  iAmChallenger: z.boolean().nullable(),
+  durationDays: z.number().int(),
+  /** Bis dahin kann die Einladung angenommen werden (ISO-Zeitpunkt). */
+  expiresAt: z.string(),
+  /** Eingegebene Adresse, nur für den Herausforderer, solange niemand angenommen hat. */
+  invitedEmail: z.string().nullable(),
+  /** Gegner aus Sicht des Betrachters (Herausforderer bzw. Eingeladener). `null`, solange unbekannt. */
+  opponentName: z.string().nullable(),
+  /** Wer aufgegeben hat. */
+  gaveUpName: z.string().nullable(),
+});
+
 export const challengeSummarySchema = z.object({
   id: objectIdSchema,
   kind: challengeKindSchema,
@@ -271,12 +331,34 @@ export const challengeSummarySchema = z.object({
   me: challengeStandingSchema.nullable(),
   /** Freie Vorgabe: heutiger Eintrag dieses Athleten, `null` ohne Eintrag. */
   todayValue: z.number().int().nullable(),
+  /** Nur bei Duellen. */
+  duel: duelInfoSchema.nullable(),
+});
+
+/** Wert eines Teilnehmers an einem Tag, nur Tage mit Wert. */
+export const challengeDailyValueSchema = z.object({
+  athleteId: objectIdSchema,
+  date: isoDateSchema,
+  value: z.number(),
 });
 
 export const challengeDetailSchema = challengeSummarySchema.extend({
   standings: z.array(challengeStandingSchema),
   /** Freie Vorgabe: eigene Einträge im Zeitraum, älteste zuerst. Leer für Coaches. */
   entries: z.array(challengeEntrySchema),
+  /** Duelle: Verlauf pro Tag beider Teilnehmer. Sonst leer. */
+  daily: z.array(challengeDailyValueSchema),
+});
+
+/** Duelle der eigenen Athleten für den Coach, je Athlet aus dessen Sicht. */
+export const teamDuelListResponseSchema = z.object({
+  items: z.array(
+    z.object({
+      athleteId: objectIdSchema,
+      athleteName: z.string(),
+      challenge: challengeSummarySchema,
+    }),
+  ),
 });
 
 export const challengeListResponseSchema = z.object({
@@ -311,3 +393,7 @@ export type ChallengeSummary = z.infer<typeof challengeSummarySchema>;
 export type ChallengeDetail = z.infer<typeof challengeDetailSchema>;
 export type ChallengeListResponse = z.infer<typeof challengeListResponseSchema>;
 export type ChallengeWorkoutUpdate = z.infer<typeof challengeWorkoutUpdateSchema>;
+export type CreateDuelRequest = z.input<typeof createDuelRequestSchema>;
+export type DuelInfo = z.infer<typeof duelInfoSchema>;
+export type ChallengeDailyValue = z.infer<typeof challengeDailyValueSchema>;
+export type TeamDuelListResponse = z.infer<typeof teamDuelListResponseSchema>;

@@ -14,14 +14,18 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { QueryState, SkeletonList } from "@/components/ui/query-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useAthletes } from "@/features/athletes/api";
-import { useCoachChallenges } from "@/features/challenges/api";
-import { ChallengeBar, ChallengeIcon } from "@/features/challenges/challenge-visuals";
+import { useCoachChallenges, useTeamDuels } from "@/features/challenges/api";
+import { ChallengeBar, ChallengeIcon, KindBadge } from "@/features/challenges/challenge-visuals";
 import {
+  duelScoreText,
+  duelStanding,
+  duelTitle,
   formatCountdown,
   formatPeriod,
   formatScore,
   measureText,
 } from "@/features/challenges/format";
+import { initials } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
 const tabs: { value: ChallengeStatus; label: string }[] = [
@@ -105,6 +109,68 @@ function Kpi({ label, value, note }: { label: string; value: string; note: strin
         <span className="text-muted text-xs">{note}</span>
       </dd>
     </div>
+  );
+}
+
+/** Duelle der eigenen Athleten, auch gegen Athleten anderer Coaches. */
+function TeamDuels() {
+  const duels = useTeamDuels();
+  return (
+    <section aria-labelledby="team-duels" className="mt-8 flex flex-col gap-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="team-duels" className="text-lg font-semibold">
+          Deine Athleten in Duellen
+        </h2>
+        {duels.data && (
+          <span className="text-muted text-sm">
+            {duels.data.items.filter((d) => d.challenge.status === "running").length} laufend ·{" "}
+            {duels.data.items.filter((d) => d.challenge.duel?.state === "pending").length} offen
+          </span>
+        )}
+      </div>
+      <QueryState query={duels} loading={<SkeletonList rows={2} className="h-16" />}>
+        {({ items }) =>
+          items.length === 0 ? (
+            <p className="bg-surface text-muted rounded-tile p-5 text-center text-sm">
+              Deine Athleten haben gerade keine Duelle.
+            </p>
+          ) : (
+            <ul className="grid gap-3 md:grid-cols-2">
+              {items.map(({ athleteId, athleteName, challenge }) => (
+                <li
+                  key={`${athleteId}-${challenge.id}`}
+                  className="bg-surface flex items-center gap-3 rounded-tile p-3.5"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="bg-inset flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+                  >
+                    {initials(athleteName)}
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <Link to={`/coach/athletes/${athleteId}`} className="text-sm font-semibold">
+                      {athleteName}
+                    </Link>
+                    <span className="text-muted truncate text-xs">
+                      {duelTitle(challenge).replace("Duell vs.", "gegen")} · {challenge.title}
+                      {challenge.status !== "finished" && ` · ${formatCountdown(challenge)}`}
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    <KindBadge kind="duel" />
+                    <span className="text-xs font-semibold">
+                      {challenge.status === "planned"
+                        ? duelStanding(challenge)
+                        : `${duelScoreText(challenge)} · ${duelStanding(challenge)}`}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </QueryState>
+    </section>
   );
 }
 
@@ -210,6 +276,7 @@ export default function CoachChallengesPage() {
           );
         }}
       </QueryState>
+      <TeamDuels />
     </>
   );
 }

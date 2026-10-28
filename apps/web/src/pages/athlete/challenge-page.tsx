@@ -16,6 +16,14 @@ import {
 import { ChallengeRing } from "@/features/challenges/challenge-visuals";
 import { kindTone } from "@/features/challenges/tones";
 import { formatScore, progressRatio, scoreParts } from "@/features/challenges/format";
+import {
+  DuelActions,
+  DuelDaily,
+  DuelHero,
+  DuelInvitation,
+  DuelPrivacyNote,
+  DuelResult,
+} from "@/features/challenges/duel-detail";
 import { ManualEntry } from "@/features/challenges/manual-entry";
 import { ApiError } from "@/lib/http";
 import { cn } from "@/lib/cn";
@@ -36,6 +44,38 @@ function standingHint(challenge: ChallengeDetail) {
   const ahead = challenge.standings[index - 1];
   if (!ahead) return me.score > 0 ? "Du führst" : "Noch ist alles offen";
   return `${formatScore(metric, ahead.score - me.score)} hinter ${ahead.name}`;
+}
+
+function Gone() {
+  return (
+    <div className="bg-surface rounded-tile">
+      <EmptyState
+        icon={Trophy}
+        title="Einladung nicht mehr gültig"
+        description="Diese Einladung ist abgelaufen oder wurde abgelehnt."
+        action={
+          <Button asChild>
+            <Link to="/challenges">Zur Übersicht</Link>
+          </Button>
+        }
+      />
+    </div>
+  );
+}
+
+function DuelView({ challenge }: { challenge: ChallengeDetail }) {
+  const state = challenge.duel!.state;
+  if (state === "declined" || state === "expired") return <Gone />;
+  if (state === "pending") return <DuelInvitation challenge={challenge} />;
+  return (
+    <>
+      <DuelHero challenge={challenge} />
+      <DuelResult challenge={challenge} />
+      <DuelDaily challenge={challenge} />
+      <DuelPrivacyNote />
+      <DuelActions challenge={challenge} />
+    </>
+  );
 }
 
 function MyStanding({ challenge }: { challenge: ChallengeDetail }) {
@@ -98,23 +138,30 @@ export default function AthleteChallengePage() {
         </div>
       ) : (
         <QueryState query={challenge} loading={<SkeletonList rows={3} className="h-36" />}>
-          {(data) => (
-            <>
-              <title>{`${data.title} · AthletePT`}</title>
-              <ChallengeHero challenge={data} />
-              <ChallengeResult challenge={data} />
-              {data.metric === "manual" && <ManualEntry challenge={data} />}
-              <MyStanding challenge={data} />
-              <ChallengePrize challenge={data} />
-              <ChallengeStandings challenge={data} />
-              <ChallengeRules challenge={data} />
-              {data.ownerName && (
-                <p className="text-muted text-center text-xs">
-                  {data.ownerName} hat dich angemeldet, du bist automatisch dabei.
-                </p>
-              )}
-            </>
-          )}
+          {(data) =>
+            data.duel ? (
+              <>
+                <title>{`Duell · AthletePT`}</title>
+                <DuelView challenge={data} />
+              </>
+            ) : (
+              <>
+                <title>{`${data.title} · AthletePT`}</title>
+                <ChallengeHero challenge={data} />
+                <ChallengeResult challenge={data} />
+                {data.metric === "manual" && <ManualEntry challenge={data} />}
+                <MyStanding challenge={data} />
+                <ChallengePrize challenge={data} />
+                <ChallengeStandings challenge={data} />
+                <ChallengeRules challenge={data} />
+                {data.ownerName && (
+                  <p className="text-muted text-center text-xs">
+                    {data.ownerName} hat dich angemeldet, du bist automatisch dabei.
+                  </p>
+                )}
+              </>
+            )
+          }
         </QueryState>
       )}
     </div>

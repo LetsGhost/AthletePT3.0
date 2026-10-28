@@ -46,6 +46,7 @@ const weekService = await import("../src/modules/workouts/week.service");
 const { WorkoutLogModel } = await import("../src/modules/workouts/workout-log.model");
 const { ChallengeEntryModel, ChallengeModel } =
   await import("../src/modules/challenges/challenge.model");
+const duelService = await import("../src/modules/challenges/duel.service");
 
 await connectDatabase();
 const passwordHash = await hashPassword(DEMO_PASSWORD);
@@ -371,6 +372,33 @@ for (const [daysAgo, value] of [
     value,
   });
 }
+
+// Duelle: Max gegen Lena läuft seit Montag (direkt angelegt, wegen des Starts in der
+// Vergangenheit), Lea (anderer Coach) hat Max gerade herausgefordert.
+await ChallengeModel.create({
+  kind: "duel",
+  title: "Meiste Trainingstage",
+  metric: "training_days",
+  scoring: "ranking",
+  startDate: monday,
+  endDate: addDays(monday, 13),
+  participantIds: [athlete._id, teammate._id],
+  createdById: teammate._id,
+  invite: {
+    athleteId: athlete._id,
+    email: athlete.email,
+    status: "accepted",
+    expiresAt: new Date(),
+    respondedAt: new Date(),
+  },
+  durationDays: 14,
+});
+await duelService.createDuel(secondAthlete.id, {
+  metric: "volume",
+  exerciseId: null,
+  durationDays: 7,
+  email: athlete.email,
+});
 
 console.log(`
 ┌─────────────────────────────────────────────────────────┐

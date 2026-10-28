@@ -36,8 +36,31 @@ export interface StoredChallenge {
   endedEarly: boolean;
   participantIds: Types.ObjectId[];
   prize: string | null;
+  /** Duell: Herausforderer. */
+  createdById: Types.ObjectId | null;
+  /** Duell: Einladung. Bis zur Annahme ist nur der Herausforderer Teilnehmer. */
+  invite: StoredDuelInvite | null;
+  /** Duell: Revanche für dieses Duell. Der Gegner ist dann von Anfang an bekannt. */
+  rematchOfId: Types.ObjectId | null;
+  /** Duell: Laufzeit ab Annahme. */
+  durationDays: number | null;
+  /** Duell: wer aufgegeben hat (dann auch `endedEarly`). */
+  gaveUpById: Types.ObjectId | null;
+  /** Ergebnis an die Teilnehmer gemeldet (siehe Challenge-Job). */
+  resultNotifiedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export const duelInviteStatuses = ["pending", "accepted", "declined", "expired"] as const;
+
+export interface StoredDuelInvite {
+  /** `null`, wenn zur Adresse kein Athlet gehört: Die Einladung verfällt dann einfach. */
+  athleteId: Types.ObjectId | null;
+  email: string;
+  status: (typeof duelInviteStatuses)[number];
+  expiresAt: Date;
+  respondedAt: Date | null;
 }
 
 const nullableString = { type: String, default: null };
@@ -61,11 +84,32 @@ const challengeSchema = new Schema(
     endedEarly: { type: Boolean, default: false },
     participantIds: { type: [Schema.Types.ObjectId], ref: "User", default: [] },
     prize: nullableString,
+    createdById: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    invite: {
+      type: new Schema(
+        {
+          athleteId: { type: Schema.Types.ObjectId, ref: "User", default: null },
+          email: { type: String, required: true },
+          status: { type: String, enum: duelInviteStatuses, required: true },
+          expiresAt: { type: Date, required: true },
+          respondedAt: { type: Date, default: null },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
+    rematchOfId: { type: Schema.Types.ObjectId, ref: "Challenge", default: null },
+    durationDays: nullableNumber,
+    gaveUpById: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    resultNotifiedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
 
 challengeSchema.index({ coachId: 1, endDate: -1 });
+challengeSchema.index({ "invite.athleteId": 1, "invite.status": 1 });
+challengeSchema.index({ createdById: 1, kind: 1 });
+challengeSchema.index({ resultNotifiedAt: 1, endDate: 1 });
 challengeSchema.index({ participantIds: 1, endDate: -1 });
 
 export const ChallengeModel = model("Challenge", challengeSchema);

@@ -1,4 +1,4 @@
-import { ChevronRight, Trophy } from "lucide-react";
+import { ChevronRight, Swords, Trophy } from "lucide-react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,28 @@ import { cn } from "@/lib/cn";
 import { useMyChallenges } from "./api";
 import { ChallengeBar, ChallengeIcon } from "./challenge-visuals";
 import { kindTone } from "./tones";
-import { formatScore, progressRatio, standingText } from "./format";
+import { duelScoreText, duelTitle, formatScore, progressRatio, standingText } from "./format";
 
 /** Karte „Challenges“ auf der Fortschritt-Seite: laufende Challenges kompakt. */
+function InvitationBadge({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <Link
+      to="/challenges"
+      className="bg-challenge-duel/15 text-challenge-duel inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+    >
+      <Swords aria-hidden="true" className="size-3" />
+      {count} {count === 1 ? "Einladung" : "Einladungen"}
+    </Link>
+  );
+}
+
 export function MyChallengesCard() {
   const challenges = useMyChallenges();
+  const invitationCount =
+    challenges.data?.items.filter(
+      (c) => c.duel?.state === "pending" && c.duel.iAmChallenger === false,
+    ).length ?? 0;
 
   return (
     <section
@@ -20,9 +37,12 @@ export function MyChallengesCard() {
       className="bg-surface rounded-tile px-4 pt-3.5 pb-1.5"
     >
       <div className="flex items-center justify-between gap-2 pb-1.5">
-        <h2 id="challenges-card" className="font-semibold">
-          Challenges
-        </h2>
+        <span className="flex items-center gap-2">
+          <h2 id="challenges-card" className="font-semibold">
+            Challenges
+          </h2>
+          <InvitationBadge count={invitationCount} />
+        </span>
         <Link
           to="/challenges"
           className="text-accent inline-flex min-h-8 items-center gap-0.5 text-sm font-medium"
@@ -46,13 +66,13 @@ export function MyChallengesCard() {
                 <p className="text-muted max-w-xs text-sm">
                   {planned
                     ? `„${planned.title}“ startet bald. Du bist schon dabei.`
-                    : "Sobald dein Coach eine Challenge für dich anlegt, siehst du hier deinen Stand."}
+                    : "Fordere jemanden zum Duell heraus oder warte auf eine Challenge deines Coaches."}
                 </p>
-                {items.length > 0 && (
-                  <Button asChild variant="secondary" size="sm">
-                    <Link to="/challenges">Challenges ansehen</Link>
-                  </Button>
-                )}
+                <Button asChild variant="secondary" size="sm">
+                  <Link to={items.length > 0 ? "/challenges" : "/challenges/duell"}>
+                    {items.length > 0 ? "Challenges ansehen" : "Duell starten"}
+                  </Link>
+                </Button>
               </div>
             );
           }
@@ -70,11 +90,15 @@ export function MyChallengesCard() {
                     <ChallengeIcon kind={challenge.kind} metric={challenge.metric} />
                     <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                       <span className="flex justify-between gap-2">
-                        <span className="truncate text-sm font-semibold">{challenge.title}</span>
+                        <span className="truncate text-sm font-semibold">
+                          {challenge.duel ? duelTitle(challenge) : challenge.title}
+                        </span>
                         <span className="text-muted shrink-0 text-xs">
-                          {challenge.metric === "manual" && challenge.todayValue === null
-                            ? "heute offen"
-                            : formatScore(challenge.metric, challenge.me?.score ?? 0)}
+                          {challenge.duel
+                            ? duelScoreText(challenge)
+                            : challenge.metric === "manual" && challenge.todayValue === null
+                              ? "heute offen"
+                              : formatScore(challenge.metric, challenge.me?.score ?? 0)}
                         </span>
                       </span>
                       <ChallengeBar

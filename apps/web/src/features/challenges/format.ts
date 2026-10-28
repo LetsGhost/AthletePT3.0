@@ -23,8 +23,16 @@ export function formatPeriod(startDate: string, endDate: string) {
 
 /** „noch 4 Tage“, „letzter Tag“, „startet in 5 Tagen“, „beendet am 31. Okt.“ */
 export function formatCountdown(
-  challenge: Pick<ChallengeSummary, "status" | "startDate" | "endDate" | "today">,
+  challenge: Pick<ChallengeSummary, "status" | "startDate" | "endDate" | "today"> & {
+    duel?: ChallengeSummary["duel"];
+  },
 ) {
+  if (challenge.duel?.state === "pending") {
+    const hours = Math.max(0, (Date.parse(challenge.duel.expiresAt) - Date.now()) / 3_600_000);
+    return hours < 24
+      ? "Einladung läuft heute ab"
+      : `Einladung noch ${Math.floor(hours / 24)} ${Math.floor(hours / 24) === 1 ? "Tag" : "Tage"}`;
+  }
   if (challenge.status === "planned") {
     const days = daysInPeriod(challenge.today, challenge.startDate) - 1;
     return days === 1 ? "startet morgen" : `startet in ${days} Tagen`;
@@ -67,9 +75,16 @@ export function scoreParts(metric: ChallengeMetric, value: number) {
 
 /** Anteil am Ziel bzw. am Führenden, 0 bis 1. */
 export function progressRatio(
-  challenge: Pick<ChallengeSummary, "scoring" | "goalValue" | "teamScore" | "leader" | "me">,
+  challenge: Pick<
+    ChallengeSummary,
+    "scoring" | "goalValue" | "teamScore" | "leader" | "me" | "duel"
+  >,
 ) {
   const score = challenge.me?.score ?? 0;
+  if (challenge.duel) {
+    // Anteil am gemeinsamen Wert, 50 % bei Gleichstand.
+    return challenge.teamScore > 0 ? score / challenge.teamScore : 0.5;
+  }
   if (challenge.scoring === "team_goal" && challenge.goalValue) {
     return Math.min(1, challenge.teamScore / challenge.goalValue);
   }
@@ -82,6 +97,7 @@ export function progressRatio(
 
 /** Kurzer Stand: „Platz 2 von 6“, „Ziel erreicht“, „Team: 82 %“. */
 export function standingText(challenge: ChallengeSummary) {
+  if (challenge.duel) return duelStanding(challenge);
   const me = challenge.me;
   if (challenge.scoring === "team_goal" && challenge.goalValue) {
     const percent = Math.round((challenge.teamScore / challenge.goalValue) * 100);
@@ -121,4 +137,45 @@ export function workoutUpdateText(update: ChallengeWorkoutUpdate) {
     return `${gained} · jetzt ${formatScore(update.metric, update.score)} von ${formatScore(update.metric, update.goalValue)}`;
   }
   return `${gained} · jetzt ${formatScore(update.metric, update.score)}`;
+}
+
+/** Zwei Werte in derselben Einheit, z. B. für „9 : 7“ im Duell. */
+export function pairScores(metric: ChallengeMetric, a: number, b: number) {
+  if (metric === "volume" && Math.max(a, b) >= 1000) {
+    return { a: formatNumber(a / 1000), b: formatNumber(b / 1000), unit: "Tonnen" };
+  }
+  return { a: formatNumber(a), b: formatNumber(b), unit: scoreParts(metric, 2).unit };
+}
+
+/** „Duell vs. Lena B.“, solange unbekannt die eingegebene Adresse. */
+export function duelTitle(challenge: Pick<ChallengeSummary, "duel">) {
+  const duel = challenge.duel!;
+  return `Duell vs. ${duel.opponentName ?? duel.invitedEmail ?? "Unbekannt"}`;
+}
+
+/** „9 : 7“ aus Sicht des Athleten (eigener Wert zuerst). */
+export function duelScoreText(challenge: ChallengeSummary) {
+  const mine = challenge.me?.score ?? 0;
+  const { a, b, unit } = pairScores(challenge.metric, mine, challenge.teamScore - mine);
+  return `${a} : ${b} ${unit}`;
+}
+
+/** „Du führst“, „Lena B. führt“, „Gewonnen“ … Aus Coach-Sicht ohne „Du“. */
+export function duelStanding(challenge: ChallengeSummary) {
+  const duel = challenge.duel!;
+  if (duel.state === "pending") {
+    return duel.iAmChallenger === false ? "Einladung offen" : "Wartet auf Antwort";
+  }
+  const mine = challenge.me?.score ?? 0;
+  const theirs = challenge.teamScore - mine;
+  const coachView = duel.iAmChallenger === null;
+  if (challenge.status === "finished") {
+    if (challenge.me?.achieved) return "Gewonnen";
+    return challenge.me?.achieved === false && (mine !== theirs || duel.gaveUpName)
+      ? "Verloren"
+      : "Unentschieden";
+  }
+  if (mine === theirs) return "Gleichstand";
+  if (mine > theirs) return coachView ? "führt" : "Du führst";
+  return coachView ? "liegt zurück" : `${duel.opponentName ?? "Gegner"} führt`;
 }

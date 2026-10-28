@@ -4,11 +4,26 @@ import { Link } from "react-router";
 import { cn } from "@/lib/cn";
 
 import { ChallengeBar, KindBadge, MetricChip } from "./challenge-visuals";
-import { formatCountdown, formatPeriod, formatScore, progressRatio, standingText } from "./format";
+import {
+  duelScoreText,
+  duelTitle,
+  formatCountdown,
+  formatPeriod,
+  formatScore,
+  progressRatio,
+  standingText,
+} from "./format";
 
 /** Ergebnis-Kennzeichnung einer beendeten Challenge. */
 function resultTag(challenge: ChallengeSummary) {
   const me = challenge.me;
+  if (challenge.duel) {
+    const text = standingText(challenge);
+    return {
+      label: text === "Gewonnen" ? "Sieg" : text === "Verloren" ? "Niederlage" : text,
+      strong: text === "Gewonnen",
+    };
+  }
   if (challenge.scoring === "ranking") {
     return me?.achieved
       ? { label: "Sieg", strong: true }
@@ -43,8 +58,16 @@ export function ChallengeCard({ challenge }: { challenge: ChallengeSummary }) {
         </span>
       </span>
       <span className="flex flex-col gap-0.5">
-        <span className="font-semibold">{challenge.title}</span>
-        {(challenge.description || challenge.prize) && (
+        <span className="font-semibold">
+          {challenge.duel ? duelTitle(challenge) : challenge.title}
+        </span>
+        {challenge.duel && (
+          <span className="text-muted text-sm">
+            {challenge.title}
+            {challenge.exerciseName && ` · ${challenge.exerciseName}`}
+          </span>
+        )}
+        {!challenge.duel && (challenge.description || challenge.prize) && (
           <span className="text-muted line-clamp-2 text-sm">
             {challenge.description}
             {challenge.description && challenge.prize && " "}
@@ -61,9 +84,11 @@ export function ChallengeCard({ challenge }: { challenge: ChallengeSummary }) {
           />
           <span className="flex justify-between gap-2 text-xs">
             <span className="font-semibold">
-              {challenge.metric === "manual" && challenge.todayValue === null
-                ? "Heute noch nicht eingetragen"
-                : formatScore(challenge.metric, challenge.me?.score ?? 0)}
+              {challenge.duel
+                ? duelScoreText(challenge)
+                : challenge.metric === "manual" && challenge.todayValue === null
+                  ? "Heute noch nicht eingetragen"
+                  : formatScore(challenge.metric, challenge.me?.score ?? 0)}
             </span>
             <span className="text-muted">{standingText(challenge)}</span>
           </span>
@@ -71,15 +96,19 @@ export function ChallengeCard({ challenge }: { challenge: ChallengeSummary }) {
       )}
       {challenge.status === "planned" && (
         <span className="text-muted text-xs">
-          {formatPeriod(challenge.startDate, challenge.endDate)} · {challenge.participantCount}{" "}
-          dabei
+          {challenge.duel
+            ? standingText(challenge)
+            : `${formatPeriod(challenge.startDate, challenge.endDate)} · ${challenge.participantCount} dabei`}
         </span>
       )}
       {tag && (
         <span className="flex items-center justify-between gap-2">
           <span className="text-sm">
-            {formatScore(challenge.metric, challenge.me?.score ?? 0)}
+            {challenge.duel
+              ? duelScoreText(challenge)
+              : formatScore(challenge.metric, challenge.me?.score ?? 0)}
             {challenge.scoring === "ranking" &&
+              !challenge.duel &&
               ` · Platz ${challenge.me?.rank ?? "–"} von ${challenge.participantCount}`}
           </span>
           <span

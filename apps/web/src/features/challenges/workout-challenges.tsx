@@ -10,6 +10,9 @@ import { workoutUpdateText } from "./format";
 
 function standing(update: ChallengeWorkoutUpdate) {
   if (update.entryPending) return { text: "Eintragen", up: false };
+  if (update.kind === "duel") {
+    return { text: update.rank === 1 ? "Du führst" : "Dranbleiben", up: false };
+  }
   if (update.scoring !== "ranking" || update.participantCount < 2) return null;
   const climbed = update.previousRank - update.rank;
   return { text: `Platz ${update.rank}`, up: climbed > 0, climbed };
@@ -42,7 +45,9 @@ export function WorkoutChallenges({ updates }: { updates: readonly ChallengeWork
               >
                 <ChallengeIcon kind={update.kind} metric={update.metric} className="size-9" />
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm font-medium">{update.title}</span>
+                  <span className="truncate text-sm font-medium">
+                    {update.kind === "duel" ? `Duell · ${update.title}` : update.title}
+                  </span>
                   <span className="text-muted text-xs">{workoutUpdateText(update)}</span>
                 </span>
                 {side && (

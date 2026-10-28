@@ -8,7 +8,14 @@ import { cn } from "@/lib/cn";
 import { useAthleteChallenges } from "./api";
 import { ChallengeBar, KindBadge } from "./challenge-visuals";
 import { kindTone } from "./tones";
-import { formatCountdown, formatScore, progressRatio, standingText } from "./format";
+import {
+  duelScoreText,
+  duelTitle,
+  formatCountdown,
+  formatScore,
+  progressRatio,
+  standingText,
+} from "./format";
 
 /** Coach-Ansicht eines Athleten: Challenges, in denen er dabei ist. */
 export function AthleteChallengesCard({ athleteId }: { athleteId: string }) {
@@ -38,7 +45,7 @@ export function AthleteChallengesCard({ athleteId }: { athleteId: string }) {
                 {current.map((challenge) => (
                   <Link
                     key={challenge.id}
-                    to={`/coach/challenges/${challenge.id}`}
+                    to={challenge.duel ? "/coach/challenges" : `/coach/challenges/${challenge.id}`}
                     className="bg-inset hover:bg-bg flex flex-col gap-2 rounded-card p-3 transition-colors"
                   >
                     <span className="flex items-center gap-2">
@@ -47,11 +54,17 @@ export function AthleteChallengesCard({ athleteId }: { athleteId: string }) {
                         {formatCountdown(challenge)}
                       </span>
                     </span>
-                    <span className="font-medium">{challenge.title}</span>
+                    <span className="font-medium">
+                      {challenge.duel ? duelTitle(challenge) : challenge.title}
+                    </span>
                     {challenge.status === "running" && (
                       <>
                         <span className="flex justify-between gap-2 text-xs">
-                          <span>{formatScore(challenge.metric, challenge.me?.score ?? 0)}</span>
+                          <span>
+                            {challenge.duel
+                              ? duelScoreText(challenge)
+                              : formatScore(challenge.metric, challenge.me?.score ?? 0)}
+                          </span>
                           <span className={cn("font-semibold", kindTone[challenge.kind].text)}>
                             {standingText(challenge)}
                           </span>
@@ -69,8 +82,15 @@ export function AthleteChallengesCard({ athleteId }: { athleteId: string }) {
                   <ul className="divide-border divide-y text-sm">
                     {finished.map((challenge) => (
                       <li key={challenge.id} className="flex justify-between gap-3 py-2">
-                        <Link to={`/coach/challenges/${challenge.id}`} className="truncate">
-                          {challenge.title}
+                        <Link
+                          to={
+                            challenge.duel
+                              ? "/coach/challenges"
+                              : `/coach/challenges/${challenge.id}`
+                          }
+                          className="truncate"
+                        >
+                          {challenge.duel ? duelTitle(challenge) : challenge.title}
                         </Link>
                         <span className="text-muted shrink-0">{standingText(challenge)}</span>
                       </li>

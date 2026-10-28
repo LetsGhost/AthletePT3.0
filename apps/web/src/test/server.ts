@@ -27,6 +27,8 @@ export const apiUrl = (path: string) => `http://localhost:3000/api/v1${path}`;
 /** Standard-Antworten, die Tests bei Bedarf mit `server.use` überschreiben. */
 export const server = setupServer(
   http.get(apiUrl("/me/challenges"), () => HttpResponse.json({ items: [] })),
+  http.get(apiUrl("/me/notifications"), () => HttpResponse.json({ items: [], unreadCount: 0 })),
+  http.get(apiUrl("/coach/challenges/duels"), () => HttpResponse.json({ items: [] })),
   http.get(apiUrl("/coach/challenges"), () => HttpResponse.json({ items: [] })),
   http.get(apiUrl("/athletes/:id/challenges"), () => HttpResponse.json({ items: [] })),
   http.get(apiUrl("/athletes/:id/plans"), () =>
@@ -428,8 +430,10 @@ export function buildChallenge(overrides: Partial<ChallengeDetail> = {}): Challe
     leader: standings[0]!,
     me: standings[1]!,
     todayValue: null,
+    duel: null,
     standings,
     entries: [],
+    daily: [],
     ...overrides,
   };
 }

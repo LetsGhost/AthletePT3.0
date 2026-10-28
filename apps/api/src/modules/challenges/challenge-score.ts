@@ -154,3 +154,31 @@ export function computeStandings(
   });
   return { standings, teamScore };
 }
+
+export interface DailyValue {
+  athleteId: string;
+  date: string;
+  value: number;
+}
+
+/** Wert je Teilnehmer und Tag (nur Tage mit Wert), z. B. für den Verlauf im Duell. */
+export function computeDailyValues(
+  definition: ScoreDefinition,
+  logs: readonly ScoreLog[],
+): DailyValue[] {
+  const byKey = new Map<string, DailyValue>();
+  for (const log of logs) {
+    if (log.date < definition.startDate || log.date > definition.lastDate) continue;
+    const key = `${log.athleteId}|${log.date}`;
+    const entry = byKey.get(key) ?? { athleteId: log.athleteId, date: log.date, value: 0 };
+    if (definition.metric === "workouts") entry.value += 1;
+    else if (definition.metric === "training_days") entry.value = 1;
+    else if (definition.metric === "e1rm")
+      entry.value = Math.max(entry.value, logValue(definition, log));
+    else entry.value = round1(entry.value + logValue(definition, log));
+    byKey.set(key, entry);
+  }
+  return [...byKey.values()]
+    .filter((d) => d.value > 0)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.athleteId.localeCompare(b.athleteId));
+}

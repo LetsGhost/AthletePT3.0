@@ -17,7 +17,9 @@ import {
   athleteChallengeRouter,
   coachChallengeRouter,
   myChallengeRouter,
+  myDuelRouter,
 } from "./modules/challenges/challenge.routes";
+import { myNotificationRouter } from "./modules/notifications/notification.routes";
 import { coachRouter } from "./modules/coaches/coach.routes";
 import { exerciseRouter } from "./modules/exercises/exercise.routes";
 import { myPlanRouter, planRouter, planTemplateRouter } from "./modules/plans/plan.routes";
@@ -43,6 +45,8 @@ const modules = [
   coachChallengeRouter,
   athleteChallengeRouter,
   myChallengeRouter,
+  myDuelRouter,
+  myNotificationRouter,
 ];
 
 export function createApp() {

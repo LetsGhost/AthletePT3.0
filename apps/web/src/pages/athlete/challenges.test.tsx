@@ -62,7 +62,7 @@ describe("Challenges (Athlet)", () => {
     expect(done).toHaveTextContent("12 Trainings");
     expect(done).toHaveTextContent("Sieg");
     await userEvent.click(screen.getByRole("radio", { name: /Geplant/ }));
-    expect(screen.getByText("Keine Challenge geplant.")).toBeInTheDocument();
+    expect(screen.getByText("Nichts geplant und keine offenen Duelle.")).toBeInTheDocument();
   });
 
   it("zeigt Stand, Preis und Rangliste", async () => {
