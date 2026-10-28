@@ -46,6 +46,10 @@ export interface StoredChallenge {
   durationDays: number | null;
   /** Duell: wer aufgegeben hat (dann auch `endedEarly`). */
   gaveUpById: Types.ObjectId | null;
+  /** System-Challenge: Vorlage, aus der diese Runde stammt. */
+  templateId: Types.ObjectId | null;
+  /** System-Challenge: Schwellen für Bronze, Silber, Gold (Kopie aus der Vorlage). */
+  tiers?: number[] | null;
   /** Ergebnis an die Teilnehmer gemeldet (siehe Challenge-Job). */
   resultNotifiedAt: Date | null;
   createdAt: Date;
@@ -102,6 +106,9 @@ const challengeSchema = new Schema(
     durationDays: nullableNumber,
     gaveUpById: { type: Schema.Types.ObjectId, ref: "User", default: null },
     resultNotifiedAt: { type: Date, default: null },
+    templateId: { type: Schema.Types.ObjectId, ref: "SystemTemplate", default: null },
+    // Ohne Default: Mongoose würde sonst ein leeres Array anlegen.
+    tiers: { type: [Number], default: undefined },
   },
   { timestamps: true },
 );
@@ -110,6 +117,12 @@ challengeSchema.index({ coachId: 1, endDate: -1 });
 challengeSchema.index({ "invite.athleteId": 1, "invite.status": 1 });
 challengeSchema.index({ createdById: 1, kind: 1 });
 challengeSchema.index({ resultNotifiedAt: 1, endDate: 1 });
+// Eine Runde je Vorlage und Zeitraum, auch wenn der Job parallel läuft.
+challengeSchema.index(
+  { templateId: 1, startDate: 1 },
+  { unique: true, partialFilterExpression: { templateId: { $type: "objectId" } } },
+);
+challengeSchema.index({ kind: 1, endDate: 1 });
 challengeSchema.index({ participantIds: 1, endDate: -1 });
 
 export const ChallengeModel = model("Challenge", challengeSchema);

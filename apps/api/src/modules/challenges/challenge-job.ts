@@ -1,4 +1,4 @@
-import { todayIsoDate } from "@athletept/shared";
+import { badgeTierLabels, tierFor, todayIsoDate } from "@athletept/shared";
 import type { Types } from "mongoose";
 
 import { env } from "../../config/env";
@@ -9,6 +9,7 @@ import { notify, type NewNotification } from "../notifications/notification.serv
 import { UserModel } from "../users/user.model";
 import { displayName, duelStateOf, loadScoreData, score, usersOf } from "./challenge-view";
 import { ChallengeModel, type StoredChallenge } from "./challenge.model";
+import { ensureSystemRounds } from "./system.service";
 
 const INTERVAL_MS = 60 * 60 * 1000;
 const numberFormat = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
@@ -58,6 +59,15 @@ function outcomeFor(
       ? { title: `Duell gegen ${opponent.name} gewonnen`, text: `${challenge.title} · ${result}` }
       : { title: `Duell gegen ${opponent.name} beendet`, text: `${challenge.title} · ${result}` };
   }
+  if (challenge.tiers?.length) {
+    const tier = tierFor(standing.score, challenge.tiers);
+    return {
+      title: tier
+        ? `${challenge.title}: ${badgeTierLabels[tier]}`
+        : `${challenge.title} ist beendet`,
+      text: `Platz ${standing.rank} von ${total}`,
+    };
+  }
   if (challenge.scoring === "ranking") {
     return won
       ? { title: `${challenge.title}: gewonnen!`, text: `Platz 1 von ${total}` }
@@ -92,7 +102,11 @@ async function reportResults(now: Date) {
     const notifications: NewNotification[] = [];
     const mails: Parameters<typeof challengeFinishedMail>[0][] = [];
     const accounts = await UserModel.find(
-      { _id: { $in: standings.map((s) => s.athleteId) }, status: "active" },
+      {
+        _id: { $in: standings.map((s) => s.athleteId) },
+        status: "active",
+        challengeMails: { $ne: false },
+      },
       { email: 1, name: 1 },
     ).lean<{ _id: Types.ObjectId; email: string; name: string }[]>();
     const emails = new Map(accounts.map((a) => [a._id.toString(), a]));
@@ -139,6 +153,7 @@ async function reportResults(now: Date) {
 
 /** Ein Durchlauf. Idempotent, jede Meldung geht höchstens einmal raus. */
 export async function runChallengeJob(now = new Date()) {
+  await ensureSystemRounds(todayIsoDate(now));
   const expired = await expireInvites(now);
   await reportResults(now);
   return { expired };

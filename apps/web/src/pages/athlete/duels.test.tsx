@@ -26,8 +26,24 @@ const LENA = "6acd3920c0072ec254663a02";
 
 function buildDuel(duel: Partial<DuelInfo> = {}, overrides: Partial<ChallengeDetail> = {}) {
   const standings = [
-    { athleteId: MAX, name: "Max Muster", score: 3, rank: 1, achieved: null, isMe: true },
-    { athleteId: LENA, name: "Lena B.", score: 2, rank: 2, achieved: null, isMe: false },
+    {
+      athleteId: MAX,
+      name: "Max Muster",
+      score: 3,
+      rank: 1,
+      achieved: null,
+      isMe: true,
+      tier: null,
+    },
+    {
+      athleteId: LENA,
+      name: "Lena B.",
+      score: 2,
+      rank: 2,
+      achieved: null,
+      isMe: false,
+      tier: null,
+    },
   ];
   return buildChallenge({
     id: "6acd3920c0072ec254663d01",
@@ -126,6 +142,7 @@ describe("Duelle (Athlet)", () => {
                     rank: 1,
                     achieved: true,
                     isMe: false,
+                    tier: null,
                   },
                   {
                     athleteId: MAX,
@@ -134,6 +151,7 @@ describe("Duelle (Athlet)", () => {
                     rank: 2,
                     achieved: false,
                     isMe: true,
+                    tier: null,
                   },
                 ],
               },
@@ -215,8 +233,8 @@ describe("Duelle (Athlet)", () => {
 
     const card = await screen.findByRole("region", { name: "Einladung von Tim K." });
     expect(card).toHaveTextContent("Meiste Trainingstage · 2 Wochen · Einladung noch 2 Tage");
-    // Eingegangene Einladungen stehen nicht noch einmal unter „Geplant“.
-    expect(screen.getByRole("radio", { name: /Geplant/ })).toHaveTextContent("0");
+    // Eingegangene Einladungen stehen nicht noch einmal unter „Aktiv“.
+    expect(screen.getByRole("radio", { name: /Aktiv/ })).toHaveTextContent("0");
     await userEvent.click(within(card).getByRole("button", { name: "Ablehnen" }));
     await waitFor(() =>
       expect(

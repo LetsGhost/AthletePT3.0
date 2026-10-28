@@ -15,7 +15,7 @@ import {
 } from "@/features/challenges/challenge-detail";
 import { ChallengeRing } from "@/features/challenges/challenge-visuals";
 import { kindTone } from "@/features/challenges/tones";
-import { formatScore, progressRatio, scoreParts } from "@/features/challenges/format";
+import { formatScore, nextTierHint, progressRatio, scoreParts } from "@/features/challenges/format";
 import {
   DuelActions,
   DuelDaily,
@@ -25,6 +25,7 @@ import {
   DuelResult,
 } from "@/features/challenges/duel-detail";
 import { ManualEntry } from "@/features/challenges/manual-entry";
+import { SystemMembership, SystemTiers } from "@/features/challenges/system-detail";
 import { ApiError } from "@/lib/http";
 import { cn } from "@/lib/cn";
 
@@ -32,6 +33,7 @@ import { cn } from "@/lib/cn";
 function standingHint(challenge: ChallengeDetail) {
   const me = challenge.me!;
   const { metric, goalValue } = challenge;
+  if (challenge.tiers) return nextTierHint(challenge);
   if (challenge.scoring === "goal" && goalValue !== null) {
     return me.score >= goalValue
       ? "Ziel erreicht"
@@ -83,7 +85,7 @@ function MyStanding({ challenge }: { challenge: ChallengeDetail }) {
   if (!me || challenge.status === "planned") return null;
   const big = scoreParts(challenge.metric, me.score);
   const title =
-    challenge.scoring === "ranking"
+    challenge.scoring === "ranking" || challenge.tiers
       ? `Platz ${me.rank}`
       : challenge.scoring === "team_goal"
         ? "Dein Beitrag"
@@ -151,9 +153,11 @@ export default function AthleteChallengePage() {
                 <ChallengeResult challenge={data} />
                 {data.metric === "manual" && <ManualEntry challenge={data} />}
                 <MyStanding challenge={data} />
+                <SystemTiers challenge={data} />
                 <ChallengePrize challenge={data} />
                 <ChallengeStandings challenge={data} />
                 <ChallengeRules challenge={data} />
+                {data.kind === "system" && <SystemMembership challenge={data} />}
                 {data.ownerName && (
                   <p className="text-muted text-center text-xs">
                     {data.ownerName} hat dich angemeldet, du bist automatisch dabei.

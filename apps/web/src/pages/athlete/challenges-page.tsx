@@ -1,4 +1,4 @@
-import type { ChallengeStatus, ChallengeSummary } from "@athletept/shared";
+import type { ChallengeSummary } from "@athletept/shared";
 import { Trophy } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { QueryState, SkeletonList } from "@/components/ui/query-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { toast } from "@/components/ui/toast-store";
-import { useDeclineDuel, useMyChallenges } from "@/features/challenges/api";
+import { useDeclineDuel, useDiscoverChallenges, useMyChallenges } from "@/features/challenges/api";
 import { ChallengeCard } from "@/features/challenges/challenge-card";
 import { StartDuelLink } from "@/features/challenges/duel-detail";
 import { formatCountdown } from "@/features/challenges/format";
@@ -17,11 +17,16 @@ import { cn } from "@/lib/cn";
 import { initials } from "@/lib/format";
 import { errorMessage } from "@/lib/http";
 
-const tabs: { value: ChallengeStatus; label: string; empty: string }[] = [
-  { value: "running", label: "Aktiv", empty: "Gerade läuft keine Challenge." },
-  { value: "planned", label: "Geplant", empty: "Nichts geplant und keine offenen Duelle." },
+type Tab = "active" | "discover" | "finished";
+
+const tabs: { value: Tab; label: string; empty: string }[] = [
+  { value: "active", label: "Aktiv", empty: "Gerade läuft keine Challenge." },
+  { value: "discover", label: "Entdecken", empty: "Gerade gibt es keine neuen System-Challenges." },
   { value: "finished", label: "Abgeschlossen", empty: "Noch keine Challenge abgeschlossen." },
 ];
+
+/** Aktiv umfasst laufende und bald startende (eigene Einladungen, geplante Challenges). */
+const tabOf = (c: ChallengeSummary): Tab => (c.status === "finished" ? "finished" : "active");
 
 const isIncoming = (c: ChallengeSummary) =>
   c.duel?.state === "pending" && c.duel.iAmChallenger === false;
@@ -82,7 +87,8 @@ function Invitation({ challenge }: { challenge: ChallengeSummary }) {
 
 export default function AthleteChallengesPage() {
   const challenges = useMyChallenges();
-  const [tab, setTab] = useState<ChallengeStatus>("running");
+  const discover = useDiscoverChallenges();
+  const [tab, setTab] = useState<Tab>("active");
 
   return (
     <>
@@ -95,7 +101,8 @@ export default function AthleteChallengesPage() {
         {({ items }) => {
           const invitations = items.filter(isIncoming);
           const listed = items.filter((c) => !isIncoming(c));
-          if (items.length === 0) {
+          const discoverable = discover.data?.items ?? [];
+          if (items.length === 0 && discoverable.length === 0) {
             return (
               <div className="bg-surface rounded-tile">
                 <EmptyState
@@ -111,7 +118,8 @@ export default function AthleteChallengesPage() {
               </div>
             );
           }
-          const visible = listed.filter((c) => c.status === tab);
+          const visible =
+            tab === "discover" ? discoverable : listed.filter((c) => tabOf(c) === tab);
           const current = tabs.find((t) => t.value === tab)!;
           return (
             <div className="flex flex-col gap-3.5">
@@ -124,7 +132,10 @@ export default function AthleteChallengesPage() {
                 onChange={setTab}
                 className="sm:self-start"
                 options={tabs.map((t) => {
-                  const count = listed.filter((c) => c.status === t.value).length;
+                  const count =
+                    t.value === "discover"
+                      ? discoverable.length
+                      : listed.filter((c) => tabOf(c) === t.value).length;
                   return {
                     value: t.value,
                     label: (

@@ -37,3 +37,10 @@ export const metricGroupIcon: Record<ChallengeMetricGroup, LucideIcon> = {
   performance: Zap,
   manual: Pencil,
 };
+
+/** Farbe je Stufe, für Medaillen und Abzeichen. */
+export const tierTone = {
+  bronze: "text-module-streak",
+  silver: "text-muted",
+  gold: "text-challenge-coach",
+} as const;

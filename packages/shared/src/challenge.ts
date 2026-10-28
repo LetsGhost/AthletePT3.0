@@ -226,6 +226,131 @@ export const challengeEntryRequestSchema = z.object({
 });
 
 /** Stand eines Teilnehmers. `rank` ist geteilt, wenn Wert und Zeitpunkt gleich sind. */
+// ---------------------------------------------------------------------------------------------
+// System-Challenges: Vorlagen des Sysadmins, aus denen Runden entstehen (wöchentlich, monatlich
+// oder einmalig). Teilnahme per Opt-in mit Spitznamen.
+
+export const badgeTiers = ["bronze", "silver", "gold"] as const;
+export const badgeTierSchema = z.enum(badgeTiers);
+export type BadgeTier = z.infer<typeof badgeTierSchema>;
+export const badgeTierLabels: Record<BadgeTier, string> = {
+  bronze: "Bronze",
+  silver: "Silber",
+  gold: "Gold",
+};
+
+/** Höchste erreichte Stufe, `null` unter Bronze. `thresholds` aufsteigend: Bronze, Silber, Gold. */
+export function tierFor(value: number, thresholds: readonly number[]): BadgeTier | null {
+  let tier: BadgeTier | null = null;
+  thresholds.forEach((threshold, index) => {
+    if (value >= threshold) tier = badgeTiers[index] ?? tier;
+  });
+  return tier;
+}
+
+/** Metriken für System-Challenges: nur Trainingsdaten, keine Übungsauswahl. */
+export const systemMetrics = ["workouts", "training_days", "volume", "sets"] as const;
+export const systemMetricSchema = z.enum(systemMetrics);
+export type SystemMetric = z.infer<typeof systemMetricSchema>;
+
+export const systemRhythms = ["weekly", "monthly", "once"] as const;
+export const systemRhythmSchema = z.enum(systemRhythms);
+export type SystemRhythm = z.infer<typeof systemRhythmSchema>;
+export const systemRhythmLabels: Record<SystemRhythm, string> = {
+  weekly: "Wöchentlich",
+  monthly: "Monatlich",
+  once: "Einmalig",
+};
+
+export const systemTemplateStatuses = ["draft", "active", "paused"] as const;
+export const systemTemplateStatusSchema = z.enum(systemTemplateStatuses);
+export type SystemTemplateStatus = z.infer<typeof systemTemplateStatusSchema>;
+export const systemTemplateStatusLabels: Record<SystemTemplateStatus, string> = {
+  draft: "Entwurf",
+  active: "Aktiv",
+  paused: "Pausiert",
+};
+
+const tierValuesSchema = z
+  .array(z.number({ error: "Bitte eine Zahl angeben" }).positive("Muss größer als 0 sein"))
+  .length(3, "Bronze, Silber und Gold angeben")
+  .refine((values) => values[0]! < values[1]! && values[1]! < values[2]!, {
+    error: "Bronze < Silber < Gold",
+  });
+
+export const createSystemTemplateRequestSchema = z
+  .object({
+    title: titleSchema,
+    description: descriptionSchema,
+    metric: systemMetricSchema,
+    /** Schwellen für Bronze, Silber, Gold (bei Volumen in kg). */
+    tiers: tierValuesSchema,
+    rhythm: systemRhythmSchema,
+    /** Nur bei `once`. */
+    startDate: isoDateSchema.nullish().transform((value) => value ?? null),
+    endDate: isoDateSchema.nullish().transform((value) => value ?? null),
+    status: z.enum(["draft", "active"]),
+  })
+  .superRefine((value, ctx) => {
+    if (value.rhythm !== "once") return;
+    if (!value.startDate || !value.endDate) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["startDate"],
+        message: "Bitte Start und Ende angeben",
+      });
+    } else if (value.endDate < value.startDate) {
+      ctx.addIssue({ code: "custom", path: ["endDate"], message: "Das Ende liegt vor dem Start" });
+    } else if (daysInPeriod(value.startDate, value.endDate) > MAX_CHALLENGE_DAYS) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["endDate"],
+        message: `Höchstens ${MAX_CHALLENGE_DAYS} Tage`,
+      });
+    }
+  });
+
+/** Änderungen wirken ab der nächsten Runde, laufende Runden behalten ihre Stufen. */
+export const updateSystemTemplateRequestSchema = z
+  .object({
+    title: titleSchema.optional(),
+    description: descriptionSchema.optional(),
+    tiers: tierValuesSchema.optional(),
+    status: systemTemplateStatusSchema.optional(),
+  })
+  .refine((value) => Object.values(value).some((v) => v !== undefined), "Keine Änderung angegeben");
+
+export const systemTemplateSchema = z.object({
+  id: objectIdSchema,
+  title: z.string(),
+  description: z.string().nullable(),
+  metric: systemMetricSchema,
+  tiers: z.array(z.number()),
+  rhythm: systemRhythmSchema,
+  startDate: isoDateSchema.nullable(),
+  endDate: isoDateSchema.nullable(),
+  status: systemTemplateStatusSchema,
+  /** Laufende Runde, sonst die nächste geplante. */
+  currentRound: z
+    .object({
+      id: objectIdSchema,
+      startDate: isoDateSchema,
+      endDate: isoDateSchema,
+      status: challengeStatusSchema,
+      participantCount: z.number().int(),
+    })
+    .nullable(),
+  /** Start der nächsten Runde (wiederkehrend und aktiv), sonst `null`. */
+  nextRoundStart: isoDateSchema.nullable(),
+  roundCount: z.number().int(),
+});
+
+export const systemTemplateListResponseSchema = z.object({
+  items: z.array(systemTemplateSchema),
+  /** Athleten in laufenden Runden, je Athlet einmal. */
+  activeParticipants: z.number().int(),
+});
+
 export const challengeStandingSchema = z.object({
   athleteId: objectIdSchema,
   name: z.string(),
@@ -234,6 +359,8 @@ export const challengeStandingSchema = z.object({
   /** Ziel erreicht bzw. bei der Rangliste nach dem Ende Platz 1. `null` = noch offen. */
   achieved: z.boolean().nullable(),
   isMe: z.boolean(),
+  /** System-Challenges: erreichte Abzeichen-Stufe. */
+  tier: badgeTierSchema.nullable(),
 });
 
 export const challengeEntrySchema = z.object({
@@ -333,6 +460,10 @@ export const challengeSummarySchema = z.object({
   todayValue: z.number().int().nullable(),
   /** Nur bei Duellen. */
   duel: duelInfoSchema.nullable(),
+  /** System-Challenges: Schwellen für Bronze, Silber, Gold. */
+  tiers: z.array(z.number()).nullable(),
+  /** System-Challenges: ob der Betrachter dabei ist. */
+  joined: z.boolean(),
 });
 
 /** Wert eines Teilnehmers an einem Tag, nur Tage mit Wert. */
@@ -397,3 +528,7 @@ export type CreateDuelRequest = z.input<typeof createDuelRequestSchema>;
 export type DuelInfo = z.infer<typeof duelInfoSchema>;
 export type ChallengeDailyValue = z.infer<typeof challengeDailyValueSchema>;
 export type TeamDuelListResponse = z.infer<typeof teamDuelListResponseSchema>;
+export type CreateSystemTemplateRequest = z.input<typeof createSystemTemplateRequestSchema>;
+export type UpdateSystemTemplateRequest = z.input<typeof updateSystemTemplateRequestSchema>;
+export type SystemTemplate = z.infer<typeof systemTemplateSchema>;
+export type SystemTemplateListResponse = z.infer<typeof systemTemplateListResponseSchema>;

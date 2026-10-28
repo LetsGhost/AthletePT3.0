@@ -89,7 +89,7 @@ interface NewDuel {
   metric: DuelMetric;
   exercise: { _id: Types.ObjectId; name: string } | null;
   durationDays: number;
-  invitee: { _id: Types.ObjectId; email: string; name: string } | null;
+  invitee: { _id: Types.ObjectId; email: string; name: string; challengeMails?: boolean } | null;
   email: string;
   rematchOfId: Types.ObjectId | null;
 }
@@ -139,17 +139,19 @@ async function createInvite(challengerId: string, duel: NewDuel) {
         challengeId: challenge._id,
       },
     ]);
-    await trySendMail(
-      duelInviteMail({
-        to: duel.invitee.email,
-        name: duel.invitee.name,
-        challengerName,
-        metricLabel,
-        duration: durationText(duel.durationDays),
-        validUntil: validUntilFormat.format(expiresAt),
-        url: `${env.APP_URL}/challenges/${challenge._id.toString()}`,
-      }),
-    );
+    if (duel.invitee.challengeMails !== false) {
+      await trySendMail(
+        duelInviteMail({
+          to: duel.invitee.email,
+          name: duel.invitee.name,
+          challengerName,
+          metricLabel,
+          duration: durationText(duel.durationDays),
+          validUntil: validUntilFormat.format(expiresAt),
+          url: `${env.APP_URL}/challenges/${challenge._id.toString()}`,
+        }),
+      );
+    }
   }
   return challenge;
 }
@@ -171,8 +173,8 @@ export async function createDuel(athleteId: string, input: CreateInput) {
   const exercise = input.exerciseId ? await findDuelExercise(athleteId, input.exerciseId) : null;
   const invitee = await UserModel.findOne(
     { email: input.email, role: "athlete", status: "active" },
-    { email: 1, name: 1 },
-  ).lean<{ _id: Types.ObjectId; email: string; name: string }>();
+    { email: 1, name: 1, challengeMails: 1 },
+  ).lean<{ _id: Types.ObjectId; email: string; name: string; challengeMails?: boolean }>();
 
   const challenge = await createInvite(athleteId, {
     metric: input.metric,
@@ -328,8 +330,8 @@ export async function rematchDuel(athleteId: string, id: string) {
   const opponent = opponentId
     ? await UserModel.findOne(
         { _id: opponentId, role: "athlete", status: "active" },
-        { email: 1, name: 1 },
-      ).lean<{ _id: Types.ObjectId; email: string; name: string }>()
+        { email: 1, name: 1, challengeMails: 1 },
+      ).lean<{ _id: Types.ObjectId; email: string; name: string; challengeMails?: boolean }>()
     : null;
   if (!opponent) {
     throw new ConflictError("Dein Gegner ist nicht mehr dabei.", "duel_opponent_gone");

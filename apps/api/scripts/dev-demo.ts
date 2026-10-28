@@ -47,6 +47,7 @@ const { WorkoutLogModel } = await import("../src/modules/workouts/workout-log.mo
 const { ChallengeEntryModel, ChallengeModel } =
   await import("../src/modules/challenges/challenge.model");
 const duelService = await import("../src/modules/challenges/duel.service");
+const systemService = await import("../src/modules/challenges/system.service");
 
 await connectDatabase();
 const passwordHash = await hashPassword(DEMO_PASSWORD);
@@ -399,6 +400,35 @@ await duelService.createDuel(secondAthlete.id, {
   durationDays: 7,
   email: athlete.email,
 });
+
+// System-Challenges: monatliche Konstanz (Max ist dabei) und wöchentliches Volumen zum Entdecken.
+await UserModel.updateOne({ _id: athlete._id }, { nickname: "Max_M", nicknameLower: "max_m" });
+await UserModel.updateOne(
+  { _id: secondAthlete._id },
+  { nickname: "Nordlicht", nicknameLower: "nordlicht" },
+);
+const monthly = await systemService.createTemplate({
+  title: "Monats-Konstanz",
+  description: "Erledige im Monat so viele Trainings wie möglich.",
+  metric: "workouts",
+  tiers: [8, 12, 16],
+  rhythm: "monthly",
+  startDate: null,
+  endDate: null,
+  status: "active",
+});
+await systemService.createTemplate({
+  title: "Wochen-Volumen",
+  description: null,
+  metric: "volume",
+  tiers: [10_000, 20_000, 30_000],
+  rhythm: "weekly",
+  startDate: null,
+  endDate: null,
+  status: "active",
+});
+await systemService.joinRound(athlete.id, monthly.currentRound!.id);
+await systemService.joinRound(secondAthlete.id, monthly.currentRound!.id);
 
 console.log(`
 ┌─────────────────────────────────────────────────────────┐

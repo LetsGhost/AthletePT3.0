@@ -1,5 +1,6 @@
 import {
   challengeStatusOn,
+  tierFor,
   todayIsoDate,
   type ChallengeDetail,
   type ChallengeEntry,
@@ -195,14 +196,26 @@ export function score(challenge: StoredChallenge, today: string, data: ScoreData
 interface UserInfo {
   name: string;
   coachId: string | null;
+  nickname: string | null;
 }
 
 export async function usersOf(ids: readonly (Types.ObjectId | string)[]) {
-  const users = await UserModel.find({ _id: { $in: ids } }, { name: 1, coachId: 1 }).lean<
-    { _id: Types.ObjectId; name: string; coachId: Types.ObjectId | null }[]
+  const users = await UserModel.find(
+    { _id: { $in: ids } },
+    { name: 1, coachId: 1, nickname: 1 },
+  ).lean<
+    {
+      _id: Types.ObjectId;
+      name: string;
+      coachId: Types.ObjectId | null;
+      nickname?: string | null;
+    }[]
   >();
   return new Map<string, UserInfo>(
-    users.map((u) => [u._id.toString(), { name: u.name, coachId: u.coachId?.toString() ?? null }]),
+    users.map((u) => [
+      u._id.toString(),
+      { name: u.name, coachId: u.coachId?.toString() ?? null, nickname: u.nickname ?? null },
+    ]),
   );
 }
 
@@ -213,13 +226,13 @@ export function shortName(name: string) {
   return last ? `${first} ${last[0]!.toUpperCase()}.` : (first ?? name);
 }
 
-/** Voller Name im eigenen Team und für sich selbst, sonst gekürzt. */
+/** Voller Name im eigenen Team und für sich selbst, sonst Spitzname bzw. gekürzt. */
 export function displayName(id: string, user: UserInfo, perspective: Perspective) {
   const sameTeam =
     id === perspective.athleteId ||
     id === perspective.teamCoachId ||
     (perspective.teamCoachId !== null && user.coachId === perspective.teamCoachId);
-  return sameTeam ? user.name : shortName(user.name);
+  return sameTeam ? user.name : (user.nickname ?? shortName(user.name));
 }
 
 function duelInfo(
@@ -252,6 +265,18 @@ function duelInfo(
   };
 }
 
+/** So viele Plätze zeigt eine globale Rangliste oben, dazu die Nachbarn des Betrachters. */
+const SYSTEM_TOP = 10;
+const SYSTEM_AROUND = 2;
+
+/** Globale Ranglisten können lang sein: oben die Besten, dazu die Plätze um den Betrachter. */
+function visibleStandings(standings: ChallengeStanding[]) {
+  const mine = standings.findIndex((s) => s.isMe);
+  return standings.filter(
+    (_, index) => index < SYSTEM_TOP || (mine !== -1 && Math.abs(index - mine) <= SYSTEM_AROUND),
+  );
+}
+
 export async function buildDetail(
   challenge: StoredChallenge,
   perspective: Perspective,
@@ -276,6 +301,7 @@ export async function buildDetail(
       rank: s.rank,
       achieved: s.achieved,
       isMe: s.athleteId === perspective.athleteId,
+      tier: challenge.tiers?.length ? tierFor(s.score, challenge.tiers) : null,
     }));
   const me = standings.find((s) => s.isMe) ?? null;
 
@@ -316,7 +342,11 @@ export async function buildDetail(
     me,
     todayValue,
     duel: state ? duelInfo(challenge, state, users, perspective) : null,
-    standings,
+    tiers: challenge.tiers?.length ? challenge.tiers : null,
+    joined:
+      perspective.athleteId !== null &&
+      challenge.participantIds.some((p) => p.toString() === perspective.athleteId),
+    standings: challenge.kind === "system" ? visibleStandings(standings) : standings,
     entries,
     daily:
       challenge.kind === "duel"

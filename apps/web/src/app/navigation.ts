@@ -2,6 +2,7 @@ import type { UserRole } from "@athletept/shared";
 import {
   ClipboardList,
   Dumbbell,
+  Globe,
   History,
   House,
   KeyRound,
@@ -49,6 +50,7 @@ export const navigation: Record<UserRole, NavItem[]> = {
     { to: "/admin/coaches", label: "Coaches", icon: Users },
     { to: "/admin/exercises", label: "Übungskatalog", icon: Dumbbell },
     { to: "/admin/api-keys", label: "API-Zugänge", icon: KeyRound },
+    { to: "/admin/system-challenges", label: "System-Challenges", icon: Globe },
   ],
 };
 

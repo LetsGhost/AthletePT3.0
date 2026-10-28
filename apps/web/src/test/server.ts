@@ -28,6 +28,14 @@ export const apiUrl = (path: string) => `http://localhost:3000/api/v1${path}`;
 export const server = setupServer(
   http.get(apiUrl("/me/challenges"), () => HttpResponse.json({ items: [] })),
   http.get(apiUrl("/me/notifications"), () => HttpResponse.json({ items: [], unreadCount: 0 })),
+  http.get(apiUrl("/me/challenges/discover"), () => HttpResponse.json({ items: [] })),
+  http.get(apiUrl("/me/badges"), () => HttpResponse.json({ items: [], earnedCount: 0 })),
+  http.get(apiUrl("/me/challenge-settings"), () =>
+    HttpResponse.json({ nickname: null, challengeMails: true }),
+  ),
+  http.get(apiUrl("/admin/system-challenges"), () =>
+    HttpResponse.json({ items: [], activeParticipants: 0 }),
+  ),
   http.get(apiUrl("/coach/challenges/duels"), () => HttpResponse.json({ items: [] })),
   http.get(apiUrl("/coach/challenges"), () => HttpResponse.json({ items: [] })),
   http.get(apiUrl("/athletes/:id/challenges"), () => HttpResponse.json({ items: [] })),
@@ -387,6 +395,7 @@ export function buildChallenge(overrides: Partial<ChallengeDetail> = {}): Challe
       rank: 1,
       achieved: null,
       isMe: false,
+      tier: null,
     },
     {
       athleteId: "6acd3920c0072ec254663a01",
@@ -395,6 +404,7 @@ export function buildChallenge(overrides: Partial<ChallengeDetail> = {}): Challe
       rank: 2,
       achieved: null,
       isMe: true,
+      tier: null,
     },
     {
       athleteId: "6acd3920c0072ec254663a03",
@@ -403,6 +413,7 @@ export function buildChallenge(overrides: Partial<ChallengeDetail> = {}): Challe
       rank: 3,
       achieved: null,
       isMe: false,
+      tier: null,
     },
   ];
   return {
@@ -431,6 +442,8 @@ export function buildChallenge(overrides: Partial<ChallengeDetail> = {}): Challe
     me: standings[1]!,
     todayValue: null,
     duel: null,
+    tiers: null,
+    joined: true,
     standings,
     entries: [],
     daily: [],

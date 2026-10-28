@@ -8,6 +8,7 @@ import { useMyApiKeys } from "@/features/api-keys/api";
 import { MyApiKeys } from "@/features/api-keys/my-api-keys";
 import { useSession } from "@/features/auth/session";
 import { useLogout } from "@/features/auth/use-logout";
+import { ChallengeSettings } from "@/features/settings/challenge-settings";
 import { ChangePasswordForm } from "@/features/settings/change-password-form";
 import { RestTimerSettings } from "@/features/settings/rest-timer-settings";
 import { RowIcon, RowText, rowClasses, SettingsGroup } from "@/features/settings/settings-parts";
@@ -78,6 +79,15 @@ export default function SettingsPage() {
             footer="Die Pausenvorgabe deines Coaches hat immer Vorrang. Diese Einstellungen gelten nur für dieses Gerät."
           >
             <RestTimerSettings />
+          </SettingsGroup>
+        )}
+
+        {user.role === "athlete" && (
+          <SettingsGroup
+            title="Challenges"
+            footer="Hinweise in der App bekommst du immer, Mails nur, wenn der Schalter an ist."
+          >
+            <ChallengeSettings />
           </SettingsGroup>
         )}
 

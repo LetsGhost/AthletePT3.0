@@ -94,6 +94,7 @@ export const routes: RouteObject[] = [
                     path: "/challenges/duell",
                     ...page(() => import("@/pages/athlete/new-duel-page")),
                   },
+                  { path: "/abzeichen", ...page(() => import("@/pages/athlete/badges-page")) },
                   {
                     path: "/benachrichtigungen",
                     ...page(() => import("@/pages/athlete/notifications-page")),
@@ -173,6 +174,15 @@ export const routes: RouteObject[] = [
                     ...page(() => import("@/pages/admin/exercises-page")),
                   },
                   { path: "/admin/api-keys", ...page(() => import("@/pages/admin/api-keys-page")) },
+                  {
+                    path: "/admin/system-challenges",
+                    ...page(() => import("@/pages/admin/system-challenges-page")),
+                  },
+                  {
+                    path: "/admin/system-challenges/new",
+                    ...page(() => import("@/pages/admin/new-system-challenge-page")),
+                    ...wide,
+                  },
                 ],
               },
               { path: "*", ...page(() => import("@/pages/not-found-page")) },

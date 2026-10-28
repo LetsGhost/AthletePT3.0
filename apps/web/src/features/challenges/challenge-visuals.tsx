@@ -1,4 +1,5 @@
 import {
+  badgeTierLabels,
   challengeKindLabels,
   challengeMetricGroup,
   challengeMetricGroupLabels,
@@ -6,13 +7,14 @@ import {
   type ChallengeMetric,
   type ChallengeStanding,
 } from "@athletept/shared";
-import type { ReactNode } from "react";
+import { Medal } from "lucide-react";
+import { Fragment, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 import { initials } from "@/lib/format";
 
 import { formatScore } from "./format";
-import { kindIcon, kindTone, metricGroupIcon } from "./tones";
+import { kindIcon, kindTone, metricGroupIcon, tierTone } from "./tones";
 
 export function KindBadge({ kind }: { kind: ChallengeKind }) {
   const Icon = kindIcon[kind];
@@ -138,47 +140,62 @@ const rankTone = ["text-challenge-coach", "text-muted", "text-module-streak"];
 export function Standings({
   standings,
   metric,
+  showGaps = false,
 }: {
   standings: readonly ChallengeStanding[];
   metric: ChallengeMetric;
+  /** Gekürzte Rangliste: „···“ zwischen nicht aufeinanderfolgenden Plätzen. */
+  showGaps?: boolean;
 }) {
   return (
     <ol className="bg-surface flex flex-col rounded-tile p-1.5">
-      {standings.map((standing) => (
-        <li
-          key={standing.athleteId}
-          aria-current={standing.isMe ? "true" : undefined}
-          className={cn(
-            "flex items-center gap-2.5 rounded-xl border px-2.5 py-2",
-            standing.isMe ? "border-primary bg-primary/25" : "border-transparent",
+      {standings.map((standing, index) => (
+        <Fragment key={standing.athleteId}>
+          {showGaps && index > 0 && standing.rank - standings[index - 1]!.rank > 1 && (
+            <li aria-hidden="true" className="text-muted py-0.5 text-center tracking-[3px]">
+              ···
+            </li>
           )}
-        >
-          <span
+          <li
+            aria-current={standing.isMe ? "true" : undefined}
             className={cn(
-              "w-8 text-center text-sm font-bold tabular-nums",
-              standing.score > 0 ? (rankTone[standing.rank - 1] ?? "text-muted") : "text-muted",
+              "flex items-center gap-2.5 rounded-xl border px-2.5 py-2",
+              standing.isMe ? "border-primary bg-primary/25" : "border-transparent",
             )}
           >
-            {standing.rank}
-            <span className="sr-only">. Platz</span>
-          </span>
-          <span
-            aria-hidden="true"
-            className={cn(
-              "flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
-              standing.isMe ? "bg-primary text-on-primary" : "bg-inset",
+            <span
+              className={cn(
+                "w-8 text-center text-sm font-bold tabular-nums",
+                standing.score > 0 ? (rankTone[standing.rank - 1] ?? "text-muted") : "text-muted",
+              )}
+            >
+              {standing.rank}
+              <span className="sr-only">. Platz</span>
+            </span>
+            <span
+              aria-hidden="true"
+              className={cn(
+                "flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
+                standing.isMe ? "bg-primary text-on-primary" : "bg-inset",
+              )}
+            >
+              {initials(standing.name)}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+              {standing.name}
+              {standing.isMe && <span className="text-muted"> (du)</span>}
+            </span>
+            {standing.tier && (
+              <Medal
+                aria-label={badgeTierLabels[standing.tier]}
+                className={cn("size-4 shrink-0", tierTone[standing.tier])}
+              />
             )}
-          >
-            {initials(standing.name)}
-          </span>
-          <span className="min-w-0 flex-1 truncate text-sm font-medium">
-            {standing.name}
-            {standing.isMe && <span className="text-muted"> (du)</span>}
-          </span>
-          <span className="text-sm font-semibold tabular-nums">
-            {formatScore(metric, standing.score)}
-          </span>
-        </li>
+            <span className="text-sm font-semibold tabular-nums">
+              {formatScore(metric, standing.score)}
+            </span>
+          </li>
+        </Fragment>
       ))}
     </ol>
   );

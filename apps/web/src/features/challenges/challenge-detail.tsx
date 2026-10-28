@@ -27,10 +27,12 @@ export function ChallengeHero({ challenge }: { challenge: ChallengeDetail }) {
       <div className="flex flex-col gap-1">
         <h1 className="text-[22px] leading-tight font-semibold">{challenge.title}</h1>
         <p className="text-muted text-sm">
-          {measureText(challenge, challengeMetricLabels[challenge.metric])} ·{" "}
-          {challengeScoringLabels[challenge.scoring]}
-          {challenge.goalValue !== null &&
-            ` · Ziel ${formatScore(challenge.metric, challenge.goalValue)}`}
+          {measureText(challenge, challengeMetricLabels[challenge.metric])}
+          {!challenge.tiers && ` · ${challengeScoringLabels[challenge.scoring]}`}
+          {challenge.tiers
+            ? ` · Bronze ab ${formatScore(challenge.metric, challenge.tiers[0]!)}`
+            : challenge.goalValue !== null &&
+              ` · Ziel ${formatScore(challenge.metric, challenge.goalValue)}`}
         </p>
         {challenge.description && (
           <p className="text-muted text-sm leading-relaxed">„{challenge.description}“</p>
@@ -114,7 +116,13 @@ function rules(challenge: ChallengeDetail) {
   if (challenge.metric !== "manual") {
     list.push("Nachgetragene Trainings zählen, wenn ihr Datum im Zeitraum liegt.");
   }
-  if (challenge.scoring === "ranking") {
+  if (challenge.tiers) {
+    list.push(
+      `Abzeichen: Bronze ab ${formatScore(challenge.metric, challenge.tiers[0]!)}, Silber ab ${formatScore(challenge.metric, challenge.tiers[1]!)}, Gold ab ${formatScore(challenge.metric, challenge.tiers[2]!)}.`,
+    );
+    list.push("In der globalen Rangliste erscheinst du mit deinem Spitznamen.");
+    list.push("Gleichstand: Wer den Wert zuerst erreicht hat, steht vorn.");
+  } else if (challenge.scoring === "ranking") {
     list.push("Gleichstand: Wer den Wert zuerst erreicht hat, steht vorn.");
   } else if (challenge.scoring === "team_goal") {
     list.push("Alle sammeln gemeinsam, jeder Beitrag zählt fürs Team-Ziel.");
@@ -150,21 +158,28 @@ export function ChallengeStandings({ challenge }: { challenge: ChallengeDetail }
     <section aria-labelledby="challenge-standings" className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between px-0.5">
         <h2 id="challenge-standings" className="font-semibold">
-          {challenge.scoring === "ranking" ? "Rangliste" : "Teilnehmer"}
+          {challenge.scoring === "ranking" || challenge.tiers ? "Rangliste" : "Teilnehmer"}
         </h2>
+        {challenge.kind === "system" && (
+          <span className="text-muted text-xs">Spitznamen · global</span>
+        )}
         {challenge.scoring === "team_goal" && challenge.goalValue !== null && (
           <span className="text-muted text-xs">
             Team: {formatScore(challenge.metric, challenge.teamScore)} von{" "}
             {formatScore(challenge.metric, challenge.goalValue)}
           </span>
         )}
-        {challenge.scoring === "goal" && (
+        {challenge.scoring === "goal" && !challenge.tiers && (
           <span className="text-muted text-xs">
             {challenge.achievedCount} von {challenge.participantCount} am Ziel
           </span>
         )}
       </div>
-      <Standings standings={challenge.standings} metric={challenge.metric} />
+      <Standings
+        standings={challenge.standings}
+        metric={challenge.metric}
+        showGaps={challenge.kind === "system"}
+      />
     </section>
   );
 }

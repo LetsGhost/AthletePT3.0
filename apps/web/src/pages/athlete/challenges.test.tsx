@@ -61,8 +61,8 @@ describe("Challenges (Athlet)", () => {
     const done = screen.getByRole("link", { name: /September-Konstanz/ });
     expect(done).toHaveTextContent("12 Trainings");
     expect(done).toHaveTextContent("Sieg");
-    await userEvent.click(screen.getByRole("radio", { name: /Geplant/ }));
-    expect(screen.getByText("Nichts geplant und keine offenen Duelle.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: /Entdecken/ }));
+    expect(screen.getByText("Gerade gibt es keine neuen System-Challenges.")).toBeInTheDocument();
   });
 
   it("zeigt Stand, Preis und Rangliste", async () => {

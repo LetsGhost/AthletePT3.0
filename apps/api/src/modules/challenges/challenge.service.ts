@@ -94,9 +94,10 @@ async function notifyParticipants(challenge: StoredChallenge, athleteIds: readon
   );
   const [coach, athletes] = await Promise.all([
     UserModel.findById(challenge.coachId, { name: 1 }).lean<{ name: string }>(),
-    UserModel.find({ _id: { $in: athleteIds }, status: "active" }, { name: 1, email: 1 }).lean<
-      { name: string; email: string }[]
-    >(),
+    UserModel.find(
+      { _id: { $in: athleteIds }, status: "active", challengeMails: { $ne: false } },
+      { name: 1, email: 1 },
+    ).lean<{ name: string; email: string }[]>(),
   ]);
   const url = `${env.APP_URL}/challenges/${challenge._id.toString()}`;
   await Promise.all(
@@ -300,8 +301,13 @@ export async function listMyChallenges(athleteId: string): Promise<ChallengeList
   return listFor(athleteId, await athletePerspective(athleteId));
 }
 
+/** Eigene Challenges, dazu alle System-Runden (zum Ansehen vor dem Beitreten). */
 export async function getMyChallenge(athleteId: string, id: string) {
-  const challenge = await findInvolving(athleteId, id);
+  const challenge = await ChallengeModel.findOne({
+    _id: id,
+    $or: [...involving(athleteId).$or, { kind: "system" }],
+  }).lean<StoredChallenge>();
+  if (!challenge) throw new NotFoundError("Challenge nicht gefunden");
   return buildDetail(challenge, await athletePerspective(athleteId));
 }
 
@@ -372,6 +378,8 @@ export async function updatesAfterWorkout(
       const gained = Math.round((mine.score - previous.score) * 10) / 10;
       if (manual ? !entryPending : gained <= 0) return null;
 
+      // Nur Ranglisten (Coach, Duell). System-Runden werten als Ziel, ihre globale Rangliste wäre
+      // für Einzelmeldungen ohnehin zu groß.
       if (challenge.scoring === "ranking" && mine.rank < previous.rank) {
         const passed = before.standings.filter(
           (s) =>

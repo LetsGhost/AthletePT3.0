@@ -1,5 +1,8 @@
 import {
+  badgeTierLabels,
+  badgeTiers,
   daysInPeriod,
+  type ChallengeDetail,
   type ChallengeMetric,
   type ChallengeSummary,
   type ChallengeWorkoutUpdate,
@@ -77,10 +80,11 @@ export function scoreParts(metric: ChallengeMetric, value: number) {
 export function progressRatio(
   challenge: Pick<
     ChallengeSummary,
-    "scoring" | "goalValue" | "teamScore" | "leader" | "me" | "duel"
+    "scoring" | "goalValue" | "teamScore" | "leader" | "me" | "duel" | "tiers"
   >,
 ) {
   const score = challenge.me?.score ?? 0;
+  if (challenge.tiers) return Math.min(1, score / challenge.tiers[2]!);
   if (challenge.duel) {
     // Anteil am gemeinsamen Wert, 50 % bei Gleichstand.
     return challenge.teamScore > 0 ? score / challenge.teamScore : 0.5;
@@ -99,6 +103,11 @@ export function progressRatio(
 export function standingText(challenge: ChallengeSummary) {
   if (challenge.duel) return duelStanding(challenge);
   const me = challenge.me;
+  if (challenge.tiers) {
+    return me
+      ? `Platz ${me.rank} von ${challenge.participantCount}`
+      : `${challenge.participantCount} dabei`;
+  }
   if (challenge.scoring === "team_goal" && challenge.goalValue) {
     const percent = Math.round((challenge.teamScore / challenge.goalValue) * 100);
     return `Team-Ziel ${Math.min(percent, 100)} %`;
@@ -178,4 +187,13 @@ export function duelStanding(challenge: ChallengeSummary) {
   if (mine === theirs) return "Gleichstand";
   if (mine > theirs) return coachView ? "führt" : "Du führst";
   return coachView ? "liegt zurück" : `${duel.opponentName ?? "Gegner"} führt`;
+}
+
+/** Was bis zur nächsten Stufe fehlt, z. B. „Noch 600 kg bis Silber“. */
+export function nextTierHint(challenge: Pick<ChallengeDetail, "tiers" | "me" | "metric">) {
+  const me = challenge.me;
+  if (!challenge.tiers || !me) return null;
+  const next = challenge.tiers.findIndex((threshold) => me.score < threshold);
+  if (next === -1) return "Gold erreicht";
+  return `Noch ${formatScore(challenge.metric, challenge.tiers[next]! - me.score)} bis ${badgeTierLabels[badgeTiers[next]!]}`;
 }

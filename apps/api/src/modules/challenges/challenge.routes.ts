@@ -4,6 +4,15 @@ import {
   challengeListResponseSchema,
   createCoachChallengeRequestSchema,
   createDuelRequestSchema,
+  createSystemTemplateRequestSchema,
+  badgeListResponseSchema,
+  challengeSettingsSchema,
+  nicknameCheckQuerySchema,
+  nicknameCheckResponseSchema,
+  systemTemplateListResponseSchema,
+  systemTemplateSchema,
+  updateChallengeSettingsRequestSchema,
+  updateSystemTemplateRequestSchema,
   isoDateSchema,
   objectIdSchema,
   teamDuelListResponseSchema,
@@ -13,7 +22,10 @@ import { z } from "zod";
 
 import { createModuleRouter } from "../../lib/router";
 import * as challengeService from "./challenge.service";
+import * as badgeService from "./badge.service";
 import * as duelService from "./duel.service";
+import * as settingsService from "./settings.service";
+import * as systemService from "./system.service";
 
 const idParams = z.object({ id: objectIdSchema });
 
@@ -127,6 +139,17 @@ athletes.route({
     challengeService.listAthleteChallenges(auth.userId, params.athleteId),
 });
 
+athletes.route({
+  method: "get",
+  path: "/:athleteId/badges",
+  summary: "Abzeichen eines Athleten",
+  auth: ["coach"],
+  params: z.object({ athleteId: objectIdSchema }),
+  response: badgeListResponseSchema,
+  errors: [404],
+  handler: ({ auth, params }) => badgeService.listAthleteBadges(auth.userId, params.athleteId),
+});
+
 export const athleteChallengeRouter = athletes;
 
 const me = createModuleRouter("/me/challenges", "Eigene Challenges");
@@ -141,11 +164,50 @@ me.route({
   handler: ({ auth }) => challengeService.listMyChallenges(auth.userId),
 });
 
+// Vor `/:id`, sonst würde „discover“ als ID geprüft.
+me.route({
+  method: "get",
+  path: "/discover",
+  summary: "System-Challenges zum Beitreten",
+  description: "Laufende und geplante System-Runden, bei denen der Athlet noch nicht dabei ist.",
+  auth: ["athlete"],
+  response: challengeListResponseSchema,
+  handler: ({ auth }) => systemService.listDiscover(auth.userId),
+});
+
+me.route({
+  method: "post",
+  path: "/:id/join",
+  summary: "System-Challenge beitreten",
+  description:
+    "Vor und während der Runde. Ohne Spitzname: 409 `nickname_required`, beendet: 409 " +
+    "`challenge_finished`.",
+  auth: ["athlete"],
+  params: idParams,
+  response: challengeDetailSchema,
+  errors: [404, 409],
+  handler: ({ auth, params }) => systemService.joinRound(auth.userId, params.id),
+});
+
+me.route({
+  method: "post",
+  path: "/:id/leave",
+  summary: "System-Challenge verlassen",
+  description: "Verschwindet aus der Rangliste. Erneutes Beitreten geht, solange sie läuft.",
+  auth: ["athlete"],
+  params: idParams,
+  response: challengeDetailSchema,
+  errors: [404, 409],
+  handler: ({ auth, params }) => systemService.leaveRound(auth.userId, params.id),
+});
+
 me.route({
   method: "get",
   path: "/:id",
   summary: "Eigene Challenge mit Rangliste abrufen",
-  description: "Bei einer freien Vorgabe mit den eigenen Einträgen (`entries`).",
+  description:
+    "Bei einer freien Vorgabe mit den eigenen Einträgen (`entries`). System-Challenges lassen " +
+    "sich auch ohne Teilnahme abrufen, ihre Rangliste zeigt die besten 10 und die eigene Umgebung.",
   auth: ["athlete"],
   params: idParams,
   response: challengeDetailSchema,
@@ -244,3 +306,107 @@ duels.route({
 });
 
 export const myDuelRouter = duels;
+
+const profile = createModuleRouter("/me", "Eigene Challenges");
+
+profile.route({
+  method: "get",
+  path: "/challenge-settings",
+  summary: "Spitzname und Challenge-Mails",
+  auth: ["athlete"],
+  response: challengeSettingsSchema,
+  handler: ({ auth }) => settingsService.getSettings(auth.userId),
+});
+
+profile.route({
+  method: "put",
+  path: "/challenge-settings",
+  summary: "Spitzname oder Challenge-Mails ändern",
+  description:
+    "Spitzname vergeben: 409 `nickname_taken` (ohne Rücksicht auf Groß-/Kleinschreibung).",
+  auth: ["athlete"],
+  body: updateChallengeSettingsRequestSchema,
+  response: challengeSettingsSchema,
+  errors: [409],
+  handler: ({ auth, body }) => settingsService.updateSettings(auth.userId, body),
+});
+
+profile.route({
+  method: "get",
+  path: "/challenge-settings/nickname-check",
+  summary: "Spitzname prüfen",
+  description: "Frei und gültig? Sonst bis zu drei freie Vorschläge.",
+  auth: ["athlete"],
+  query: nicknameCheckQuerySchema,
+  response: nicknameCheckResponseSchema,
+  handler: ({ auth, query }) => settingsService.checkNickname(auth.userId, query.nickname),
+});
+
+profile.route({
+  method: "get",
+  path: "/badges",
+  summary: "Eigene Abzeichen",
+  description: "Berechnet aus Trainings und Challenges, nichts davon ist gespeichert.",
+  auth: ["athlete"],
+  response: badgeListResponseSchema,
+  handler: ({ auth }) => badgeService.listMyBadges(auth.userId),
+});
+
+export const myChallengeProfileRouter = profile;
+
+const admin = createModuleRouter("/admin/system-challenges", "System-Challenges");
+const templateParams = z.object({ id: objectIdSchema });
+
+admin.route({
+  method: "get",
+  path: "/",
+  summary: "Vorlagen und Events",
+  auth: ["sysadmin"],
+  response: systemTemplateListResponseSchema,
+  handler: () => systemService.listTemplates(),
+});
+
+admin.route({
+  method: "post",
+  path: "/",
+  summary: "Vorlage anlegen",
+  description:
+    "Als Entwurf oder gleich aktiv. Aktive Vorlagen bekommen sofort die laufende und die nächste " +
+    "Runde. Einmalige Events nicht in der Vergangenheit (400 `start_in_past`).",
+  auth: ["sysadmin"],
+  body: createSystemTemplateRequestSchema,
+  status: 201,
+  response: systemTemplateSchema,
+  handler: ({ body }) => systemService.createTemplate(body),
+});
+
+admin.route({
+  method: "patch",
+  path: "/:id",
+  summary: "Vorlage ändern, aktivieren oder pausieren",
+  description:
+    "Änderungen gelten für geplante Runden, laufende enden regulär. Zurück zum Entwurf geht nicht " +
+    "(409 `template_published`).",
+  auth: ["sysadmin"],
+  params: templateParams,
+  body: updateSystemTemplateRequestSchema,
+  response: systemTemplateSchema,
+  errors: [404, 409],
+  handler: ({ params, body }) => systemService.updateTemplate(params.id, body),
+});
+
+admin.route({
+  method: "delete",
+  path: "/:id",
+  summary: "Entwurf löschen",
+  description: "Veröffentlichte Vorlagen lassen sich nur pausieren (409 `template_published`).",
+  auth: ["sysadmin"],
+  params: templateParams,
+  status: 204,
+  errors: [404, 409],
+  handler: async ({ params }) => {
+    await systemService.deleteTemplate(params.id);
+  },
+});
+
+export const systemTemplateRouter = admin;

@@ -75,7 +75,17 @@ export function ChallengeCard({ challenge }: { challenge: ChallengeSummary }) {
           </span>
         )}
       </span>
-      {challenge.status === "running" && (
+      {challenge.kind === "system" && !challenge.joined && challenge.status !== "finished" && (
+        <span className="flex items-center justify-between gap-2">
+          <span className="text-muted text-xs">
+            {challenge.participantCount} {challenge.status === "planned" ? "vorgemerkt" : "dabei"}
+          </span>
+          <span className="bg-primary text-on-primary inline-flex h-9 items-center rounded-card px-3.5 text-sm font-semibold">
+            Ansehen &amp; beitreten
+          </span>
+        </span>
+      )}
+      {challenge.status === "running" && (challenge.kind !== "system" || challenge.joined) && (
         <span className="flex flex-col gap-1.5">
           <ChallengeBar
             kind={challenge.kind}
@@ -94,7 +104,7 @@ export function ChallengeCard({ challenge }: { challenge: ChallengeSummary }) {
           </span>
         </span>
       )}
-      {challenge.status === "planned" && (
+      {challenge.status === "planned" && (challenge.kind !== "system" || challenge.joined) && (
         <span className="text-muted text-xs">
           {challenge.duel
             ? standingText(challenge)

@@ -1,5 +1,9 @@
 import type {
+  BadgeListResponse,
   ChallengeDetail,
+  ChallengeSettings,
+  NicknameCheckResponse,
+  UpdateChallengeSettingsRequest,
   ChallengeListResponse,
   CreateCoachChallengeRequest,
   CreateDuelRequest,
@@ -170,5 +174,76 @@ export function useDeclineDuel() {
       void queryClient.invalidateQueries({ queryKey: challengeKeys.mine(), exact: true });
       void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     },
+  });
+}
+
+export function useDiscoverChallenges() {
+  return useQuery({
+    queryKey: [...challengeKeys.mine(), "discover"],
+    queryFn: () => api<ChallengeListResponse>("/me/challenges/discover"),
+  });
+}
+
+/** Beitreten und Verlassen von System-Challenges. */
+function useMembership(id: string, action: "join" | "leave") {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<ChallengeDetail>(`/me/challenges/${path(id)}/${action}`, { method: "POST" }),
+    onSuccess: (detail) => {
+      queryClient.setQueryData(challengeKeys.myDetail(detail.id), detail);
+      void queryClient.invalidateQueries({ queryKey: challengeKeys.mine() });
+      void queryClient.invalidateQueries({ queryKey: badgeKeys.mine() });
+    },
+  });
+}
+
+export const useJoinChallenge = (id: string) => useMembership(id, "join");
+export const useLeaveChallenge = (id: string) => useMembership(id, "leave");
+
+export const settingsKeys = {
+  mine: () => ["challenge-settings"] as const,
+};
+
+export const badgeKeys = {
+  mine: () => [...challengeKeys.all, "badges"] as const,
+};
+
+export function useChallengeSettings({ enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: settingsKeys.mine(),
+    queryFn: () => api<ChallengeSettings>("/me/challenge-settings"),
+    enabled,
+  });
+}
+
+export function useUpdateChallengeSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UpdateChallengeSettingsRequest) =>
+      api<ChallengeSettings>("/me/challenge-settings", { method: "PUT", body }),
+    onSuccess: (settings) => {
+      queryClient.setQueryData(settingsKeys.mine(), settings);
+      // Ranglisten zeigen den neuen Spitznamen.
+      void queryClient.invalidateQueries({ queryKey: challengeKeys.all });
+    },
+  });
+}
+
+export function useNicknameCheck(nickname: string) {
+  return useQuery({
+    queryKey: [...settingsKeys.mine(), "check", nickname],
+    queryFn: () =>
+      api<NicknameCheckResponse>(
+        `/me/challenge-settings/nickname-check?nickname=${encodeURIComponent(nickname)}`,
+      ),
+    enabled: nickname.length > 0,
+  });
+}
+
+export function useMyBadges() {
+  return useQuery({
+    queryKey: badgeKeys.mine(),
+    queryFn: () => api<BadgeListResponse>("/me/badges"),
   });
 }
