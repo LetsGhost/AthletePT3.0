@@ -2,6 +2,7 @@
  * Inhalte des „Was ist neu“-Dialogs. Neueste Version OBEN einfügen.
  * Anleitung: README.md in diesem Ordner.
  */
+import { badgeTiers } from "@athletept/shared";
 import {
   Award,
   Bell,
@@ -20,6 +21,7 @@ import {
   Trophy,
 } from "lucide-react";
 
+import { BadgeImage } from "@/features/challenges/badge-visuals";
 import upperBody from "@/features/plans/images/upper-body.svg";
 
 import {
@@ -151,6 +153,17 @@ export const releaseNotes: WhatsNewRelease[] = [
         icon: Award,
         tone: "records",
         roles: ["athlete"],
+        preview: (
+          <PreviewGrid columns={3}>
+            {(["flame", "volume"] as const).flatMap((icon) =>
+              badgeTiers.map((tier) => (
+                <span key={`${icon}-${tier}`} className="flex justify-center">
+                  <BadgeImage icon={icon} tier={tier} />
+                </span>
+              )),
+            )}
+          </PreviewGrid>
+        ),
       },
       {
         title: "Benachrichtigungen",
