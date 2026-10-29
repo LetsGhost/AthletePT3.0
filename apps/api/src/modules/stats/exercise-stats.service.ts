@@ -286,7 +286,10 @@ export async function findNewRecords(
   const records: NewRecord[] = [];
   for (const group of groups.values()) {
     const current = group.sessions.find((s) => s.logId === logId.toString());
-    const others = group.sessions.filter((s) => s.logId !== logId.toString());
+    // Normale Trainings nur gegen normale: ein leichteres Fremdgerät soll keine Bestwerte blockieren.
+    const others = group.sessions.filter(
+      (s) => s.logId !== logId.toString() && (current?.deviating || !s.deviating),
+    );
     if (!current || others.length === 0) continue;
     const metric = primaryMetric(group.sessions);
     const kinds: RecordKind[] =

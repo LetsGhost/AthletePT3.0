@@ -113,6 +113,34 @@ describe("Fortschritt (Athlet)", () => {
     );
   });
 
+  it("blendet abweichende Trainings auf Wunsch aus", async () => {
+    signIn("athlete");
+    const detail = buildExerciseStatsDetail();
+    const urls: string[] = [];
+    server.use(
+      http.get(apiUrl(`/me/exercise-stats/${bench.exerciseId}`), ({ request }) => {
+        urls.push(request.url);
+        return HttpResponse.json({
+          ...detail,
+          sessions: detail.sessions.map((s) => ({ ...s, deviating: true })),
+        });
+      }),
+    );
+    renderApp(`/fortschritt/${bench.exerciseId}`);
+
+    await userEvent.click(await screen.findByRole("switch", { name: "Abweichende ausblenden" }));
+
+    expect(
+      await screen.findByText("Alle Trainings sind als abweichend markiert"),
+    ).toBeInTheDocument();
+    expect(new URL(urls.at(-1)!).searchParams.get("excludeDeviating")).toBe("true");
+    await userEvent.click(screen.getByRole("button", { name: "Einblenden" }));
+    expect(screen.getByRole("switch", { name: "Abweichende ausblenden" })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+  });
+
   it("meldet eine Übung ohne Trainings", async () => {
     signIn("athlete");
     server.use(http.get(apiUrl("/me/exercise-stats/:id"), () => problem(404, "not_found")));

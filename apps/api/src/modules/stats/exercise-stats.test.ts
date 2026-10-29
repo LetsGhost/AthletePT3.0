@@ -319,9 +319,29 @@ describe("Übungsanalyse", () => {
       .post("/api/v1/me/workout-logs")
       .set("Authorization", athlete.bearer)
       .send({ dayId, date: today });
-    const exercise = (next.body as WorkoutLog).exercises[0]!;
+    const log = next.body as WorkoutLog;
+    const exercise = log.exercises[0]!;
     expect(exercise.deviating).toBe(false);
     expect(exercise.previous?.date).toBe(addDays(today, -7));
+
+    // Normale Trainings messen sich nur an normalen: 105 kg sind ein Bestwert trotz 140 kg.
+    const done = (weightKg: number | null, reps: number) => ({ weightKg, reps, done: true });
+    const completed = await api()
+      .post(`/api/v1/me/workout-logs/${log.id}/complete`)
+      .set("Authorization", athlete.bearer)
+      .send({
+        revision: log.revision,
+        rating: null,
+        notes: null,
+        exercises: [
+          { id: exercise.id, sets: [done(60, 5), done(105, 5)] },
+          { id: log.exercises[1]!.id, sets: [done(null, 8)] },
+        ],
+      } satisfies UpdateWorkoutRequest);
+    expect(completed.status).toBe(200);
+    expect(
+      (completed.body as CompleteWorkoutResponse).newRecords.find((r) => r.kind === "topWeightKg"),
+    ).toMatchObject({ value: 105, previous: 100 });
   });
 
   it("berechnet fehlende Kennzahlen bestehender Trainings nach", async () => {

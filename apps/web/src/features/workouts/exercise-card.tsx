@@ -256,7 +256,7 @@ export function ExerciseCard({
               <span id={nameId} className="font-medium">
                 {exercise.exerciseName}
               </span>
-              {draft.deviating && <DeviatingBadge />}
+              {draft.deviating && !draft.skipped && <DeviatingBadge />}
             </span>
             {chips.length > 0 && (
               <span className="mt-1.5 flex flex-wrap gap-1.5">

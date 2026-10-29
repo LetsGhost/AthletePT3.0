@@ -5,6 +5,7 @@ import {
   type RecordKind,
   type StatsMetric,
 } from "@athletept/shared";
+import { useMemo } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,11 @@ export function ExerciseProgress({
   const weighted = estimated || data.metric === "topWeightKg";
   const change = data.change;
   const hasDeviating = data.sessions.some((s) => s.deviating);
-  const visible = hideDeviating ? data.sessions.filter((s) => !s.deviating) : data.sessions;
+  // Stabil halten, sonst baut das Diagramm bei jedem Rendern neu auf.
+  const visible = useMemo(
+    () => (hideDeviating ? data.sessions.filter((s) => !s.deviating) : data.sessions),
+    [data.sessions, hideDeviating],
+  );
   const scope = hasDeviating
     ? hideDeviating
       ? " Ohne abweichende Trainings."

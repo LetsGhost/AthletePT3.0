@@ -74,7 +74,7 @@ export function WorkoutView({ log }: { log: WorkoutLog }) {
                   Spontan hinzugefügt
                 </span>
               )}
-              {exercise.deviating && (
+              {exercise.deviating && !exercise.skipped && (
                 <span className="ml-2 align-middle">
                   <DeviatingBadge />
                 </span>
