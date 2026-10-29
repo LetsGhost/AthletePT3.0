@@ -14,6 +14,7 @@ import {
   ListPlus,
   Plus,
   Replace,
+  Shuffle,
   Swords,
   Timer,
   Trophy,
@@ -158,6 +159,28 @@ export const releaseNotes: WhatsNewRelease[] = [
         roles: ["athlete"],
       },
       {
+        title: "Anderes Gerät, anderes Gym",
+        text: "Markier eine Übung im Training als abweichend. Sie zählt weiter mit, „Letztes Mal“ überspringt sie aber und neue Bestwerte misst du nur an normalen Trainings.",
+        icon: Shuffle,
+        roles: ["athlete"],
+        preview: (
+          <PreviewCard>
+            <PreviewText>Beinpresse</PreviewText>
+            <PreviewRow variant="highlight">
+              <PreviewText grow>Abweichend (anderes Gerät/Gym)</PreviewText>
+              <PreviewCheck />
+            </PreviewRow>
+            <PreviewInput label="Notiz" value="Hotel-Gym, andere Maschine" />
+          </PreviewCard>
+        ),
+      },
+      {
+        title: "Abweichende ausblenden",
+        text: "In der Statistik einer Übung blendest du abweichende Trainings mit einem Schalter aus. Bestwerte und Verlauf rechnen dann ohne sie.",
+        icon: Shuffle,
+        roles: ["athlete"],
+      },
+      {
         title: "Challenges für dein Team",
         text: "Leg unter Challenges eine Challenge für dein Team an: mit Trainingsdaten oder einer freien Vorgabe wie „100 Klimmzüge am Tag“.",
         icon: Trophy,
@@ -178,6 +201,12 @@ export const releaseNotes: WhatsNewRelease[] = [
         title: "Duelle deiner Athleten",
         text: "Auf der Challenges-Seite siehst du, gegen wen deine Athleten antreten und wie es steht, auch gegen Athleten anderer Coaches.",
         icon: Swords,
+        roles: ["coach"],
+      },
+      {
+        title: "Abweichende Übungen erkennen",
+        text: "Hat dein Athlet an einem anderen Gerät oder Gym trainiert, ist die Übung als „Abweichend“ markiert. In der Übungsstatistik kannst du sie ausblenden.",
+        icon: Shuffle,
         roles: ["coach"],
       },
       {
