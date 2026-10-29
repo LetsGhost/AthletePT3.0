@@ -4,6 +4,7 @@ import { Check, MessageSquare, Minus, Star } from "lucide-react";
 import { formatTarget } from "@/features/plans/format";
 import { formatNumber } from "@/lib/format";
 
+import { DeviatingBadge } from "./deviating-badge";
 import { formatPerformed } from "./format";
 
 function targetText(target: WorkoutLog["exercises"][number]["targets"][number] | undefined) {
@@ -17,6 +18,7 @@ function targetText(target: WorkoutLog["exercises"][number]["targets"][number] |
 
 /** Protokoll nur lesend: Vorgabe gegen geschafft, Bewertung und Kommentar. */
 export function WorkoutView({ log }: { log: WorkoutLog }) {
+  const deviating = log.exercises.filter((x) => x.deviating && !x.skipped).length;
   return (
     <div className="flex flex-col gap-4">
       {log.status === "skipped" ? (
@@ -47,6 +49,12 @@ export function WorkoutView({ log }: { log: WorkoutLog }) {
               <span className="text-muted">Kein Kommentar</span>
             )}
           </p>
+          {deviating > 0 && (
+            <p className="text-muted flex flex-wrap items-center gap-2 text-sm">
+              <DeviatingBadge />
+              {deviating === 1 ? "1 Übung" : `${deviating} Übungen`} an anderem Gerät
+            </p>
+          )}
         </section>
       )}
 
@@ -64,6 +72,11 @@ export function WorkoutView({ log }: { log: WorkoutLog }) {
               {exercise.custom && (
                 <span className="bg-inset text-muted ml-2 rounded-full px-2 py-0.5 align-middle text-xs font-normal">
                   Spontan hinzugefügt
+                </span>
+              )}
+              {exercise.deviating && !exercise.skipped && (
+                <span className="ml-2 align-middle">
+                  <DeviatingBadge />
                 </span>
               )}
             </h2>

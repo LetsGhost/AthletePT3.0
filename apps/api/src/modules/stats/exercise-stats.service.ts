@@ -39,22 +39,28 @@ import {
  * Bei jeder Änderung an der Berechnung der Kennzahlen (`computeWorkoutStats`, `sessionMetrics`)
  * hochsetzen. Beim Start der API werden dann alle Protokolle neu berechnet.
  */
-export const WORKOUT_STATS_VERSION = 1;
+export const WORKOUT_STATS_VERSION = 2;
 
 /**
  * Kennzahlen je Übung eines Trainings. Ausgelassene Übungen und solche ohne erledigten Arbeitssatz
  * fehlen, ebenso spontane Übungen ohne Katalogeintrag. Kommt eine Übung in einem Training doppelt
- * vor, zählt sie als eine Einheit.
+ * vor, zählt sie als eine Einheit (abweichend, wenn einer der Einträge abweichend ist).
  */
 export function computeWorkoutStats(
   exercises: readonly Pick<
     StoredWorkoutExercise,
-    "exerciseId" | "exerciseName" | "skipped" | "sets"
+    "exerciseId" | "exerciseName" | "skipped" | "deviating" | "notes" | "sets"
   >[],
 ): StoredExerciseStats[] {
   const perExercise = new Map<
     string,
-    { exerciseId: Types.ObjectId; name: string; sets: StoredWorkoutExercise["sets"] }
+    {
+      exerciseId: Types.ObjectId;
+      name: string;
+      deviating: boolean;
+      notes: string | null;
+      sets: StoredWorkoutExercise["sets"];
+    }
   >();
   for (const exercise of exercises) {
     const { exerciseId } = exercise;
@@ -63,15 +69,21 @@ export function computeWorkoutStats(
     const entry = perExercise.get(id) ?? {
       exerciseId,
       name: exercise.exerciseName,
+      deviating: false,
+      notes: null,
       sets: [],
     };
     entry.sets = [...entry.sets, ...exercise.sets];
+    entry.deviating ||= Boolean(exercise.deviating);
+    entry.notes ??= exercise.notes ?? null;
     perExercise.set(id, entry);
   }
   const stats: StoredExerciseStats[] = [];
-  for (const { exerciseId, name, sets } of perExercise.values()) {
+  for (const { exerciseId, name, deviating, notes, sets } of perExercise.values()) {
     const metrics = sessionMetrics(sets);
-    if (metrics.setCount > 0) stats.push({ exerciseId, exerciseName: name, ...metrics });
+    if (metrics.setCount > 0) {
+      stats.push({ exerciseId, exerciseName: name, ...metrics, deviating, notes });
+    }
   }
   return stats;
 }
@@ -135,11 +147,17 @@ async function loadLogs(athleteId: string, exerciseId?: string) {
 function groupSessions(logs: readonly LogForStats[]) {
   const byExercise = new Map<string, ExerciseSessions>();
   for (const log of logs) {
-    for (const { exerciseId, exerciseName, ...metrics } of log.stats) {
+    for (const { exerciseId, exerciseName, deviating, notes, ...metrics } of log.stats) {
       const id = exerciseId.toString();
       const group = byExercise.get(id) ?? { exerciseId: id, exerciseName, sessions: [] };
       group.exerciseName = exerciseName;
-      group.sessions.push({ date: log.date, logId: log._id.toString(), ...metrics });
+      group.sessions.push({
+        date: log.date,
+        logId: log._id.toString(),
+        ...metrics,
+        deviating: Boolean(deviating),
+        notes: notes ?? null,
+      });
       byExercise.set(id, group);
     }
   }
@@ -151,7 +169,7 @@ function bestOf(sessions: readonly ExerciseSession[], kind: RecordKind): Exercis
   for (const session of sessions) {
     const value = session[kind];
     if (value !== null && (best === null || value > best.value)) {
-      best = { value, date: session.date, logId: session.logId };
+      best = { value, date: session.date, logId: session.logId, deviating: session.deviating };
     }
   }
   return best;
@@ -174,14 +192,20 @@ function changeOf(
   };
 }
 
-function summarize(group: ExerciseSessions): ExerciseStatsSummary & { window: ExerciseSession[] } {
+/** Mit `excludeDeviating` zählen abweichende Einheiten nicht in Bestwerte und Veränderung. */
+function summarize(
+  group: ExerciseSessions,
+  excludeDeviating = false,
+): ExerciseStatsSummary & { window: ExerciseSession[] } {
   const metric = primaryMetric(group.sessions);
   const window = group.sessions.slice(-STATS_SESSION_LIMIT);
+  const counts = (s: ExerciseSession) => !excludeDeviating || !s.deviating;
+  const counted = group.sessions.filter(counts);
   const best: ExerciseBest = {
-    estimated1rm: bestOf(group.sessions, "estimated1rm"),
-    topWeightKg: bestOf(group.sessions, "topWeightKg"),
-    maxReps: bestOf(group.sessions, "maxReps"),
-    maxDurationSeconds: bestOf(group.sessions, "maxDurationSeconds"),
+    estimated1rm: bestOf(counted, "estimated1rm"),
+    topWeightKg: bestOf(counted, "topWeightKg"),
+    maxReps: bestOf(counted, "maxReps"),
+    maxDurationSeconds: bestOf(counted, "maxDurationSeconds"),
   };
   return {
     exerciseId: group.exerciseId,
@@ -190,7 +214,7 @@ function summarize(group: ExerciseSessions): ExerciseStatsSummary & { window: Ex
     sessionCount: group.sessions.length,
     lastDate: group.sessions.at(-1)!.date,
     best,
-    change: changeOf(window, metric),
+    change: changeOf(window.filter(counts), metric),
     window,
   };
 }
@@ -211,10 +235,14 @@ async function listStats(athleteId: string): Promise<ExerciseStatsListResponse> 
   return { items, records };
 }
 
-async function exerciseStats(athleteId: string, exerciseId: string): Promise<ExerciseStatsDetail> {
+async function exerciseStats(
+  athleteId: string,
+  exerciseId: string,
+  excludeDeviating: boolean,
+): Promise<ExerciseStatsDetail> {
   const group = groupSessions(await loadLogs(athleteId, exerciseId)).get(exerciseId);
   if (!group) throw new NotFoundError("Zu dieser Übung gibt es noch keine Trainings");
-  const { window, ...summary } = summarize(group);
+  const { window, ...summary } = summarize(group, excludeDeviating);
   return { ...summary, sessions: window };
 }
 
@@ -222,8 +250,12 @@ export function listMyStats(athleteId: string) {
   return listStats(athleteId);
 }
 
-export function getMyExerciseStats(athleteId: string, exerciseId: string) {
-  return exerciseStats(athleteId, exerciseId);
+export function getMyExerciseStats(
+  athleteId: string,
+  exerciseId: string,
+  excludeDeviating = false,
+) {
+  return exerciseStats(athleteId, exerciseId, excludeDeviating);
 }
 
 export async function listAthleteStats(coachId: string, athleteId: string) {
@@ -235,9 +267,10 @@ export async function getAthleteExerciseStats(
   coachId: string,
   athleteId: string,
   exerciseId: string,
+  excludeDeviating = false,
 ) {
   await getAthleteOfCoach(coachId, athleteId);
-  return exerciseStats(athleteId, exerciseId);
+  return exerciseStats(athleteId, exerciseId, excludeDeviating);
 }
 
 /**
@@ -253,7 +286,10 @@ export async function findNewRecords(
   const records: NewRecord[] = [];
   for (const group of groups.values()) {
     const current = group.sessions.find((s) => s.logId === logId.toString());
-    const others = group.sessions.filter((s) => s.logId !== logId.toString());
+    // Normale Trainings nur gegen normale: ein leichteres Fremdgerät soll keine Bestwerte blockieren.
+    const others = group.sessions.filter(
+      (s) => s.logId !== logId.toString() && (current?.deviating || !s.deviating),
+    );
     if (!current || others.length === 0) continue;
     const metric = primaryMetric(group.sessions);
     const kinds: RecordKind[] =

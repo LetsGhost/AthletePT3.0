@@ -105,8 +105,8 @@ export function toSummary(log: StoredWorkoutLog): WorkoutLogSummary {
 
 /**
  * Zuletzt geschaffte Sätze je Übung aus abgeschlossenen Protokollen bis einschließlich `date`
- * (ohne das Protokoll selbst). Zählt nur Übungen, die nicht ausgelassen wurden und mindestens
- * einen erledigten Satz haben.
+ * (ohne das Protokoll selbst). Zählt nur Übungen, die nicht ausgelassen wurden, mindestens
+ * einen erledigten Satz haben und nicht abweichend (anderes Gerät/Gym) waren.
  */
 async function previousPerformances(
   athleteId: Types.ObjectId,
@@ -133,6 +133,8 @@ async function previousPerformances(
       $match: {
         "exercises.exerciseId": { $in: exerciseIds },
         "exercises.skipped": false,
+        // Ältere Protokolle haben das Feld nicht.
+        "exercises.deviating": { $ne: true },
         "exercises.sets.done": true,
       },
     },
@@ -194,6 +196,7 @@ export async function getExerciseLog(
       date: row.date,
       targets: row.exercise.targets.map(toTargetDto),
       sets: row.exercise.sets.map(toSetDto),
+      deviating: Boolean(row.exercise.deviating),
       notes: row.exercise.notes ?? null,
     })),
   };
@@ -230,6 +233,7 @@ async function toLogDto(log: StoredWorkoutLog, viewer: "athlete" | "coach"): Pro
       planNotes: x.planNotes ?? null,
       targets: x.targets.map(toTargetDto),
       skipped: Boolean(x.skipped),
+      deviating: Boolean(x.deviating),
       notes: x.notes ?? null,
       sets: x.sets.map(toSetDto),
       previous: (x.exerciseId && previous.get(x.exerciseId.toString())) ?? null,
@@ -304,6 +308,7 @@ async function exercisesFromDay(
       planNotes: entry.notes ?? null,
       targets,
       skipped: false,
+      deviating: false,
       notes: null,
       sets: targets.map((target, i) => ({
         kind: target.kind,
@@ -440,6 +445,7 @@ function customExercise(id: string): StoredWorkoutExercise {
     planNotes: null,
     targets: [],
     skipped: false,
+    deviating: false,
     notes: null,
     sets: [],
   };
@@ -487,6 +493,7 @@ function applyInput(log: StoredWorkoutLog, input: UpdateInput) {
     return {
       ...exercise,
       skipped: entry.skipped,
+      deviating: entry.deviating,
       notes: entry.notes,
       sets: entry.sets.map((set, i) => ({
         kind: exercise.targets[i]?.kind ?? "working",

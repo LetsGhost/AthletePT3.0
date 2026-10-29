@@ -76,12 +76,20 @@ async function setup() {
 
 type Sets = { weightKg?: number | null; reps?: number | null; done?: boolean }[];
 
-/** Startet und schließt ein Training ab: `squat` und `pullUps` sind die geschafften Sätze. */
+/**
+ * Startet und schließt ein Training ab: `squat` und `pullUps` sind die geschafften Sätze,
+ * `deviating` markiert die Kniebeuge als abweichend (anderes Gerät/Gym).
+ */
 async function train(
   bearer: string,
   dayId: string,
   date: string,
-  { squat, pullUps, finish = true }: { squat: Sets; pullUps: Sets; finish?: boolean },
+  {
+    squat,
+    pullUps,
+    finish = true,
+    deviating = false,
+  }: { squat: Sets; pullUps: Sets; finish?: boolean; deviating?: boolean },
 ) {
   const started = await api()
     .post("/api/v1/me/workout-logs")
@@ -96,7 +104,12 @@ async function train(
     rating: null,
     notes: null,
     exercises: [
-      { id: log.exercises[0]!.id, sets: toSets(squat) },
+      {
+        id: log.exercises[0]!.id,
+        deviating,
+        notes: deviating ? "Andere Maschine" : null,
+        sets: toSets(squat),
+      },
       { id: log.exercises[1]!.id, sets: toSets(pullUps) },
     ],
   };
@@ -258,6 +271,77 @@ describe("Übungsanalyse", () => {
     const stats = await myStats(athlete.bearer);
     expect(stats.items.map((x) => x.exerciseId)).toEqual([squat.id]);
     expect(stats.items[0]!.best.topWeightKg).toMatchObject({ value: 110 });
+  });
+
+  it("markiert abweichende Trainings und blendet sie auf Wunsch aus", async () => {
+    const { athlete, dayId, squat } = await setup();
+    const squatSets = (weightKg: number) => [
+      { weightKg: 60, reps: 5 },
+      { weightKg, reps: 5 },
+    ];
+    await train(athlete.bearer, dayId, addDays(today, -7), {
+      squat: squatSets(100),
+      pullUps: [{ reps: 8 }],
+    });
+    // Leichtere Maschine: zählt mit und als Bestwert, ist aber markiert.
+    const deviating = await train(athlete.bearer, dayId, addDays(today, -3), {
+      squat: squatSets(140),
+      pullUps: [{ reps: 8 }],
+      deviating: true,
+    });
+    expect(deviating.exercises[0]!.deviating).toBe(true);
+    expect(deviating.newRecords.find((r) => r.kind === "topWeightKg")).toMatchObject({
+      exerciseId: squat.id,
+      value: 140,
+    });
+
+    const path = `/api/v1/me/exercise-stats/${squat.id}`;
+    const all = (await api().get(path).set("Authorization", athlete.bearer))
+      .body as ExerciseStatsDetail;
+    expect(all.sessions.map((s) => [s.topWeightKg, s.deviating, s.notes])).toEqual([
+      [100, false, null],
+      [140, true, "Andere Maschine"],
+    ]);
+    expect(all.best.topWeightKg).toMatchObject({ value: 140, deviating: true });
+
+    const filtered = await api()
+      .get(`${path}?excludeDeviating=true`)
+      .set("Authorization", athlete.bearer);
+    expect(filtered.status).toBe(200);
+    const body = filtered.body as ExerciseStatsDetail;
+    expect(body.best.topWeightKg).toMatchObject({ value: 100, deviating: false });
+    expect(body.change).toBeNull();
+    // Die Einheiten bleiben, damit sie gedimmt angezeigt werden können.
+    expect(body.sessions).toHaveLength(2);
+
+    // „Letztes Mal“ springt über das abweichende Training.
+    const next = await api()
+      .post("/api/v1/me/workout-logs")
+      .set("Authorization", athlete.bearer)
+      .send({ dayId, date: today });
+    const log = next.body as WorkoutLog;
+    const exercise = log.exercises[0]!;
+    expect(exercise.deviating).toBe(false);
+    expect(exercise.previous?.date).toBe(addDays(today, -7));
+
+    // Normale Trainings messen sich nur an normalen: 105 kg sind ein Bestwert trotz 140 kg.
+    const done = (weightKg: number | null, reps: number) => ({ weightKg, reps, done: true });
+    const completed = await api()
+      .post(`/api/v1/me/workout-logs/${log.id}/complete`)
+      .set("Authorization", athlete.bearer)
+      .send({
+        revision: log.revision,
+        rating: null,
+        notes: null,
+        exercises: [
+          { id: exercise.id, sets: [done(60, 5), done(105, 5)] },
+          { id: log.exercises[1]!.id, sets: [done(null, 8)] },
+        ],
+      } satisfies UpdateWorkoutRequest);
+    expect(completed.status).toBe(200);
+    expect(
+      (completed.body as CompleteWorkoutResponse).newRecords.find((r) => r.kind === "topWeightKg"),
+    ).toMatchObject({ value: 105, previous: 100 });
   });
 
   it("berechnet fehlende Kennzahlen bestehender Trainings nach", async () => {

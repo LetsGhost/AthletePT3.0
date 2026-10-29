@@ -27,6 +27,7 @@ import { cn } from "@/lib/cn";
 import { formatNumber } from "@/lib/format";
 
 import { useMyWeek } from "./api";
+import { DeviatingBadge } from "./deviating-badge";
 import { dateOfWeekday, formatPerformedSets, formatWeekdayDate } from "./format";
 import { NewRecords } from "./new-records";
 
@@ -235,7 +236,10 @@ function ExerciseList({ log }: { log: WorkoutLog }) {
           const done = exercise.sets.filter((s) => s.done);
           return (
             <li key={exercise.id} className="bg-inset rounded-card px-3 py-2.5">
-              <p className="font-medium">{exercise.exerciseName}</p>
+              <p className="flex flex-wrap items-center gap-1.5 font-medium">
+                {exercise.exerciseName}
+                {exercise.deviating && !exercise.skipped && <DeviatingBadge />}
+              </p>
               <p className="text-muted text-sm">
                 {exercise.skipped
                   ? "Ausgelassen"

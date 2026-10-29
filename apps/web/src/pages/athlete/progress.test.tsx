@@ -34,7 +34,7 @@ const pullUps = buildExerciseStatsSummary({
   best: {
     estimated1rm: null,
     topWeightKg: null,
-    maxReps: { value: 10, date: "2026-10-09", logId: "6acd3920c0072ec254663e03" },
+    maxReps: { value: 10, date: "2026-10-09", logId: "6acd3920c0072ec254663e03", deviating: false },
     maxDurationSeconds: null,
   },
   change: null,
@@ -110,6 +110,34 @@ describe("Fortschritt (Athlet)", () => {
     expect(within(rows[1]!).getByRole("link")).toHaveAttribute(
       "href",
       "/workouts/6acd3920c0072ec254663e02",
+    );
+  });
+
+  it("blendet abweichende Trainings auf Wunsch aus", async () => {
+    signIn("athlete");
+    const detail = buildExerciseStatsDetail();
+    const urls: string[] = [];
+    server.use(
+      http.get(apiUrl(`/me/exercise-stats/${bench.exerciseId}`), ({ request }) => {
+        urls.push(request.url);
+        return HttpResponse.json({
+          ...detail,
+          sessions: detail.sessions.map((s) => ({ ...s, deviating: true })),
+        });
+      }),
+    );
+    renderApp(`/fortschritt/${bench.exerciseId}`);
+
+    await userEvent.click(await screen.findByRole("switch", { name: "Abweichende ausblenden" }));
+
+    expect(
+      await screen.findByText("Alle Trainings sind als abweichend markiert"),
+    ).toBeInTheDocument();
+    expect(new URL(urls.at(-1)!).searchParams.get("excludeDeviating")).toBe("true");
+    await userEvent.click(screen.getByRole("button", { name: "Einblenden" }));
+    expect(screen.getByRole("switch", { name: "Abweichende ausblenden" })).toHaveAttribute(
+      "aria-checked",
+      "false",
     );
   });
 

@@ -84,6 +84,8 @@ export const workoutExerciseInputSchema = z.object({
    */
   custom: customWorkoutExerciseSchema.optional(),
   skipped: z.boolean().default(false),
+  /** An anderem Gerät/Gym trainiert: zählt mit, wird markiert und nicht als „Letztes Mal“ gezeigt. */
+  deviating: z.boolean().default(false),
   notes: nullableText(500),
   sets: z
     .array(workoutSetInputSchema)
@@ -127,7 +129,7 @@ export const workoutSetSchema = z.object({
   done: z.boolean(),
 });
 
-/** Zuletzt geschaffte Sätze einer Übung (aus dem letzten abgeschlossenen Protokoll). */
+/** Zuletzt geschaffte Sätze einer Übung (letztes abgeschlossenes Protokoll, ohne abweichende). */
 export const previousPerformanceSchema = z.object({
   date: z.string(),
   sets: z.array(workoutSetSchema),
@@ -142,6 +144,7 @@ export const exerciseLogEntrySchema = z.object({
   date: z.string(),
   targets: z.array(planSetOutputSchema),
   sets: z.array(workoutSetSchema),
+  deviating: z.boolean(),
   notes: z.string().nullable(),
 });
 
@@ -165,6 +168,8 @@ export const workoutExerciseSchema = z.object({
   /** Vorgabe aus dem Plan beim Start. Satz i gehört zu `targets[i]`, zusätzliche Sätze haben keine. */
   targets: z.array(planSetOutputSchema),
   skipped: z.boolean(),
+  /** An anderem Gerät/Gym trainiert (siehe `workoutExerciseInputSchema`). */
+  deviating: z.boolean(),
   notes: z.string().nullable(),
   sets: z.array(workoutSetSchema),
   previous: previousPerformanceSchema.nullable(),

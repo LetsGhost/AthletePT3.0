@@ -218,6 +218,7 @@ export function buildWorkoutLog(overrides: Partial<WorkoutLog> = {}): WorkoutLog
         planNotes: "Schulterblätter zusammen",
         targets: entry.sets,
         skipped: false,
+        deviating: false,
         notes: null,
         sets: entry.sets.map((set) => ({
           kind: set.kind,
@@ -294,9 +295,24 @@ export function buildExerciseStatsSummary(
     sessionCount: 2,
     lastDate: "2026-10-12",
     best: {
-      estimated1rm: { value: 105, date: "2026-10-12", logId: "6acd3920c0072ec254663e02" },
-      topWeightKg: { value: 82.5, date: "2026-10-12", logId: "6acd3920c0072ec254663e02" },
-      maxReps: { value: 8, date: "2026-10-05", logId: "6acd3920c0072ec254663e01" },
+      estimated1rm: {
+        value: 105,
+        date: "2026-10-12",
+        logId: "6acd3920c0072ec254663e02",
+        deviating: false,
+      },
+      topWeightKg: {
+        value: 82.5,
+        date: "2026-10-12",
+        logId: "6acd3920c0072ec254663e02",
+        deviating: false,
+      },
+      maxReps: {
+        value: 8,
+        date: "2026-10-05",
+        logId: "6acd3920c0072ec254663e01",
+        deviating: false,
+      },
       maxDurationSeconds: null,
     },
     change: { from: 100, to: 105, fromDate: "2026-10-05", percent: 5 },
@@ -319,6 +335,8 @@ export function buildExerciseStatsDetail(
         maxReps: 8,
         maxDurationSeconds: null,
         setCount: 3,
+        deviating: false,
+        notes: null,
       },
       {
         date: "2026-10-12",
@@ -329,6 +347,8 @@ export function buildExerciseStatsDetail(
         maxReps: 8,
         maxDurationSeconds: null,
         setCount: 3,
+        deviating: false,
+        notes: null,
       },
     ],
     ...overrides,

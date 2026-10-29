@@ -1,4 +1,5 @@
 import { ArrowLeft, SearchX } from "lucide-react";
+import { useState } from "react";
 import { Link, useParams } from "react-router";
 
 import { PageHeader } from "@/components/layout/page-header";
@@ -10,7 +11,8 @@ import { ApiError } from "@/lib/http";
 
 export default function AthleteExerciseProgressPage() {
   const { exerciseId = "" } = useParams();
-  const stats = useMyExerciseStats(exerciseId);
+  const [hideDeviating, setHideDeviating] = useState(false);
+  const stats = useMyExerciseStats(exerciseId, hideDeviating);
 
   return (
     <>
@@ -34,7 +36,12 @@ export default function AthleteExerciseProgressPage() {
           {(data) => (
             <>
               <PageHeader title={data.exerciseName} description="Dein Verlauf" />
-              <ExerciseProgress data={data} logHref={(logId) => `/workouts/${logId}`} />
+              <ExerciseProgress
+                data={data}
+                hideDeviating={hideDeviating}
+                onHideDeviatingChange={setHideDeviating}
+                logHref={(logId) => `/workouts/${logId}`}
+              />
             </>
           )}
         </QueryState>
