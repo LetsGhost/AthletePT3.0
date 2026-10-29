@@ -124,3 +124,75 @@ export function apiKeyExpiryMail(params: {
     text: `Hallo ${name}!\n\n${intro}\n\n${action}`,
   };
 }
+
+export function challengeAssignedMail(params: {
+  to: string;
+  name: string;
+  coachName: string;
+  title: string;
+  period: string;
+  prize: string | null;
+  url: string;
+}): Mail {
+  const { to, name, coachName, title, period, prize, url } = params;
+  const intro = `${coachName} hat dich zur Challenge „${title}“ angemeldet. Sie läuft ${period}.`;
+  const prizeText = prize ? `Preis: ${prize}` : null;
+  const counts =
+    "Gezählt wird automatisch, was du in diesem Zeitraum trainierst bzw. einträgst. Du musst nichts weiter tun.";
+  const paragraphs = [intro, ...(prizeText ? [prizeText] : []), counts];
+  return {
+    to,
+    subject: `Neue Challenge: ${title}`,
+    html: layout(`Hallo ${escapeHtml(name)}!`, paragraphs.map(escapeHtml), {
+      label: "Challenge ansehen",
+      url,
+    }),
+    text: `Hallo ${name}!\n\n${paragraphs.join("\n\n")}\n\n${url}`,
+  };
+}
+
+export function duelInviteMail(params: {
+  to: string;
+  name: string;
+  challengerName: string;
+  metricLabel: string;
+  duration: string;
+  validUntil: string;
+  url: string;
+}): Mail {
+  const { to, name, challengerName, metricLabel, duration, validUntil, url } = params;
+  const intro = `${challengerName} möchte sich ${duration} lang mit dir messen. Gewertet wird automatisch aus euren erledigten Trainings in AthletePT.`;
+  const details = `Wertung: ${metricLabel} · Laufzeit: ${duration} ab Annahme · Gültig bis ${validUntil}`;
+  const hint =
+    "Annehmen oder ablehnen kannst du direkt in der App. Reagierst du nicht, verfällt die Einladung automatisch.";
+  const paragraphs = [intro, details, hint];
+  return {
+    to,
+    subject: `${challengerName} fordert dich zum Duell heraus`,
+    html: layout(`Hallo ${escapeHtml(name)}!`, paragraphs.map(escapeHtml), {
+      label: "Einladung ansehen",
+      url,
+    }),
+    text: `Hallo ${name}!\n\n${paragraphs.join("\n\n")}\n\n${url}`,
+  };
+}
+
+export function challengeFinishedMail(params: {
+  to: string;
+  name: string;
+  title: string;
+  result: string;
+  url: string;
+}): Mail {
+  const { to, name, title, result, url } = params;
+  const intro = `Die Challenge „${title}“ ist vorbei. ${result}`;
+  return {
+    to,
+    subject: `Ergebnis: ${title}`,
+    html: layout(`Hallo ${escapeHtml(name)}!`, [escapeHtml(intro)], {
+      label: "Ergebnis ansehen",
+      url,
+    }),
+    text: `Hallo ${name}!\n\n${intro}\n\n${url}`,
+  };
+}

@@ -25,6 +25,7 @@ import type { z } from "zod";
 import { ConflictError, NotFoundError, ValidationError } from "../../lib/errors";
 import type { AuthContext } from "../../types/express";
 import { getAccessibleAthlete, getAthleteOfCoach } from "../athletes/athlete-access";
+import { updatesAfterWorkout } from "../challenges/challenge.service";
 import { durationMinutes } from "../stats/activity.service";
 import {
   WORKOUT_STATS_VERSION,
@@ -565,11 +566,12 @@ export async function completeMyWorkout(
     status: "completed",
     completedAt: new Date(),
   });
-  const [newRecords, average] = await Promise.all([
+  const [newRecords, average, challenges] = await Promise.all([
     findNewRecords(athleteId, log._id),
     averageDurationMinutes(athleteId, log._id),
+    updatesAfterWorkout(athleteId, log),
   ]);
-  return { ...completed, newRecords, averageDurationMinutes: average };
+  return { ...completed, newRecords, averageDurationMinutes: average, challenges };
 }
 
 /** Verwirft ein laufendes Training oder nimmt eine Absage zurück. Erledigtes bleibt. */

@@ -15,14 +15,14 @@ export default function AthleteExerciseProgressPage() {
   return (
     <>
       <Link
-        to="/entwicklung"
+        to="/fortschritt"
         className="text-muted hover:text-text mb-4 inline-flex min-h-11 items-center gap-1 text-sm"
       >
-        <ArrowLeft aria-hidden="true" className="size-4" /> Entwicklung
+        <ArrowLeft aria-hidden="true" className="size-4" /> Fortschritt
       </Link>
       {stats.error instanceof ApiError && stats.error.status === 404 ? (
         <div className="bg-surface rounded-card">
-          <title>Entwicklung · AthletePT</title>
+          <title>Fortschritt · AthletePT</title>
           <EmptyState
             icon={SearchX}
             title="Keine Daten zu dieser Übung"

@@ -3,6 +3,7 @@ import { env } from "./config/env";
 import { connectDatabase, disconnectDatabase } from "./lib/db";
 import { logger } from "./lib/logger/logger";
 import { startApiKeyExpiryJob } from "./modules/api-keys/expiry-job";
+import { startChallengeJob } from "./modules/challenges/challenge-job";
 import { seedGlobalExercises } from "./modules/exercises/exercise-seed";
 import { ExerciseModel } from "./modules/exercises/exercise.model";
 import { backfillWorkoutStats } from "./modules/stats/exercise-stats.service";
@@ -24,6 +25,7 @@ async function main() {
       logger.warn("TRUST_PROXY=0 in Produktion: Rate-Limits zählen pro Proxy- statt Client-IP");
     }
     startApiKeyExpiryJob();
+    startChallengeJob();
     if (env.apiDocsEnabled) {
       logger.info(`API-Doku: http://localhost:${env.PORT}/api/v1/docs`);
     }

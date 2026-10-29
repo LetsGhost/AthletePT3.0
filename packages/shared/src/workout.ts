@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { writeSourceSchema } from "./api-key";
+import { challengeWorkoutUpdateSchema } from "./challenge";
 import { isoWeekSchema } from "./calendar";
 import { isoDateSchema, objectIdSchema, paginationQuerySchema } from "./common";
 import { MAX_EXERCISE_SETS, planSetOutputSchema, planTypeSchema, setKindSchema } from "./plan";
@@ -203,6 +204,8 @@ export const completeWorkoutResponseSchema = workoutLogSchema.extend({
   newRecords: z.array(newRecordSchema),
   /** Durchschnittliche Dauer der letzten früheren Trainings in Minuten, `null` ohne solche. */
   averageDurationMinutes: z.number().int().nullable(),
+  /** Laufende Challenges, in denen das Training zählt, und offene freie Vorgaben von heute. */
+  challenges: z.array(challengeWorkoutUpdateSchema),
 });
 
 export const workoutLogSummarySchema = z.object({

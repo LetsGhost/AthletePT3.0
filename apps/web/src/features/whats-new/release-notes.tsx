@@ -3,6 +3,8 @@
  * Anleitung: README.md in diesem Ordner.
  */
 import {
+  Award,
+  Bell,
   CalendarCheck,
   CalendarDays,
   Globe,
@@ -12,6 +14,7 @@ import {
   ListPlus,
   Plus,
   Replace,
+  Swords,
   Timer,
   Trophy,
 } from "lucide-react";
@@ -65,6 +68,126 @@ function protocolPreview(name: string) {
 }
 
 export const releaseNotes: WhatsNewRelease[] = [
+  {
+    id: "3.4",
+    version: "3.4",
+    date: "2026-10-28",
+    items: [
+      {
+        title: "Challenges sind da",
+        text: "Unter Fortschritt (früher Entwicklung) siehst du, wie du in deinen Challenges dastehst. Gezählt wird automatisch aus deinen Trainings.",
+        icon: Trophy,
+        roles: ["athlete"],
+        preview: (
+          <PreviewStack>
+            <PreviewText size="lg">Challenges</PreviewText>
+            <PreviewCard>
+              <PreviewRow>
+                <PreviewText grow>Team-Volumen Oktober</PreviewText>
+                <PreviewText size="sm" muted>
+                  31,4 t
+                </PreviewText>
+              </PreviewRow>
+              <PreviewProgress value={0.78} />
+              <PreviewText size="sm" tone="records">
+                Platz 2 von 6 · Preis: Gratis-Session
+              </PreviewText>
+            </PreviewCard>
+          </PreviewStack>
+        ),
+      },
+      {
+        title: "Fordere jemanden heraus",
+        text: "Starte ein Duell per E-Mail, über 1, 2 oder 4 Wochen. Wer in der gewählten Wertung vorne liegt, gewinnt. Aufgeben und Revanche inklusive.",
+        icon: Swords,
+        roles: ["athlete"],
+        preview: (
+          <PreviewCard tone="accent">
+            <PreviewText size="sm" muted>
+              Meiste Trainingstage · noch 6 Tage
+            </PreviewText>
+            <PreviewRow>
+              <PreviewText grow>Du</PreviewText>
+              <PreviewText size="xl">4 : 3</PreviewText>
+              <PreviewText grow align="right">
+                Nordlicht
+              </PreviewText>
+            </PreviewRow>
+            <PreviewText size="sm" tone="accent">
+              Du führst mit 1 Trainingstag
+            </PreviewText>
+          </PreviewCard>
+        ),
+      },
+      {
+        title: "Globale Challenges",
+        text: "Unter Fortschritt → Challenges → Entdecken trittst du System-Challenges bei. In der weltweiten Rangliste erscheinst du nur mit deinem Spitznamen.",
+        icon: Globe,
+        roles: ["athlete"],
+        preview: (
+          <PreviewStack>
+            <PreviewRow variant="box">
+              <PreviewText size="sm" muted>
+                1
+              </PreviewText>
+              <PreviewText grow>IronLena</PreviewText>
+              <PreviewText>22</PreviewText>
+            </PreviewRow>
+            <PreviewRow variant="highlight">
+              <PreviewText size="sm" muted>
+                87
+              </PreviewText>
+              <PreviewText grow>Max_M (du)</PreviewText>
+              <PreviewText>14</PreviewText>
+            </PreviewRow>
+            <PreviewButton>Beitreten</PreviewButton>
+          </PreviewStack>
+        ),
+      },
+      {
+        title: "Abzeichen sammeln",
+        text: "Serien, Tonnage, Duellsiege und System-Challenges bringen dir Bronze, Silber oder Gold. Keine Punkte, kein Level, nur echte Leistung.",
+        icon: Award,
+        tone: "records",
+        roles: ["athlete"],
+      },
+      {
+        title: "Benachrichtigungen",
+        text: "Die Glocke oben zeigt dir Einladungen, Ergebnisse und wer dich überholt hat. Mails zu Challenges schaltest du in den Einstellungen ab.",
+        icon: Bell,
+        roles: ["athlete"],
+      },
+      {
+        title: "Challenges für dein Team",
+        text: "Leg unter Challenges eine Challenge für dein Team an: mit Trainingsdaten oder einer freien Vorgabe wie „100 Klimmzüge am Tag“.",
+        icon: Trophy,
+        roles: ["coach"],
+        preview: (
+          <PreviewStack>
+            <PreviewGrid columns={3}>
+              <PreviewButton variant="outline">Ziel</PreviewButton>
+              <PreviewButton>Team-Ziel</PreviewButton>
+              <PreviewButton variant="outline">Rangliste</PreviewButton>
+            </PreviewGrid>
+            <PreviewInput label="Ziel fürs ganze Team" value="500 t" focused />
+            <PreviewInput label="Preis (optional)" value="Shaker für alle" />
+          </PreviewStack>
+        ),
+      },
+      {
+        title: "Duelle deiner Athleten",
+        text: "Auf der Challenges-Seite siehst du, gegen wen deine Athleten antreten und wie es steht, auch gegen Athleten anderer Coaches.",
+        icon: Swords,
+        roles: ["coach"],
+      },
+      {
+        title: "System-Challenges planen",
+        text: "Leg wöchentliche, monatliche oder einmalige Challenges für alle Athleten an, mit Bronze, Silber und Gold. Die Runden starten automatisch.",
+        icon: Globe,
+        roles: ["sysadmin"],
+      },
+    ],
+  },
   {
     id: "3.3",
     version: "3.3",

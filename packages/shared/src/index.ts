@@ -11,3 +11,6 @@ export * from "./legal";
 export * from "./exercise";
 export * from "./activity";
 export * from "./api-key";
+export * from "./challenge";
+export * from "./notification";
+export * from "./badge";

@@ -38,6 +38,11 @@
   --module-weight: #00739a;
   --module-records: #8a6400;
   --module-streak: #b4530a;
+
+  /* Challenge-Arten: System, Duell, Coach */
+  --challenge-system: #00739a;
+  --challenge-duel: #6b52b8;
+  --challenge-coach: #8a6400;
 }
 
 [data-theme="dark"] {
@@ -64,6 +69,10 @@
   --module-weight: #29b0dd;
   --module-records: #f7dc6f;
   --module-streak: #f28c38;
+
+  --challenge-system: #5cc6dd;
+  --challenge-duel: #b6a6e6;
+  --challenge-coach: #f2c96a;
 }
 
 @theme inline {
@@ -91,6 +100,10 @@
   --color-module-weight: var(--module-weight);
   --color-module-records: var(--module-records);
   --color-module-streak: var(--module-streak);
+
+  --color-challenge-system: var(--challenge-system);
+  --color-challenge-duel: var(--challenge-duel);
+  --color-challenge-coach: var(--challenge-coach);
 
   --radius-card: 0.75rem;
   --radius-tile: 1.25rem;
