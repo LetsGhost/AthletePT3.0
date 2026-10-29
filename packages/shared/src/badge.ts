@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { badgeTierSchema, challengeKindSchema } from "./challenge";
+import {
+  badgeTierSchema,
+  challengeKindSchema,
+  challengeMetricGroup,
+  type ChallengeMetric,
+} from "./challenge";
 
 /**
  * Spitzname für globale Ranglisten und Duelle mit anderen Teams. Eindeutig ohne Rücksicht auf
@@ -49,7 +54,17 @@ export const badgeSchema = z.object({
   name: z.string(),
   description: z.string(),
   /** Icon-Schlüssel für die Oberfläche. */
-  icon: z.enum(["flame", "calendar", "volume", "sunrise", "duel", "coach", "system"]),
+  icon: z.enum([
+    "flame",
+    "calendar",
+    "volume",
+    "sunrise",
+    "duel",
+    "coach",
+    "system_consistency",
+    "system_volume",
+    "system_performance",
+  ]),
   /** Art der Challenge für die Farbe, `null` bei Serie und Rekorden. */
   challengeKind: challengeKindSchema.nullable(),
   tier: badgeTierSchema.nullable(),
@@ -60,6 +75,14 @@ export const badgeSchema = z.object({
   /** Verlinkte Challenge, z. B. die System-Runde. */
   challengeId: z.string().nullable(),
 });
+
+/** Motiv eines System-Abzeichens nach Oberbegriff der Metrik. */
+export function systemBadgeIcon(metric: ChallengeMetric): Badge["icon"] {
+  const group = challengeMetricGroup[metric];
+  if (group === "volume") return "system_volume";
+  if (group === "performance") return "system_performance";
+  return "system_consistency";
+}
 
 export const badgeListResponseSchema = z.object({
   items: z.array(badgeSchema),

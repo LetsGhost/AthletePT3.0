@@ -1,44 +1,40 @@
 import type { Badge } from "@athletept/shared";
-import {
-  Award,
-  CalendarCheck,
-  Flame,
-  Globe,
-  Layers,
-  Sunrise,
-  Swords,
-  UserRound,
-  type LucideIcon,
-} from "lucide-react";
 
 import { cn } from "@/lib/cn";
 
-import { tierTone } from "./tones";
+const images = import.meta.glob<string>("./images/*.svg", { eager: true, import: "default" });
 
-const icons: Record<Badge["icon"], LucideIcon> = {
-  flame: Flame,
-  calendar: CalendarCheck,
-  volume: Layers,
-  sunrise: Sunrise,
-  duel: Swords,
-  coach: UserRound,
-  system: Globe,
+const files: Record<Badge["icon"], string> = {
+  flame: "serien-starter",
+  calendar: "monats-konstanz",
+  volume: "tonnage",
+  sunrise: "fruehaufsteher",
+  duel: "duellant",
+  coach: "team-player",
+  system_consistency: "system-konstanz",
+  system_volume: "system-volumen",
+  system_performance: "system-leistung",
 };
 
-/** Rundes Abzeichen, gefärbt nach erreichter Stufe, grau solange offen. */
-export function BadgeMedal({ badge, size = "md" }: { badge: Badge; size?: "sm" | "md" }) {
-  const Icon = icons[badge.icon] ?? Award;
+const tierFiles = { bronze: "bronze", silver: "silber", gold: "gold" } as const;
+
+/** Grafik zu Motiv und Stufe, Stufe `null` ergibt die gesperrte Variante. */
+export function BadgeImage({
+  icon,
+  tier,
+  size = "md",
+}: Pick<Badge, "icon" | "tier"> & { size?: "sm" | "md" }) {
   return (
-    <span
+    <img
+      src={images[`./images/${files[icon]}-${tier ? tierFiles[tier] : "gesperrt"}.svg`]}
+      alt=""
       aria-hidden="true"
-      className={cn(
-        "relative flex shrink-0 items-center justify-center rounded-full border-2",
-        size === "sm" ? "size-10" : "size-14",
-        badge.tier ? "bg-surface border-current" : "bg-inset border-border border-dashed",
-        badge.tier ? tierTone[badge.tier] : "text-border-strong",
-      )}
-    >
-      <Icon className={size === "sm" ? "size-5" : "size-6"} />
-    </span>
+      className={cn("shrink-0", size === "sm" ? "size-10" : "size-14")}
+    />
   );
+}
+
+/** Abzeichen-Grafik der erreichten Stufe, gesperrte Variante solange offen. */
+export function BadgeMedal({ badge, size = "md" }: { badge: Badge; size?: "sm" | "md" }) {
+  return <BadgeImage icon={badge.icon} tier={badge.tier} size={size} />;
 }

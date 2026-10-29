@@ -1,5 +1,10 @@
-import { badgeTierLabels, badgeTiers, type ChallengeDetail } from "@athletept/shared";
-import { Globe, Medal } from "lucide-react";
+import {
+  badgeTierLabels,
+  badgeTiers,
+  systemBadgeIcon,
+  type ChallengeDetail,
+} from "@athletept/shared";
+import { Globe } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -9,9 +14,9 @@ import { cn } from "@/lib/cn";
 import { ApiError, errorMessage } from "@/lib/http";
 
 import { useChallengeSettings, useJoinChallenge, useLeaveChallenge } from "./api";
+import { BadgeImage } from "./badge-visuals";
 import { formatScore } from "./format";
 import { NicknameDialog } from "./nickname-dialog";
-import { tierTone } from "./tones";
 
 /** Bronze, Silber, Gold mit Schwellen; erreichte Stufen hervorgehoben. */
 export function SystemTiers({ challenge }: { challenge: ChallengeDetail }) {
@@ -31,10 +36,7 @@ export function SystemTiers({ challenge }: { challenge: ChallengeDetail }) {
               index <= reached ? "border-challenge-coach/40" : "border-transparent",
             )}
           >
-            <Medal
-              aria-hidden="true"
-              className={cn("size-6", index <= reached ? tierTone[tier] : "text-border-strong")}
-            />
+            <BadgeImage icon={systemBadgeIcon(challenge.metric)} tier={tier} />
             <span className="text-xs font-semibold">{badgeTierLabels[tier]}</span>
             <span className="text-muted text-xs">
               ab {formatScore(challenge.metric, challenge.tiers![index]!)}
