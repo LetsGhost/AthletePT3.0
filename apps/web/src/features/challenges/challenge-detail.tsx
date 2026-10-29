@@ -3,7 +3,7 @@ import {
   challengeScoringLabels,
   type ChallengeDetail,
 } from "@athletept/shared";
-import { CalendarDays, Clock, Gift, Info, Medal, Users } from "lucide-react";
+import { CalendarDays, ChevronDown, CircleHelp, Clock, Gift, Medal, Users } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 import { formatNumber } from "@/lib/format";
@@ -134,11 +134,16 @@ function rules(challenge: ChallengeDetail) {
 
 export function ChallengeRules({ challenge }: { challenge: ChallengeDetail }) {
   return (
-    <section className="bg-inset flex flex-col gap-2.5 rounded-tile p-3.5">
-      <h2 className="flex items-center gap-2 text-sm font-semibold">
-        <Info aria-hidden="true" className="text-accent size-4" /> So wird gewertet
-      </h2>
-      <ul className="flex flex-col gap-1">
+    <details className="group bg-inset rounded-tile">
+      <summary className="flex cursor-pointer list-none items-center gap-2 p-3.5 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+        <CircleHelp aria-hidden="true" className="text-accent size-4" />
+        <span className="flex-1">So wird gewertet</span>
+        <ChevronDown
+          aria-hidden="true"
+          className="text-muted size-4 transition-transform group-open:rotate-180"
+        />
+      </summary>
+      <ul className="flex flex-col gap-1 px-3.5 pb-3.5">
         {rules(challenge).map((rule) => (
           <li key={rule} className="text-muted flex gap-2 text-sm leading-relaxed">
             <span aria-hidden="true" className="text-accent">
@@ -148,7 +153,7 @@ export function ChallengeRules({ challenge }: { challenge: ChallengeDetail }) {
           </li>
         ))}
       </ul>
-    </section>
+    </details>
   );
 }
 
