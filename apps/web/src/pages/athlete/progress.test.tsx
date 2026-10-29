@@ -34,7 +34,7 @@ const pullUps = buildExerciseStatsSummary({
   best: {
     estimated1rm: null,
     topWeightKg: null,
-    maxReps: { value: 10, date: "2026-10-09", logId: "6acd3920c0072ec254663e03" },
+    maxReps: { value: 10, date: "2026-10-09", logId: "6acd3920c0072ec254663e03", deviating: false },
     maxDurationSeconds: null,
   },
   change: null,

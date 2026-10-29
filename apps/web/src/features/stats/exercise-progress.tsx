@@ -7,7 +7,11 @@ import {
 } from "@athletept/shared";
 import { Link } from "react-router";
 
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/features/settings/settings-parts";
+import { DeviatingBadge } from "@/features/workouts/deviating-badge";
 import { formatWeekdayDate } from "@/features/workouts/format";
+import { cn } from "@/lib/cn";
 import { formatNumber } from "@/lib/format";
 
 import { formatPercent, formatRecordValue, metricLabels } from "./format";
@@ -31,16 +35,32 @@ const shortLabels: Record<StatsMetric, string> = {
 interface ExerciseProgressProps {
   data: ExerciseStatsDetail;
   logHref: (logId: string) => string;
+  /** Abweichende Trainings (anderes Gerät/Gym) nicht in Diagramm, Bestwerten und Verlauf. */
+  hideDeviating: boolean;
+  onHideDeviatingChange: (hide: boolean) => void;
 }
 
 /** Bestwerte, Verlauf der letzten Einheiten als Diagramm und als Tabelle. */
-export function ExerciseProgress({ data, logHref }: ExerciseProgressProps) {
+export function ExerciseProgress({
+  data,
+  logHref,
+  hideDeviating,
+  onHideDeviatingChange,
+}: ExerciseProgressProps) {
   const estimated = data.metric === "estimated1rm";
   const weighted = estimated || data.metric === "topWeightKg";
   const change = data.change;
-  const summary = change
-    ? `${metricLabels[data.metric]} von ${formatRecordValue(data.metric, change.from)} am ${formatWeekdayDate(change.fromDate)} auf ${formatRecordValue(data.metric, change.to)} (${formatPercent(change.percent)}).`
-    : `${metricLabels[data.metric]}: noch zu wenige Einheiten für einen Verlauf.`;
+  const hasDeviating = data.sessions.some((s) => s.deviating);
+  const visible = hideDeviating ? data.sessions.filter((s) => !s.deviating) : data.sessions;
+  const scope = hasDeviating
+    ? hideDeviating
+      ? " Ohne abweichende Trainings."
+      : " Inklusive abweichender Trainings."
+    : "";
+  const summary =
+    (change
+      ? `${metricLabels[data.metric]} von ${formatRecordValue(data.metric, change.from)} am ${formatWeekdayDate(change.fromDate)} auf ${formatRecordValue(data.metric, change.to)} (${formatPercent(change.percent)}).`
+      : `${metricLabels[data.metric]}: noch zu wenige Einheiten für einen Verlauf.`) + scope;
 
   return (
     <div className="flex flex-col gap-4">
@@ -54,7 +74,10 @@ export function ExerciseProgress({ data, logHref }: ExerciseProgressProps) {
                 {record ? formatRecordValue(kind, record.value) : "–"}
               </span>
               {record && (
-                <span className="text-muted text-sm">am {formatWeekdayDate(record.date)}</span>
+                <span className="text-muted flex flex-wrap items-center gap-1.5 text-sm">
+                  am {formatWeekdayDate(record.date)}
+                  {record.deviating && <DeviatingBadge />}
+                </span>
               )}
             </div>
           );
@@ -67,20 +90,53 @@ export function ExerciseProgress({ data, logHref }: ExerciseProgressProps) {
       >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="progress-chart" className="font-medium">
-            Verlauf der letzten {Math.min(STATS_SESSION_LIMIT, data.sessions.length)} Einheiten
+            Verlauf der letzten {Math.min(STATS_SESSION_LIMIT, visible.length)} Einheiten
           </h2>
           <ChangeBadge summary={data} />
         </div>
-        <p className="text-muted text-sm">
-          {summary}
-          {estimated && " Geschätzt aus Gewicht und Wiederholungen (Epley, bis 12 Wdh.)."}
-        </p>
-        {data.sessions.length > 1 && (
-          <ProgressChart
-            sessions={data.sessions}
-            metric={data.metric}
-            label={`Diagramm: ${summary} Die Werte stehen in der Tabelle darunter.`}
-          />
+        {hasDeviating && (
+          <div className="flex items-center justify-between gap-3">
+            <span id="hide-deviating" className="text-sm font-medium">
+              Abweichende ausblenden
+            </span>
+            <Switch
+              checked={hideDeviating}
+              labelledBy="hide-deviating"
+              onChange={onHideDeviatingChange}
+            />
+          </div>
+        )}
+        {visible.length === 0 ? (
+          <div className="bg-inset flex flex-col items-center gap-2 rounded-card p-6 text-center">
+            <p className="text-sm">Alle Trainings sind als abweichend markiert</p>
+            <Button variant="secondary" size="sm" onClick={() => onHideDeviatingChange(false)}>
+              Einblenden
+            </Button>
+          </div>
+        ) : (
+          <>
+            <p className="text-muted text-sm">
+              {summary}
+              {estimated && " Geschätzt aus Gewicht und Wiederholungen (Epley, bis 12 Wdh.)."}
+            </p>
+            {visible.length > 1 && (
+              <ProgressChart
+                sessions={visible}
+                metric={data.metric}
+                label={`Diagramm: ${summary} Die Werte stehen in der Tabelle darunter.`}
+              />
+            )}
+            {visible.some((s) => s.deviating) && (
+              <p aria-hidden="true" className="text-muted flex gap-4 text-xs">
+                <span className="flex items-center gap-1.5">
+                  <span className="bg-accent size-2.5 rounded-full" /> normal
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="border-accent size-2.5 rotate-45 border-2" /> abweichend
+                </span>
+              </p>
+            )}
+          </>
         )}
       </section>
 
@@ -114,7 +170,13 @@ export function ExerciseProgress({ data, logHref }: ExerciseProgressProps) {
             {[...data.sessions].reverse().map((session) => {
               const main = session[data.metric];
               return (
-                <tr key={session.logId} className="border-border border-t">
+                <tr
+                  key={session.logId}
+                  className={cn(
+                    "border-border border-t",
+                    hideDeviating && session.deviating && "opacity-50",
+                  )}
+                >
                   <th scope="row" className="py-1.5 pr-3 text-left font-normal whitespace-nowrap">
                     <Link
                       to={logHref(session.logId)}
@@ -122,6 +184,11 @@ export function ExerciseProgress({ data, logHref }: ExerciseProgressProps) {
                     >
                       {formatWeekdayDate(session.date)}
                     </Link>
+                    {session.deviating && (
+                      <span className="ml-2 align-middle">
+                        <DeviatingBadge />
+                      </span>
+                    )}
                   </th>
                   <td className="py-1.5 pr-3 whitespace-nowrap tabular-nums">
                     {main !== null ? formatRecordValue(data.metric, main) : "–"}

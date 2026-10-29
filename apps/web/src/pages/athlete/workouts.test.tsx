@@ -362,6 +362,22 @@ describe("Training durchführen", () => {
     expect(screen.queryByRole("timer")).not.toBeInTheDocument();
   });
 
+  it("markiert eine Übung als abweichend und speichert das", async () => {
+    signInAsAthlete();
+    const saves = mockWorkout(buildWorkoutLog());
+    const user = userEvent.setup();
+    renderApp("/workouts/6acd3920c0072ec254663e01");
+
+    await user.click(await screen.findByRole("button", { name: "Notiz" }));
+    await user.click(screen.getByRole("switch", { name: "Abweichend (anderes Gerät/Gym)" }));
+
+    expect(screen.getByText("Abweichend")).toBeInTheDocument();
+    expect(screen.getByText(/Werte vom letzten normalen Training/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Was war anders? (optional)")).toBeInTheDocument();
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    expect(saves[0]!.exercises[0]!.deviating).toBe(true);
+  });
+
   it("klappt eine ausgelassene Übung zu und auf Wunsch wieder auf", async () => {
     signInAsAthlete();
     mockWorkout(buildWorkoutLog());

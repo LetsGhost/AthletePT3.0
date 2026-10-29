@@ -274,6 +274,7 @@ const logWorkout = async (
     exercises: log.exercises.map((x) => ({
       id: x.id,
       skipped: false,
+      deviating: false,
       notes: null,
       sets: x.sets.map((set) => ({
         ...set,

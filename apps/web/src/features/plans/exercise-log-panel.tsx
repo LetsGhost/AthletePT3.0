@@ -4,6 +4,7 @@ import { useId } from "react";
 
 import { Button } from "@/components/ui/button";
 import { QueryState, SkeletonList } from "@/components/ui/query-state";
+import { DeviatingBadge } from "@/features/workouts/deviating-badge";
 import { cn } from "@/lib/cn";
 import { formatNumber, parseIsoDate } from "@/lib/format";
 
@@ -80,7 +81,12 @@ export function ExerciseLogPanel({
                       className="border-border flex flex-col gap-2 border-t py-3 first:border-t-0 first:pt-0"
                     >
                       <div className="flex items-center justify-between text-sm">
-                        <span className="font-medium tabular-nums">{formatShort(entry.date)}</span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="font-medium tabular-nums">
+                            {formatShort(entry.date)}
+                          </span>
+                          {entry.deviating && <DeviatingBadge />}
+                        </span>
                         {rir !== null && (
                           <span className="text-muted text-xs">
                             RIR {rir} <span className="sr-only">geplant</span>
@@ -178,11 +184,22 @@ function WeightBars({ items }: { items: ExerciseLogEntry[] }) {
               <span className="flex w-full flex-1 flex-col justify-end">
                 <span className="text-center text-xs tabular-nums">
                   {weight !== null ? formatNumber(weight) : "–"}
-                  <span className="sr-only"> kg am {formatShort(entry.date)}</span>
+                  <span className="sr-only">
+                    {" "}
+                    kg am {formatShort(entry.date)}
+                    {entry.deviating && ", abweichend"}
+                  </span>
                 </span>
                 <span
                   aria-hidden="true"
-                  className={cn("w-full rounded-t-md", last ? "bg-accent" : "bg-inset")}
+                  className={cn(
+                    "w-full rounded-t-md",
+                    entry.deviating
+                      ? "border-border-strong border-[1.5px] border-dashed"
+                      : last
+                        ? "bg-accent"
+                        : "bg-inset",
+                  )}
                   style={{ height: `${weight !== null ? Math.max((weight / max) * 60, 4) : 0}%` }}
                 />
               </span>

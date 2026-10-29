@@ -10,16 +10,19 @@ import { api } from "@/lib/api";
 /** Unter `workouts`, damit neue Protokolle die Analyse automatisch neu laden. */
 export const statsKeys = {
   mine: () => ["workouts", "stats", "mine"] as const,
-  myExercise: (exerciseId: string) => [...statsKeys.mine(), exerciseId] as const,
+  myExercise: (exerciseId: string, excludeDeviating: boolean) =>
+    [...statsKeys.mine(), exerciseId, excludeDeviating] as const,
   myActivity: (month: string | null) => ["workouts", "activity", "mine", month] as const,
   athlete: (athleteId: string) => ["workouts", "athlete", athleteId, "stats"] as const,
-  athleteExercise: (athleteId: string, exerciseId: string) =>
-    [...statsKeys.athlete(athleteId), exerciseId] as const,
+  athleteExercise: (athleteId: string, exerciseId: string, excludeDeviating: boolean) =>
+    [...statsKeys.athlete(athleteId), exerciseId, excludeDeviating] as const,
   athleteActivity: (athleteId: string, month: string | null) =>
     ["workouts", "athlete", athleteId, "activity", month] as const,
 };
 
 const monthQuery = (month: string | null) => (month ? `?month=${month}` : "");
+const deviatingQuery = (excludeDeviating: boolean) =>
+  excludeDeviating ? "?excludeDeviating=true" : "";
 
 export function useMyStats() {
   return useQuery({
@@ -28,10 +31,15 @@ export function useMyStats() {
   });
 }
 
-export function useMyExerciseStats(exerciseId: string) {
+/** `excludeDeviating`: Bestwerte und Veränderung ohne abweichende Trainings. */
+export function useMyExerciseStats(exerciseId: string, excludeDeviating = false) {
   return useQuery({
-    queryKey: statsKeys.myExercise(exerciseId),
-    queryFn: () => api<ExerciseStatsDetail>(`/me/exercise-stats/${encodeURIComponent(exerciseId)}`),
+    queryKey: statsKeys.myExercise(exerciseId, excludeDeviating),
+    queryFn: () =>
+      api<ExerciseStatsDetail>(
+        `/me/exercise-stats/${encodeURIComponent(exerciseId)}${deviatingQuery(excludeDeviating)}`,
+      ),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -52,13 +60,18 @@ export function useAthleteStats(athleteId: string) {
   });
 }
 
-export function useAthleteExerciseStats(athleteId: string, exerciseId: string) {
+export function useAthleteExerciseStats(
+  athleteId: string,
+  exerciseId: string,
+  excludeDeviating = false,
+) {
   return useQuery({
-    queryKey: statsKeys.athleteExercise(athleteId, exerciseId),
+    queryKey: statsKeys.athleteExercise(athleteId, exerciseId, excludeDeviating),
     queryFn: () =>
       api<ExerciseStatsDetail>(
-        `/athletes/${encodeURIComponent(athleteId)}/exercise-stats/${encodeURIComponent(exerciseId)}`,
+        `/athletes/${encodeURIComponent(athleteId)}/exercise-stats/${encodeURIComponent(exerciseId)}${deviatingQuery(excludeDeviating)}`,
       ),
+    placeholderData: keepPreviousData,
   });
 }
 

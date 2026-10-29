@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { inputClasses } from "@/components/ui/input-classes";
 import { TextareaField } from "@/components/ui/textarea-field";
 import { formatRest, formatSetGroup, formatTarget, groupSets } from "@/features/plans/format";
+import { Switch } from "@/features/settings/settings-parts";
 import { cn } from "@/lib/cn";
 import { formatNumber } from "@/lib/format";
 
@@ -16,6 +17,7 @@ import {
   type DraftExercise,
   type DraftSet,
 } from "./draft";
+import { DeviatingBadge } from "./deviating-badge";
 import { formatPerformedSets, formatWeekdayDate } from "./format";
 
 const rowGrid = "grid grid-cols-[2rem_minmax(0,1fr)_4.25rem_3.75rem_2.75rem] items-center gap-2";
@@ -151,6 +153,41 @@ function SetRow({
   );
 }
 
+interface DeviatingFieldsProps {
+  exerciseName: string;
+  draft: DraftExercise;
+  switchId: string;
+  onChange: (draft: DraftExercise) => void;
+}
+
+/** Schalter „Abweichend“ und Notiz zur Übung; die Notiz dient auch als Begründung. */
+function DeviatingFields({ exerciseName, draft, switchId, onChange }: DeviatingFieldsProps) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-3">
+        <Switch
+          checked={draft.deviating}
+          labelledBy={switchId}
+          onChange={(deviating) => onChange({ ...draft, deviating })}
+        />
+        <span id={switchId} className="text-muted text-sm font-medium">
+          Abweichend (anderes Gerät/Gym)
+        </span>
+      </div>
+      <TextareaField
+        label={`Notiz zu ${exerciseName}`}
+        rows={2}
+        maxLength={500}
+        placeholder={
+          draft.deviating ? "Was war anders? (optional)" : "z. B. Griff enger, Schulter ok"
+        }
+        value={draft.notes}
+        onChange={(e) => onChange({ ...draft, notes: e.target.value })}
+      />
+    </div>
+  );
+}
+
 interface ExerciseCardProps {
   index: number;
   exercise: WorkoutExercise;
@@ -177,7 +214,8 @@ export function ExerciseCard({
   const id = useId();
   const nameId = `${id}-name`;
   const bodyId = `${id}-body`;
-  const [noteOpen, setNoteOpen] = useState(draft.notes !== "");
+  const deviatingId = `${id}-deviating`;
+  const [noteOpen, setNoteOpen] = useState(draft.notes !== "" || draft.deviating);
   const timed = exercise.targets.some((t) => t.durationSeconds !== null);
   const complete = isExerciseComplete(draft);
   const done = draft.sets.filter((s) => s.done).length;
@@ -214,8 +252,11 @@ export function ExerciseCard({
             {index + 1}
           </span>
           <span className="min-w-0 flex-1">
-            <span id={nameId} className="block font-medium">
-              {exercise.exerciseName}
+            <span className="flex flex-wrap items-center gap-1.5">
+              <span id={nameId} className="font-medium">
+                {exercise.exerciseName}
+              </span>
+              {draft.deviating && <DeviatingBadge />}
             </span>
             {chips.length > 0 && (
               <span className="mt-1.5 flex flex-wrap gap-1.5">
@@ -269,6 +310,11 @@ export function ExerciseCard({
                   <span>
                     Letztes Mal ({formatWeekdayDate(exercise.previous.date)}):{" "}
                     <span className="text-text">{formatPerformedSets(exercise.previous.sets)}</span>
+                    {draft.deviating && (
+                      <span className="block text-xs italic">
+                        Werte vom letzten normalen Training – evtl. nicht vergleichbar
+                      </span>
+                    )}
                   </span>
                 </p>
               )}
@@ -308,13 +354,11 @@ export function ExerciseCard({
           )}
 
           {noteOpen && (
-            <TextareaField
-              label={`Notiz zu ${exercise.exerciseName}`}
-              rows={2}
-              maxLength={500}
-              placeholder="z. B. Griff enger, Schulter ok"
-              value={draft.notes}
-              onChange={(e) => onChange({ ...draft, notes: e.target.value })}
+            <DeviatingFields
+              exerciseName={exercise.exerciseName}
+              draft={draft}
+              switchId={deviatingId}
+              onChange={onChange}
             />
           )}
 

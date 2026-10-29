@@ -282,6 +282,7 @@ describe("Plan-Editor (Coach)", () => {
                 { ...working, weightKg: 80, reps: 8, done: true },
                 { ...working, weightKg: 80, reps: 5, done: true },
               ],
+              deviating: false,
               notes: "Letzter Satz zäh",
             },
             {
@@ -289,6 +290,7 @@ describe("Plan-Editor (Coach)", () => {
               date: "2026-10-08",
               targets: [target],
               sets: [{ ...working, weightKg: 77.5, reps: 8, done: true }],
+              deviating: false,
               notes: null,
             },
           ],
