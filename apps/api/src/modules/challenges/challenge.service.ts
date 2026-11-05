@@ -337,8 +337,8 @@ export async function updatesAfterWorkout(
       const before = manual
         ? after
         : score(challenge, today, {
+            ...data,
             logs: data.logs.filter((l) => l.id !== log._id.toString()),
-            entries: [],
           });
       const mine = after.standings.find((s) => s.athleteId === athleteId);
       const previous = before.standings.find((s) => s.athleteId === athleteId);

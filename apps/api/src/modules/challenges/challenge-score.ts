@@ -1,4 +1,12 @@
-import type { ChallengeMetric, ChallengeScoring, ManualMode } from "@athletept/shared";
+import {
+  addDays,
+  daysInPeriod,
+  isoWeekOf,
+  isoWeekday,
+  type ChallengeMetric,
+  type ChallengeScoring,
+  type ManualMode,
+} from "@athletept/shared";
 
 /**
  * Stand einer Challenge, rein aus Trainings und Einträgen berechnet. Ohne Datenbank, damit sich
@@ -22,6 +30,10 @@ export interface ScoreLog {
   athleteId: string;
   date: string;
   completedAt: Date | null;
+  /** Plantag, für die Planerfüllung. */
+  dayId: string;
+  /** Anteil der nicht übersprungenen Übungen, 0 bis 1 (ohne Übungen 1). */
+  doneShare: number;
   stats: {
     exerciseId: string;
     volumeKg: number | null;
@@ -75,16 +87,66 @@ function logValue(definition: ScoreDefinition, log: ScoreLog) {
   }
 }
 
-function tallyLogs(definition: ScoreDefinition, logs: readonly ScoreLog[]): Tally {
-  const sorted = [...logs].sort(
+const chronological = (logs: readonly ScoreLog[]) =>
+  [...logs].sort(
     (a, b) =>
       a.date.localeCompare(b.date) ||
       (a.completedAt?.getTime() ?? 0) - (b.completedAt?.getTime() ?? 0),
   );
+
+const logTime = (log: ScoreLog) =>
+  log.completedAt?.getTime() ?? Date.parse(`${log.date}T12:00:00Z`);
+
+/**
+ * Geplante Einheiten im Zeitraum: feste Wochentage so oft, wie sie vorkommen, flexible Tage
+ * anteilig (ein flexibler Tag zählt aber mindestens einmal, auch bei kurzen Challenges).
+ */
+export function plannedSessions(
+  weekdays: readonly (number | null)[],
+  startDate: string,
+  endDate: string,
+) {
+  const days = daysInPeriod(startDate, endDate);
+  let fixed = 0;
+  for (let i = 0; i < days; i += 1) {
+    const weekday = isoWeekday(addDays(startDate, i));
+    fixed += weekdays.filter((w) => w === weekday).length;
+  }
+  const flexible = weekdays.filter((w) => w === null).length;
+  return fixed + Math.max(Math.round((flexible * days) / 7), Math.min(flexible, 1));
+}
+
+/**
+ * Planerfüllung in Prozent der geplanten Einheiten des ganzen Zeitraums, damit der Wert nur
+ * steigt. Jeder Plantag zählt je Woche einmal (bestes Protokoll), übersprungene Übungen anteilig.
+ */
+function tallyAdherence(logs: readonly ScoreLog[], planned: number): Tally {
+  const tally: Tally = { score: 0, reachedAt: Infinity };
+  if (planned <= 0) return tally;
+  const credit = new Map<string, number>();
+  let done = 0;
+  for (const log of chronological(logs)) {
+    const key = `${isoWeekOf(log.date)}|${log.dayId}`;
+    const previous = credit.get(key) ?? 0;
+    if (log.doneShare <= previous) continue;
+    credit.set(key, log.doneShare);
+    done += log.doneShare - previous;
+    const next = Math.min(100, (done / planned) * 100);
+    if (next > tally.score) {
+      tally.score = next;
+      tally.reachedAt = logTime(log);
+    }
+  }
+  tally.score = round1(tally.score);
+  return tally;
+}
+
+function tallyLogs(definition: ScoreDefinition, logs: readonly ScoreLog[]): Tally {
+  const sorted = chronological(logs);
   const tally: Tally = { score: 0, reachedAt: Infinity };
   const days = new Set<string>();
   for (const log of sorted) {
-    const at = log.completedAt?.getTime() ?? Date.parse(`${log.date}T12:00:00Z`);
+    const at = logTime(log);
     let next = tally.score;
     if (definition.metric === "workouts") next += 1;
     else if (definition.metric === "training_days") {
@@ -118,20 +180,23 @@ export function computeStandings(
   participantIds: readonly string[],
   logs: readonly ScoreLog[],
   entries: readonly ScoreEntry[],
+  /** Geplante Einheiten je Athlet, nur für die Planerfüllung. */
+  planned: ReadonlyMap<string, number> = new Map(),
 ): ScoreResult {
   const inPeriod = (date: string) => date >= definition.startDate && date <= definition.lastDate;
-  const tallies = participantIds.map((athleteId) => ({
-    athleteId,
-    ...(definition.metric === "manual"
-      ? tallyEntries(
-          definition,
-          entries.filter((e) => e.athleteId === athleteId && inPeriod(e.date)),
-        )
-      : tallyLogs(
-          definition,
-          logs.filter((l) => l.athleteId === athleteId && inPeriod(l.date)),
-        )),
-  }));
+  const tallies = participantIds.map((athleteId) => {
+    const own = logs.filter((l) => l.athleteId === athleteId && inPeriod(l.date));
+    let tally: Tally;
+    if (definition.metric === "manual") {
+      tally = tallyEntries(
+        definition,
+        entries.filter((e) => e.athleteId === athleteId && inPeriod(e.date)),
+      );
+    } else if (definition.metric === "plan_adherence") {
+      tally = tallyAdherence(own, planned.get(athleteId) ?? 0);
+    } else tally = tallyLogs(definition, own);
+    return { athleteId, ...tally };
+  });
   tallies.sort((a, b) => b.score - a.score || a.reachedAt - b.reachedAt);
 
   const teamScore = round1(tallies.reduce((sum, t) => sum + t.score, 0));

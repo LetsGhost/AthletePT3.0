@@ -72,6 +72,49 @@ function protocolPreview(name: string) {
 
 export const releaseNotes: WhatsNewRelease[] = [
   {
+    id: "3.5",
+    version: "3.5",
+    date: "2026-11-05",
+    items: [
+      {
+        title: "Challenge: Planerfüllung",
+        text: "Belohne Zuverlässigkeit statt Menge: Deine Athleten sammeln Prozent für jede geplante Einheit, die sie erledigen, z. B. „90 % des Plans in 2 Wochen“.",
+        icon: CalendarCheck,
+        roles: ["coach"],
+        preview: (
+          <PreviewStack>
+            <PreviewText size="lg">Neue Challenge</PreviewText>
+            <PreviewRow variant="highlight">
+              <PreviewText grow>Planerfüllung</PreviewText>
+              <PreviewCheck />
+            </PreviewRow>
+            <PreviewInput label="Ziel je Athlet" value="90 %" focused />
+          </PreviewStack>
+        ),
+      },
+      {
+        title: "Wie viel vom Plan schaffst du?",
+        text: "In Planerfüllungs-Challenges zählt jede erledigte Einheit aus deinem Plan. Übersprungene Übungen ziehen anteilig ab, mehr trainieren bringt nichts extra.",
+        icon: CalendarCheck,
+        roles: ["athlete"],
+        preview: (
+          <PreviewCard tone="accent">
+            <PreviewRow>
+              <PreviewText grow>Plantreue November</PreviewText>
+              <PreviewText size="sm" muted>
+                67 %
+              </PreviewText>
+            </PreviewRow>
+            <PreviewProgress value={0.67} />
+            <PreviewText size="sm" tone="accent">
+              4 von 6 Einheiten · Ziel 90 %
+            </PreviewText>
+          </PreviewCard>
+        ),
+      },
+    ],
+  },
+  {
     id: "3.4",
     version: "3.4",
     date: "2026-10-28",
