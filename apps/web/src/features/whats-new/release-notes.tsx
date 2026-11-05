@@ -101,7 +101,7 @@ export const releaseNotes: WhatsNewRelease[] = [
       },
       {
         title: "Fordere jemanden heraus",
-        text: "Starte ein Duell per E-Mail, über 1, 2 oder 4 Wochen. Wer in der gewählten Wertung vorne liegt, gewinnt. Aufgeben und Revanche inklusive.",
+        text: "Fordere jemanden über seine E-Mail-Adresse zum Duell heraus, für 1, 2 oder 4 Wochen. Wer in der gewählten Wertung vorne liegt, gewinnt. Aufgeben und Revanche inklusive.",
         icon: Swords,
         roles: ["athlete"],
         preview: (
@@ -167,7 +167,7 @@ export const releaseNotes: WhatsNewRelease[] = [
       },
       {
         title: "Benachrichtigungen",
-        text: "Die Glocke oben zeigt dir Einladungen, Ergebnisse und wer dich überholt hat. Mails zu Challenges schaltest du in den Einstellungen ab.",
+        text: "Die Glocke oben zeigt dir Einladungen, Ergebnisse und wer dich überholt hat.",
         icon: Bell,
         roles: ["athlete"],
       },

@@ -30,9 +30,7 @@ export const server = setupServer(
   http.get(apiUrl("/me/notifications"), () => HttpResponse.json({ items: [], unreadCount: 0 })),
   http.get(apiUrl("/me/challenges/discover"), () => HttpResponse.json({ items: [] })),
   http.get(apiUrl("/me/badges"), () => HttpResponse.json({ items: [], earnedCount: 0 })),
-  http.get(apiUrl("/me/challenge-settings"), () =>
-    HttpResponse.json({ nickname: null, challengeMails: true }),
-  ),
+  http.get(apiUrl("/me/challenge-settings"), () => HttpResponse.json({ nickname: null })),
   http.get(apiUrl("/admin/system-challenges"), () =>
     HttpResponse.json({ items: [], activeParticipants: 0 }),
   ),

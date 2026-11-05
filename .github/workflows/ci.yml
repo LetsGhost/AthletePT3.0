@@ -25,3 +25,14 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      # Liest nur package-lock.json, kein npm ci nötig
+      - name: Dependency audit
+        run: npm audit --audit-level=high

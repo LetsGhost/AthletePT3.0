@@ -8,10 +8,7 @@ import {
 import { Types } from "mongoose";
 import type { z } from "zod";
 
-import { env } from "../../config/env";
 import { BadRequestError, ConflictError, NotFoundError } from "../../lib/errors";
-import { trySendMail } from "../../lib/mail/mailer";
-import { challengeAssignedMail } from "../../lib/mail/templates";
 import type { AuthContext } from "../../types/express";
 import { getAthleteOfCoach } from "../athletes/athlete-access";
 import { getExercise } from "../exercises/exercise.service";
@@ -77,10 +74,6 @@ function assertNotInPast(startDate: string, today: string) {
   }
 }
 
-function periodText(startDate: string, endDate: string) {
-  return `vom ${formatDay(startDate)} bis ${formatDay(endDate)}`;
-}
-
 async function notifyParticipants(challenge: StoredChallenge, athleteIds: readonly string[]) {
   if (athleteIds.length === 0 || !challenge.coachId) return;
   await notify(
@@ -91,29 +84,6 @@ async function notifyParticipants(challenge: StoredChallenge, athleteIds: readon
       text: `${formatDay(challenge.startDate)} bis ${formatDay(challenge.endDate)}${challenge.prize ? ` · Preis: ${challenge.prize}` : ""}`,
       challengeId: challenge._id,
     })),
-  );
-  const [coach, athletes] = await Promise.all([
-    UserModel.findById(challenge.coachId, { name: 1 }).lean<{ name: string }>(),
-    UserModel.find(
-      { _id: { $in: athleteIds }, status: "active", challengeMails: { $ne: false } },
-      { name: 1, email: 1 },
-    ).lean<{ name: string; email: string }[]>(),
-  ]);
-  const url = `${env.APP_URL}/challenges/${challenge._id.toString()}`;
-  await Promise.all(
-    athletes.map((athlete) =>
-      trySendMail(
-        challengeAssignedMail({
-          to: athlete.email,
-          name: athlete.name,
-          coachName: coach?.name ?? "Dein Coach",
-          title: challenge.title,
-          period: periodText(challenge.startDate, challenge.endDate),
-          prize: challenge.prize,
-          url,
-        }),
-      ),
-    ),
   );
 }
 

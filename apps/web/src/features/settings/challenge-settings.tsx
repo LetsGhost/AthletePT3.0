@@ -1,19 +1,16 @@
-import { ChevronRight, Mail, UserRound } from "lucide-react";
-import { useId, useState } from "react";
+import { ChevronRight, UserRound } from "lucide-react";
+import { useState } from "react";
 
 import { toast } from "@/components/ui/toast-store";
-import { useChallengeSettings, useUpdateChallengeSettings } from "@/features/challenges/api";
+import { useChallengeSettings } from "@/features/challenges/api";
 import { NicknameDialog } from "@/features/challenges/nickname-dialog";
 import { cn } from "@/lib/cn";
-import { errorMessage } from "@/lib/http";
 
-import { RowIcon, RowText, rowClasses, Switch } from "./settings-parts";
+import { RowIcon, RowText, rowClasses } from "./settings-parts";
 
-/** Spitzname und Mails zu Challenges (nur Athleten). */
+/** Spitzname für Challenges (nur Athleten). */
 export function ChallengeSettings() {
-  const id = useId();
   const settings = useChallengeSettings();
-  const update = useUpdateChallengeSettings();
   const [editing, setEditing] = useState(false);
   const data = settings.data;
 
@@ -29,24 +26,6 @@ export function ChallengeSettings() {
         <span className="text-muted text-sm">{data?.nickname ?? "Nicht gesetzt"}</span>
         <ChevronRight aria-hidden="true" className="text-muted size-4" />
       </button>
-      <div className={rowClasses}>
-        <RowIcon icon={Mail} className="bg-challenge-duel/15 text-challenge-duel" />
-        <RowText
-          id={`${id}-mails`}
-          title="E-Mails zu Challenges"
-          sub="Einladungen, neue Challenges und Ergebnisse"
-        />
-        <Switch
-          checked={data?.challengeMails ?? true}
-          labelledBy={`${id}-mails`}
-          onChange={(challengeMails) =>
-            update.mutate(
-              { challengeMails },
-              { onError: (error) => toast(errorMessage(error), "error") },
-            )
-          }
-        />
-      </div>
       {editing && (
         <NicknameDialog
           open

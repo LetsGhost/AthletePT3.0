@@ -1,12 +1,6 @@
 import { badgeTierLabels, tierFor, todayIsoDate } from "@athletept/shared";
-import type { Types } from "mongoose";
-
-import { env } from "../../config/env";
 import { logger } from "../../lib/logger/logger";
-import { trySendMail } from "../../lib/mail/mailer";
-import { challengeFinishedMail } from "../../lib/mail/templates";
 import { notify, type NewNotification } from "../notifications/notification.service";
-import { UserModel } from "../users/user.model";
 import { displayName, duelStateOf, loadScoreData, score, usersOf } from "./challenge-view";
 import { ChallengeModel, type StoredChallenge } from "./challenge.model";
 import { ensureSystemRounds } from "./system.service";
@@ -79,7 +73,7 @@ function outcomeFor(
     : { title: `${challenge.title} ist beendet`, text: `${goal} knapp verfehlt` };
 }
 
-/** Beendete Challenges: Ergebnis einmal je Teilnehmer melden (App und Mail). */
+/** Beendete Challenges: Ergebnis einmal je Teilnehmer in der App melden. */
 async function reportResults(now: Date) {
   const today = todayIsoDate(now);
   const challenges = await ChallengeModel.find({
@@ -100,16 +94,6 @@ async function reportResults(now: Date) {
     const { standings } = score(challenge, today, await loadScoreData(challenge, today));
     const users = await usersOf(standings.map((s) => s.athleteId));
     const notifications: NewNotification[] = [];
-    const mails: Parameters<typeof challengeFinishedMail>[0][] = [];
-    const accounts = await UserModel.find(
-      {
-        _id: { $in: standings.map((s) => s.athleteId) },
-        status: "active",
-        challengeMails: { $ne: false },
-      },
-      { email: 1, name: 1 },
-    ).lean<{ _id: Types.ObjectId; email: string; name: string }[]>();
-    const emails = new Map(accounts.map((a) => [a._id.toString(), a]));
 
     for (const standing of standings) {
       const user = users.get(standing.athleteId);
@@ -135,19 +119,8 @@ async function reportResults(now: Date) {
         text: outcome.text,
         challengeId: challenge._id,
       });
-      const account = emails.get(standing.athleteId);
-      if (account) {
-        mails.push({
-          to: account.email,
-          name: account.name,
-          title: challenge.title,
-          result: `${outcome.title}. ${outcome.text}.`,
-          url: `${env.APP_URL}/challenges/${challenge._id.toString()}`,
-        });
-      }
     }
     await notify(notifications);
-    await Promise.all(mails.map((mail) => trySendMail(challengeFinishedMail(mail))));
   }
 }
 

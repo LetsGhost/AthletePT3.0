@@ -18,14 +18,11 @@ export const nicknameSchema = z
 
 export const challengeSettingsSchema = z.object({
   nickname: z.string().nullable(),
-  /** Mails zu Challenges (Einladungen, neue Challenges, Ergebnisse). */
-  challengeMails: z.boolean(),
 });
 
 export const updateChallengeSettingsRequestSchema = z
   .object({
     nickname: nicknameSchema.optional(),
-    challengeMails: z.boolean().optional(),
   })
   .refine((value) => Object.values(value).some((v) => v !== undefined), "Keine Änderung angegeben");
 

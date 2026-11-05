@@ -39,8 +39,6 @@ const userSchema = new Schema(
     nickname: { type: String, default: null },
     /** Kleingeschrieben, für die Eindeutigkeit ohne Rücksicht auf Groß-/Kleinschreibung. */
     nicknameLower: { type: String, default: null },
-    /** Mails zu Challenges (Einladungen, neue Challenges, Ergebnisse). */
-    challengeMails: { type: Boolean, default: true },
     /** Nur bei Athleten: Einwilligung in die Verarbeitung von Gesundheitsdaten (Art. 9 DSGVO). */
     healthDataConsent: {
       type: new Schema(

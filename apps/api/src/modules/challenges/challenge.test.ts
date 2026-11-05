@@ -261,10 +261,8 @@ describe("Challenges (API)", () => {
       participantCount: 2,
       teamScore: 0,
     });
-    expect(sentMails.map((m) => m.subject)).toEqual([
-      "Neue Challenge: Team-Volumen",
-      "Neue Challenge: Team-Volumen",
-    ]);
+    // Challenges verschicken keine Mails, nur In-App-Benachrichtigungen.
+    expect(sentMails).toHaveLength(0);
 
     const completed = await completeWorkout(athlete.bearer, dayId);
     expect(completed.challenges).toEqual([
@@ -396,8 +394,7 @@ describe("Challenges (API)", () => {
       .send({ participantIds: [athleteId, teammateId] });
     expect(extended.status).toBe(200);
     expect(extended.body.participantCount).toBe(2);
-    // Nur der neue Teilnehmer bekommt eine Mail.
-    expect(sentMails).toHaveLength(1);
+    expect(sentMails).toHaveLength(0);
 
     const endPlanned = await api()
       .post(`/api/v1/coach/challenges/${plannedId}/end`)

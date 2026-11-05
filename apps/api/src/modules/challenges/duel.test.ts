@@ -135,9 +135,7 @@ describe("Duelle", () => {
       invitedEmail: "lena@example.com",
       opponentName: null,
     });
-    expect(sentMails.map((m) => [m.to, m.subject])).toEqual([
-      ["lena@example.com", "Max M. fordert dich zum Duell heraus"],
-    ]);
+    expect(sentMails).toHaveLength(0);
 
     const inbox = await notifications(lena.bearer);
     expect(inbox.unreadCount).toBe(1);
@@ -345,10 +343,7 @@ describe("Duelle", () => {
         text: "Meistes Volumen · 0 : 0",
       }),
     ]);
-    expect(sentMails.map((m) => m.subject)).toEqual([
-      "Ergebnis: Meistes Volumen",
-      "Ergebnis: Meistes Volumen",
-    ]);
+    expect(sentMails).toHaveLength(0);
 
     const read = await api()
       .post("/api/v1/me/notifications/read-all")

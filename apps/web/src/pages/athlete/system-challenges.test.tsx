@@ -67,9 +67,7 @@ describe("System-Challenges (Athlet)", () => {
         HttpResponse.json({ items: joined ? [] : [buildRound(false)] }),
       ),
       http.get(apiUrl(`/me/challenges/${ROUND}`), () => HttpResponse.json(buildRound(joined))),
-      http.get(apiUrl("/me/challenge-settings"), () =>
-        HttpResponse.json({ nickname, challengeMails: true }),
-      ),
+      http.get(apiUrl("/me/challenge-settings"), () => HttpResponse.json({ nickname })),
       http.get(apiUrl("/me/challenge-settings/nickname-check"), ({ request }) => {
         const name = new URL(request.url).searchParams.get("nickname");
         return HttpResponse.json(
@@ -80,7 +78,7 @@ describe("System-Challenges (Athlet)", () => {
       }),
       http.put(apiUrl("/me/challenge-settings"), async ({ request }) => {
         nickname = ((await request.json()) as UpdateChallengeSettingsRequest).nickname ?? null;
-        return HttpResponse.json({ nickname, challengeMails: true });
+        return HttpResponse.json({ nickname });
       }),
       http.post(apiUrl(`/me/challenges/${ROUND}/join`), () => {
         joined = true;
@@ -161,28 +159,6 @@ describe("System-Challenges (Athlet)", () => {
     const dialog = screen.getByRole("dialog", { name: "Serien-Starter" });
     expect(dialog).toHaveTextContent("Silber · 5 Wochen am Stück");
     expect(dialog).toHaveTextContent("Gold8 Wo.");
-  });
-
-  it("schaltet Challenge-Mails in den Einstellungen ab", async () => {
-    signIn();
-    let body: UpdateChallengeSettingsRequest | null = null;
-    server.use(
-      http.get(apiUrl("/me/challenge-settings"), () =>
-        HttpResponse.json({ nickname: "Max_M", challengeMails: true }),
-      ),
-      http.put(apiUrl("/me/challenge-settings"), async ({ request }) => {
-        body = (await request.json()) as UpdateChallengeSettingsRequest;
-        return HttpResponse.json({ nickname: "Max_M", challengeMails: false });
-      }),
-    );
-    renderApp("/settings");
-
-    expect(await screen.findByText("Max_M")).toBeInTheDocument();
-    const toggle = screen.getByRole("switch", { name: "E-Mails zu Challenges" });
-    expect(toggle).toHaveAttribute("aria-checked", "true");
-    await userEvent.click(toggle);
-    await waitFor(() => expect(toggle).toHaveAttribute("aria-checked", "false"));
-    expect(body).toEqual({ challengeMails: false });
   });
 });
 

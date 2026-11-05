@@ -209,7 +209,7 @@ describe("System-Challenges (API)", () => {
     expect(admins.items[0]!.currentRound!.participantCount).toBe(1);
   });
 
-  it("zeigt Abzeichen und meldet Ergebnisse mit Stufe, ohne Mail bei Abmeldung", async () => {
+  it("zeigt Abzeichen und meldet Ergebnisse mit Stufe, ohne Mail", async () => {
     const { admin, max, dayId } = await setup();
     await weeklyTemplate(admin.bearer);
     await setNickname(max.bearer, "Max_M");
@@ -233,10 +233,6 @@ describe("System-Challenges (API)", () => {
       progress: "Noch offen · 1 Woche am Stück",
     });
 
-    await api()
-      .put("/api/v1/me/challenge-settings")
-      .set("Authorization", max.bearer)
-      .send({ challengeMails: false });
     await ChallengeModel.updateOne(
       { _id: roundId },
       { startDate: addDays(todayIsoDate(), -7), endDate: addDays(todayIsoDate(), -1) },

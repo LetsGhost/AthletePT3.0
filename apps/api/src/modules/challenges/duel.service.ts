@@ -11,10 +11,7 @@ import {
 import { Types } from "mongoose";
 import type { z } from "zod";
 
-import { env } from "../../config/env";
 import { BadRequestError, ConflictError, NotFoundError } from "../../lib/errors";
-import { trySendMail } from "../../lib/mail/mailer";
-import { duelInviteMail } from "../../lib/mail/templates";
 import { ExerciseModel } from "../exercises/exercise.model";
 import { notify } from "../notifications/notification.service";
 import { UserModel } from "../users/user.model";
@@ -34,14 +31,6 @@ import {
 import { ChallengeModel, type StoredChallenge } from "./challenge.model";
 
 type CreateInput = z.output<typeof createDuelRequestSchema>;
-
-const validUntilFormat = new Intl.DateTimeFormat("de-DE", {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-  timeZone: "Europe/Berlin",
-});
 
 export function durationText(days: number) {
   return days === 7 ? "1 Woche" : `${days / 7} Wochen`;
@@ -89,7 +78,7 @@ interface NewDuel {
   metric: DuelMetric;
   exercise: { _id: Types.ObjectId; name: string } | null;
   durationDays: number;
-  invitee: { _id: Types.ObjectId; email: string; name: string; challengeMails?: boolean } | null;
+  invitee: { _id: Types.ObjectId } | null;
   email: string;
   rematchOfId: Types.ObjectId | null;
 }
@@ -139,19 +128,6 @@ async function createInvite(challengerId: string, duel: NewDuel) {
         challengeId: challenge._id,
       },
     ]);
-    if (duel.invitee.challengeMails !== false) {
-      await trySendMail(
-        duelInviteMail({
-          to: duel.invitee.email,
-          name: duel.invitee.name,
-          challengerName,
-          metricLabel,
-          duration: durationText(duel.durationDays),
-          validUntil: validUntilFormat.format(expiresAt),
-          url: `${env.APP_URL}/challenges/${challenge._id.toString()}`,
-        }),
-      );
-    }
   }
   return challenge;
 }
@@ -173,8 +149,8 @@ export async function createDuel(athleteId: string, input: CreateInput) {
   const exercise = input.exerciseId ? await findDuelExercise(athleteId, input.exerciseId) : null;
   const invitee = await UserModel.findOne(
     { email: input.email, role: "athlete", status: "active" },
-    { email: 1, name: 1, challengeMails: 1 },
-  ).lean<{ _id: Types.ObjectId; email: string; name: string; challengeMails?: boolean }>();
+    { _id: 1 },
+  ).lean<{ _id: Types.ObjectId }>();
 
   const challenge = await createInvite(athleteId, {
     metric: input.metric,
@@ -330,8 +306,8 @@ export async function rematchDuel(athleteId: string, id: string) {
   const opponent = opponentId
     ? await UserModel.findOne(
         { _id: opponentId, role: "athlete", status: "active" },
-        { email: 1, name: 1, challengeMails: 1 },
-      ).lean<{ _id: Types.ObjectId; email: string; name: string; challengeMails?: boolean }>()
+        { email: 1 },
+      ).lean<{ _id: Types.ObjectId; email: string }>()
     : null;
   if (!opponent) {
     throw new ConflictError("Dein Gegner ist nicht mehr dabei.", "duel_opponent_gone");

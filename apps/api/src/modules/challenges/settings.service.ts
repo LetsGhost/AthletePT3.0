@@ -14,18 +14,16 @@ type UpdateInput = z.output<typeof updateChallengeSettingsRequestSchema>;
 interface SettingsFields {
   name: string;
   nickname?: string | null;
-  challengeMails?: boolean;
 }
 
 function toDto(user: SettingsFields): ChallengeSettings {
-  return { nickname: user.nickname ?? null, challengeMails: user.challengeMails !== false };
+  return { nickname: user.nickname ?? null };
 }
 
 async function findUser(userId: string) {
   const user = await UserModel.findById(userId, {
     name: 1,
     nickname: 1,
-    challengeMails: 1,
   }).lean<SettingsFields>();
   if (!user) throw new NotFoundError("Konto nicht gefunden");
   return user;
@@ -43,7 +41,6 @@ async function isTaken(userId: string, nickname: string) {
 
 export async function updateSettings(userId: string, input: UpdateInput) {
   const set: Record<string, unknown> = {};
-  if (input.challengeMails !== undefined) set.challengeMails = input.challengeMails;
   if (input.nickname !== undefined) {
     if (await isTaken(userId, input.nickname)) {
       throw new ConflictError(`„${input.nickname}“ ist leider schon vergeben.`, "nickname_taken");
