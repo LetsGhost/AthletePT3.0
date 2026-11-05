@@ -1,6 +1,8 @@
 import {
   addDays,
+  isoWeekday,
   todayIsoDate,
+  type BadgeListResponse,
   type ChallengeDetail,
   type ChallengeListResponse,
   type CompleteWorkoutResponse,
@@ -13,7 +15,13 @@ import { describe, expect, it } from "vitest";
 
 import { api, createAndLogin, createUser, login } from "../../../test/helpers";
 import { sentMails } from "../../lib/mail/mailer";
-import { computeStandings, type ScoreDefinition, type ScoreLog } from "./challenge-score";
+import {
+  computeStandings,
+  plannedSessions,
+  type ScoreDefinition,
+  type ScoreLog,
+} from "./challenge-score";
+import { runChallengeJob } from "./challenge-job";
 import { ChallengeModel } from "./challenge.model";
 
 const definition = (overrides: Partial<ScoreDefinition> = {}): ScoreDefinition => ({
@@ -42,6 +50,8 @@ function log(
     athleteId,
     date,
     completedAt: new Date(`${date}T${time}:00+02:00`),
+    dayId: "dayA",
+    doneShare: 1,
     stats: stats.map((s) => ({
       exerciseId: "squat",
       volumeKg: null,
@@ -51,6 +61,45 @@ function log(
     })),
   };
 }
+
+describe("Planerfüllung (Berechnung)", () => {
+  it("zählt feste Wochentage im Zeitraum und flexible Tage anteilig", () => {
+    // 2026-10-05 ist ein Montag. Zwei Wochen: Mo und Do je zweimal, ein flexibler Tag zweimal.
+    expect(plannedSessions([1, 4, null], "2026-10-05", "2026-10-18")).toBe(6);
+    // Mo bis Mi: Do fällt weg, der flexible Tag zählt trotzdem einmal.
+    expect(plannedSessions([1, 4, null], "2026-10-05", "2026-10-07")).toBe(2);
+    expect(plannedSessions([], "2026-10-05", "2026-10-11")).toBe(0);
+  });
+
+  it("wertet je Plantag und Woche einmal, übersprungene Übungen anteilig, höchstens 100 %", () => {
+    const at = (date: string, dayId: string, doneShare = 1) => ({
+      ...log("anna", date),
+      dayId,
+      doneShare,
+    });
+    const logs = [
+      at("2026-10-05", "dayA"),
+      at("2026-10-06", "dayA"), // gleicher Plantag in derselben Woche zählt nicht doppelt
+      at("2026-10-08", "dayB", 0.5),
+      at("2026-10-13", "dayA"), // neue Woche
+    ];
+    const def = definition({
+      metric: "plan_adherence",
+      scoring: "goal",
+      goalValue: 70,
+      startDate: "2026-10-05",
+      lastDate: "2026-10-18",
+    });
+    const result = computeStandings(def, ["anna", "ben"], logs, [], new Map([["anna", 4]]));
+    // 1 + 0,5 + 1 von 4 geplanten Einheiten.
+    expect(result.standings[0]).toMatchObject({ athleteId: "anna", score: 62.5, achieved: null });
+    // Ben hat keinen aktiven Plan.
+    expect(result.standings[1]).toMatchObject({ athleteId: "ben", score: 0 });
+
+    const capped = computeStandings(def, ["anna"], logs, [], new Map([["anna", 2]]));
+    expect(capped.standings[0]).toMatchObject({ score: 100, achieved: true });
+  });
+});
 
 describe("Challenge-Wertung (Berechnung)", () => {
   it("zählt Trainings im Zeitraum, bei Gleichstand liegt vorn, wer früher dran war", () => {
@@ -295,6 +344,69 @@ describe("Challenges (API)", () => {
       .get(`/api/v1/athletes/${athleteId}/challenges`)
       .set("Authorization", coach.bearer);
     expect((coachView.body as ChallengeListResponse).items[0]!.me).toMatchObject({ score: 500 });
+  });
+
+  it("wertet die Planerfüllung und friert sie am Ende ein", async () => {
+    const { coach, athlete, athleteId, exerciseId, dayId } = await setup();
+    // Ein flexibler Plantag über zwei Wochen: 2 geplante Einheiten.
+    const created = await api()
+      .post("/api/v1/coach/challenges")
+      .set("Authorization", coach.bearer)
+      .send(challenge([athleteId], { metric: "plan_adherence", scoring: "goal", goalValue: 50 }));
+    expect(created.status).toBe(201);
+    const id = (created.body as ChallengeDetail).id;
+
+    const completed = await completeWorkout(athlete.bearer, dayId);
+    expect(completed.challenges).toEqual([expect.objectContaining({ id, gained: 50, score: 50 })]);
+
+    // Vorzeitig beenden: Der Zeitraum ist dann nur heute, 1 geplante Einheit, also 100 %. Der Job
+    // meldet das Ergebnis und schreibt die geplanten Einheiten fest.
+    const ended = await api()
+      .post(`/api/v1/coach/challenges/${id}/end`)
+      .set("Authorization", coach.bearer);
+    expect(ended.status).toBe(200);
+    await runChallengeJob();
+
+    // Neuer Plan mit vier Tagen auf dem heutigen Wochentag: ohne Festschreiben 25 %, verfehlt.
+    const next = await api()
+      .post(`/api/v1/athletes/${athleteId}/plans`)
+      .set("Authorization", coach.bearer)
+      .send({
+        name: "Block 2",
+        days: ["A", "B", "C", "D"].map((name) => ({
+          name: `Tag ${name}`,
+          weekday: isoWeekday(today()),
+          exercises: [{ exerciseId, sets: [{ kind: "working", repsMin: 5 }] }],
+        })),
+      });
+    const activated = await api()
+      .post(`/api/v1/athletes/${athleteId}/plans/${(next.body as Plan).id}/activate`)
+      .set("Authorization", coach.bearer);
+    expect(activated.status).toBe(200);
+
+    const detail = await api()
+      .get(`/api/v1/me/challenges/${id}`)
+      .set("Authorization", athlete.bearer);
+    expect((detail.body as ChallengeDetail).me).toMatchObject({ score: 100, achieved: true });
+
+    const badges = await api().get("/api/v1/me/badges").set("Authorization", athlete.bearer);
+    expect((badges.body as BadgeListResponse).items).toContainEqual(
+      expect.objectContaining({ id: "plan", group: "series", tier: "bronze" }),
+    );
+  });
+
+  it("lehnt bei der Planerfüllung Team-Ziele und Ziele über 100 % ab", async () => {
+    const { coach, athleteId } = await setup();
+    for (const overrides of [
+      { scoring: "team_goal", goalValue: 50 },
+      { scoring: "goal", goalValue: 120 },
+    ] as const) {
+      const response = await api()
+        .post("/api/v1/coach/challenges")
+        .set("Authorization", coach.bearer)
+        .send(challenge([athleteId], { metric: "plan_adherence", ...overrides }));
+      expect(response.status).toBe(400);
+    }
   });
 
   it("prüft Teilnehmer, Übung und Zeitraum", async () => {

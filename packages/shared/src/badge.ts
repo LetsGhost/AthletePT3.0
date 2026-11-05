@@ -56,6 +56,7 @@ export const badgeSchema = z.object({
     "calendar",
     "volume",
     "sunrise",
+    "plan",
     "duel",
     "coach",
     "system_consistency",

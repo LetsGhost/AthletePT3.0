@@ -91,7 +91,15 @@ async function reportResults(now: Date) {
     const duel = duelStateOf(challenge, today, now);
     if (duel !== null && duel !== "finished") continue;
 
-    const { standings } = score(challenge, today, await loadScoreData(challenge, today));
+    const data = await loadScoreData(challenge, today);
+    if (challenge.metric === "plan_adherence") {
+      // Ergebnis einfrieren: Ein späterer Planwechsel soll es nicht mehr verschieben.
+      await ChallengeModel.updateOne(
+        { _id: challenge._id },
+        { $set: { plannedSessions: Object.fromEntries(data.planned) } },
+      );
+    }
+    const { standings } = score(challenge, today, data);
     const users = await usersOf(standings.map((s) => s.athleteId));
     const notifications: NewNotification[] = [];
 

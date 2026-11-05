@@ -105,6 +105,14 @@ function rules(challenge: ChallengeDetail) {
     case "e1rm":
       list.push(`Zählt: dein bestes geschätztes Maximum (e1RM)${exercise} im Zeitraum.`);
       break;
+    case "plan_adherence":
+      list.push(
+        "Zählt: Anteil der Einheiten aus deinem aktiven Plan, die du im Zeitraum erledigst.",
+      );
+      list.push(
+        "Jeder Plantag zählt einmal pro Woche. Übersprungene Übungen ziehen anteilig ab, übersprungene Einheiten zählen nicht.",
+      );
+      break;
     case "manual":
       list.push(
         challenge.manualMode === "quantity" && challenge.dailyTarget
