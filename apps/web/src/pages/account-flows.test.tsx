@@ -197,3 +197,65 @@ describe("Datenschutzerklärung", () => {
     expect(screen.getByText(new RegExp(`Version ${PRIVACY_POLICY_VERSION}`))).toBeInTheDocument();
   });
 });
+
+describe("Konto löschen", () => {
+  function signInAsAthlete() {
+    useSession.setState({ status: "authenticated", user: buildUser(), accessToken: "token" });
+  }
+
+  it("löscht das Konto nach Passwort-Bestätigung und meldet ab", async () => {
+    signInAsAthlete();
+    let deletedBody: unknown;
+    server.use(
+      http.post(apiUrl("/auth/delete-account"), async ({ request }) => {
+        deletedBody = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.post(apiUrl("/auth/logout"), () => new HttpResponse(null, { status: 204 })),
+    );
+    const { router } = renderApp("/settings");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Konto löschen" }));
+    await userEvent.type(
+      screen.getByLabelText(/^Passwort zur Bestätigung/, { selector: "input" }),
+      "mein-passwort",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Konto endgültig löschen" }));
+
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    expect(deletedBody).toEqual({ password: "mein-passwort" });
+    expect(useSession.getState().user).toBeNull();
+  });
+
+  it("bleibt bei falschem Passwort angemeldet", async () => {
+    signInAsAthlete();
+    server.use(
+      http.post(apiUrl("/auth/delete-account"), () =>
+        problem(403, "wrong_password", "Das Passwort ist falsch"),
+      ),
+    );
+    renderApp("/settings");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Konto löschen" }));
+    await userEvent.type(
+      screen.getByLabelText(/^Passwort zur Bestätigung/, { selector: "input" }),
+      "falsch",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Konto endgültig löschen" }));
+
+    expect(await screen.findByText("Das Passwort ist falsch")).toBeInTheDocument();
+    expect(useSession.getState().status).toBe("authenticated");
+  });
+
+  it("gibt es für Coaches nicht", async () => {
+    useSession.setState({
+      status: "authenticated",
+      user: buildUser({ role: "coach" }),
+      accessToken: "token",
+    });
+    renderApp("/settings");
+
+    expect(await screen.findByRole("button", { name: "Passwort ändern" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Konto löschen" })).not.toBeInTheDocument();
+  });
+});

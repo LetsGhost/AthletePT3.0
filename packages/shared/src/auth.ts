@@ -61,9 +61,14 @@ export const passwordResetConfirmSchema = z.object({
   password: passwordSchema,
 });
 
+export const deleteAccountRequestSchema = z.object({
+  password: z.string().min(1, "Passwort fehlt").max(1024),
+});
+
 export type LoginRequest = z.input<typeof loginRequestSchema>;
 export type AuthResponse = z.infer<typeof authResponseSchema>;
 export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
+export type DeleteAccountRequest = z.infer<typeof deleteAccountRequestSchema>;
 export type InvitationInfo = z.infer<typeof invitationInfoSchema>;
 export type HealthDataConsent = z.infer<typeof healthDataConsentSchema>;
 export type AcceptInvitationRequest = z.infer<typeof acceptInvitationRequestSchema>;

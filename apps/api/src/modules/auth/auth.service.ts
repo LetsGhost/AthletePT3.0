@@ -4,10 +4,12 @@ import type { AuthResponse } from "@athletept/shared";
 import type { Types } from "mongoose";
 
 import { env } from "../../config/env";
+import { withTransaction } from "../../lib/db";
 import { ConflictError, ForbiddenError, NotFoundError, UnauthorizedError } from "../../lib/errors";
 import { logger } from "../../lib/logger/logger";
 import { hashPassword, verifyPassword } from "../../lib/password";
 import { generateToken, hashToken } from "../../lib/tokens";
+import { deleteAllAthleteData } from "../athletes/athlete-data";
 import { UserModel, toUserDto, type UserDocument } from "../users/user.model";
 import { UserTokenModel } from "../users/user-token.model";
 import { signAccessToken } from "./access-token";
@@ -175,4 +177,16 @@ export async function changePassword(
   await UserTokenModel.deleteMany({ userId: user._id, type: "password_reset" });
   // Andere Geräte abmelden, das aktuelle bleibt angemeldet.
   await revokeAllSessions(user._id, currentRefreshToken);
+}
+
+/** Athlet löscht sein Konto selbst, sofort und mit allen Daten (DSGVO). */
+export async function deleteOwnAccount(userId: string, password: string) {
+  const user = await UserModel.findById(userId).select("+passwordHash");
+  if (!user) {
+    throw new NotFoundError("Benutzer nicht gefunden");
+  }
+  if (!(await verifyPassword(password, user.passwordHash))) {
+    throw new ForbiddenError("Das Passwort ist falsch", "wrong_password");
+  }
+  await withTransaction((session) => deleteAllAthleteData(user._id, session));
 }

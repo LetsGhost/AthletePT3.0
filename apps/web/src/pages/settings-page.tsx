@@ -1,4 +1,4 @@
-import { ChevronRight, KeyRound, LogOut, PlugZap } from "lucide-react";
+import { ChevronRight, KeyRound, LogOut, PlugZap, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { roleLabel } from "@/app/navigation";
@@ -10,6 +10,7 @@ import { useSession } from "@/features/auth/session";
 import { useLogout } from "@/features/auth/use-logout";
 import { ChallengeSettings } from "@/features/settings/challenge-settings";
 import { ChangePasswordForm } from "@/features/settings/change-password-form";
+import { DeleteAccountForm } from "@/features/settings/delete-account-form";
 import { RestTimerSettings } from "@/features/settings/rest-timer-settings";
 import { RowIcon, RowText, rowClasses, SettingsGroup } from "@/features/settings/settings-parts";
 import { ThemePicker } from "@/features/settings/theme-picker";
@@ -40,7 +41,7 @@ function ConnectedAppsRow({ onOpen }: { onOpen: () => void }) {
 export default function SettingsPage() {
   const user = useSession((state) => state.user);
   const hasWhatsNew = useHasWhatsNew();
-  const [dialog, setDialog] = useState<"password" | "apps" | null>(null);
+  const [dialog, setDialog] = useState<"password" | "apps" | "delete" | null>(null);
   const handleLogout = useLogout();
   if (!user) return null;
 
@@ -98,6 +99,13 @@ export default function SettingsPage() {
             <ChevronRight aria-hidden="true" className="text-muted size-4" />
           </button>
           {user.role !== "sysadmin" && <ConnectedAppsRow onOpen={() => setDialog("apps")} />}
+          {user.role === "athlete" && (
+            <button type="button" onClick={() => setDialog("delete")} className={linkRowClasses}>
+              <RowIcon icon={Trash2} className="bg-danger/15 text-danger" />
+              <RowText title="Konto löschen" />
+              <ChevronRight aria-hidden="true" className="text-muted size-4" />
+            </button>
+          )}
         </SettingsGroup>
 
         {hasWhatsNew && (
@@ -125,6 +133,9 @@ export default function SettingsPage() {
       </Dialog>
       <Dialog open={dialog === "apps"} onOpenChange={closeDialog} title="Verbundene Apps">
         <MyApiKeys />
+      </Dialog>
+      <Dialog open={dialog === "delete"} onOpenChange={closeDialog} title="Konto löschen">
+        <DeleteAccountForm />
       </Dialog>
     </>
   );
