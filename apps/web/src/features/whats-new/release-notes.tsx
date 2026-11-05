@@ -18,6 +18,7 @@ import {
   Shuffle,
   Swords,
   Timer,
+  Trash2,
   Trophy,
 } from "lucide-react";
 
@@ -110,6 +111,19 @@ export const releaseNotes: WhatsNewRelease[] = [
               4 von 6 Einheiten · Ziel 90 %
             </PreviewText>
           </PreviewCard>
+        ),
+      },
+      {
+        title: "Konto selbst löschen",
+        text: "Unter Einstellungen → Konto kannst du dein Konto mit allen Daten jederzeit selbst löschen, ohne deinen Coach zu fragen.",
+        icon: Trash2,
+        roles: ["athlete"],
+        preview: (
+          <PreviewStack>
+            <PreviewText size="lg">Konto löschen</PreviewText>
+            <PreviewInput label="Passwort zur Bestätigung" value="••••••••••" focused />
+            <PreviewButton>Konto endgültig löschen</PreviewButton>
+          </PreviewStack>
         ),
       },
     ],

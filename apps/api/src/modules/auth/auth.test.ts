@@ -322,3 +322,38 @@ describe("Sofortiger Widerruf von Access-Tokens", () => {
     expect(res.body.code).toBe("invalid_token");
   });
 });
+
+describe("POST /auth/delete-account", () => {
+  const deleteAccount = (bearer: string, password: string) =>
+    api().post("/api/v1/auth/delete-account").set("Authorization", bearer).send({ password });
+
+  it("lehnt ein falsches Passwort ab und löscht nichts", async () => {
+    const { user, bearer } = await createAndLogin({ role: "athlete" });
+
+    const res = await deleteAccount(bearer, "falsch-falsch");
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("wrong_password");
+    expect(await UserModel.exists({ _id: user._id })).toBeTruthy();
+  });
+
+  it("ist nur für Athleten", async () => {
+    const { bearer } = await createAndLogin({ role: "coach" });
+
+    expect((await deleteAccount(bearer, DEFAULT_PASSWORD)).status).toBe(403);
+  });
+
+  it("löscht das Konto ohne Zutun des Coaches und beendet alle Sitzungen", async () => {
+    const coach = await createUser({ role: "coach" });
+    const { user, bearer, cookie } = await createAndLogin({ role: "athlete", coachId: coach._id });
+
+    const res = await deleteAccount(bearer, DEFAULT_PASSWORD);
+
+    expect(res.status).toBe(204);
+    expect(await UserModel.exists({ _id: user._id })).toBeNull();
+    expect(await SessionModel.countDocuments({ userId: user._id })).toBe(0);
+    expect((await api().post("/api/v1/auth/refresh").set("Cookie", cookie)).status).toBe(401);
+    expect((await api().get("/api/v1/auth/me").set("Authorization", bearer)).status).toBe(401);
+    expect(await UserModel.exists({ _id: coach._id })).toBeTruthy();
+  });
+});
