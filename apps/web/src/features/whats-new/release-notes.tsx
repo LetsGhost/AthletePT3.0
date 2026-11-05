@@ -19,6 +19,7 @@ import {
   Swords,
   Timer,
   Trash2,
+  TrendingUp,
   Trophy,
 } from "lucide-react";
 
@@ -45,6 +46,38 @@ import {
   PreviewWeek,
 } from "./preview-kit";
 import type { WhatsNewRelease } from "./types";
+
+/** Mini-Übungsliste für 3.5: aktueller Stand und Veränderung je Übung. */
+function exerciseProgressPreview() {
+  const rows = [
+    ["Kniebeuge", "120 kg", "+17,6 %"],
+    ["Bankdrücken", "101,3 kg", "+17,7 %"],
+    ["Hip Thrust", "130 kg", "+14,7 %"],
+  ] as const;
+  return (
+    <PreviewStack>
+      <PreviewText size="lg">Übungen</PreviewText>
+      <PreviewRow>
+        <PreviewChip>Alle</PreviewChip>
+        <PreviewChip>Beine</PreviewChip>
+        <PreviewChip>Brust</PreviewChip>
+      </PreviewRow>
+      <PreviewCard>
+        {rows.map(([name, value, change]) => (
+          <PreviewRow key={name}>
+            <PreviewText grow>{name}</PreviewText>
+            <PreviewTextGroup align="right">
+              <PreviewText>{value}</PreviewText>
+              <PreviewText size="sm" tone="accent">
+                ↗ {change}
+              </PreviewText>
+            </PreviewTextGroup>
+          </PreviewRow>
+        ))}
+      </PreviewCard>
+    </PreviewStack>
+  );
+}
 
 /** Mini-Protokoll für 3.3: letzte Einheit, ein Satz unter der Vorgabe. */
 function protocolPreview(name: string) {
@@ -112,6 +145,20 @@ export const releaseNotes: WhatsNewRelease[] = [
             </PreviewText>
           </PreviewCard>
         ),
+      },
+      {
+        title: "Deine Übungen im Überblick",
+        text: "Unter Fortschritt siehst du jetzt alle Übungen mit aktuellem Stand und Verlauf. Suche, filtere nach Körperbereich und schalte im Diagramm zwischen Maximum, Gewicht und Volumen um.",
+        icon: TrendingUp,
+        roles: ["athlete"],
+        preview: exerciseProgressPreview(),
+      },
+      {
+        title: "Übungsentwicklung neu gestaltet",
+        text: "Auf der Seite deiner Athleten siehst du ihre stärksten Übungen samt Verlauf auf einen Blick, dazu eine durchsuchbare Liste aller Übungen.",
+        icon: TrendingUp,
+        roles: ["coach"],
+        preview: exerciseProgressPreview(),
       },
       {
         title: "Konto selbst löschen",

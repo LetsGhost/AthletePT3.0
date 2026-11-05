@@ -53,6 +53,8 @@ export interface StoredExerciseStats {
   maxReps: number | null;
   maxDurationSeconds: number | null;
   setCount: number;
+  bestSetWeightKg: number | null;
+  bestSetReps: number | null;
   deviating: boolean;
   notes: string | null;
 }
@@ -130,6 +132,8 @@ const exerciseStatsSchema = new Schema(
     maxReps: nullableNumber,
     maxDurationSeconds: nullableNumber,
     setCount: { type: Number, required: true },
+    bestSetWeightKg: nullableNumber,
+    bestSetReps: nullableNumber,
     deviating: { type: Boolean, default: false },
     notes: nullableString,
   },

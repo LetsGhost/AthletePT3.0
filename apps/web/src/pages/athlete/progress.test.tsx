@@ -38,6 +38,8 @@ const pullUps = buildExerciseStatsSummary({
     maxDurationSeconds: null,
   },
   change: null,
+  trend: [10],
+  bodyGroup: "back",
 });
 
 function mockStats(response: ExerciseStatsListResponse, path = "/me/exercise-stats") {
@@ -45,36 +47,68 @@ function mockStats(response: ExerciseStatsListResponse, path = "/me/exercise-sta
 }
 
 describe("Fortschritt (Athlet)", () => {
-  it("zeigt eingeklappt nur die Rekorde, aufgeklappt alle Übungen", async () => {
+  it("zeigt die stärksten Übungen als Kacheln und verlinkt die Liste", async () => {
     signIn("athlete");
     mockStats({ items: [bench, pullUps], records: [bench] });
     renderApp("/fortschritt");
 
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "Fortschritt" }),
-    ).toBeInTheDocument();
-    await screen.findByRole("region", { name: "Rekorde" });
-    expect(screen.queryByRole("region", { name: "Alle Übungen" })).not.toBeInTheDocument();
-    const toggle = screen.getByRole("button", { name: "Alle 2 Übungen anzeigen" });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await userEvent.click(toggle);
-    expect(screen.getByRole("button", { name: "Weniger anzeigen" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
+    const card = await screen.findByRole("region", { name: "Gewichtsanalyse" });
+    const tiles = await within(card).findAllByRole("listitem");
+    expect(tiles).toHaveLength(1);
+    const tile = within(tiles[0]!).getByRole("link");
+    expect(tile).toHaveAttribute("href", `/fortschritt/${bench.exerciseId}`);
+    expect(tile).toHaveTextContent("Bankdrücken105 kg+5 % seit Mo., 5. Okt.");
+    expect(within(card).getByRole("link", { name: "Alle 2 Übungen" })).toHaveAttribute(
+      "href",
+      "/fortschritt/uebungen",
     );
+  });
 
-    const records = await screen.findByRole("region", { name: "Rekorde" });
-    const record = within(records).getByRole("link", { name: /Bankdrücken/ });
-    expect(record).toHaveAttribute("href", `/fortschritt/${bench.exerciseId}`);
-    expect(record).toHaveTextContent("105 kg");
-    expect(record).toHaveTextContent("max. 82,5 kg");
-    expect(record).toHaveTextContent("+5 % seit Mo., 5. Okt.");
+  it("sucht, filtert und sortiert die Übungsliste", async () => {
+    signIn("athlete");
+    const squat = buildExerciseStatsSummary({
+      exerciseId: "6acd3920c0072ec254663c03",
+      exerciseName: "Kniebeuge",
+      lastDate: "2026-10-01",
+      bodyGroup: "legs",
+      trend: [100, 120],
+      change: { from: 100, to: 120, fromDate: "2026-09-01", percent: 20 },
+    });
+    mockStats({ items: [bench, pullUps, squat], records: [bench, squat] });
+    renderApp("/fortschritt/uebungen");
 
-    const all = screen.getByRole("region", { name: "Alle Übungen" });
-    const items = within(all).getAllByRole("link");
-    expect(items[0]).toHaveTextContent("Bankdrücken2 Einheiten · zuletzt Mo., 12. Okt.105 kg");
-    expect(items[1]).toHaveTextContent("Klimmzüge1 Einheit");
-    expect(items[1]).toHaveTextContent("10 Wdh.");
+    expect(await screen.findByRole("heading", { level: 1, name: "Übungen" })).toBeInTheDocument();
+    await screen.findByRole("list", { name: "Übungen" });
+    const names = () =>
+      within(screen.getByRole("list", { name: "Übungen" }))
+        .getAllByRole("listitem")
+        .map((item) => within(item).getByRole("link").textContent?.split(/\d/)[0]);
+    // Zuletzt trainiert zuerst (Reihenfolge der API).
+    expect(names()).toEqual(["Bankdrücken", "Klimmzüge", "Kniebeuge"]);
+    expect(
+      within(screen.getByRole("list", { name: "Übungen" })).getAllByRole("listitem")[1],
+    ).toHaveTextContent("Klimmzüge1 Einheit");
+    expect(
+      within(screen.getByRole("list", { name: "Übungen" })).getAllByRole("listitem")[1],
+    ).toHaveTextContent("10 Wdh.");
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Sortieren" }), "change");
+    expect(names()).toEqual(["Kniebeuge", "Bankdrücken", "Klimmzüge"]);
+
+    const groups = screen.getByRole("group", { name: "Körperbereich" });
+    expect(
+      within(groups)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Alle", "Brust", "Rücken", "Beine"]);
+    await userEvent.click(within(groups).getByRole("button", { name: "Beine" }));
+    expect(names()).toEqual(["Kniebeuge"]);
+    expect(screen.getByText("1 Übung")).toBeInTheDocument();
+
+    await userEvent.type(screen.getByRole("searchbox", { name: "Übung suchen" }), "bank");
+    expect(screen.getByText("Keine Übung gefunden")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Suche zurücksetzen" }));
+    expect(names()).toHaveLength(3);
   });
 
   it("erklärt, dass es noch keine Daten gibt", async () => {
@@ -85,7 +119,7 @@ describe("Fortschritt (Athlet)", () => {
     expect(await screen.findByText("Noch keine Daten")).toBeInTheDocument();
   });
 
-  it("zeigt Bestwerte, Diagramm und Einheiten einer Übung", async () => {
+  it("zeigt Stand, Bestwerte, Diagramm und Einheiten einer Übung", async () => {
     signIn("athlete");
     server.use(
       http.get(apiUrl(`/me/exercise-stats/${bench.exerciseId}`), () =>
@@ -97,20 +131,34 @@ describe("Fortschritt (Athlet)", () => {
     expect(
       await screen.findByRole("heading", { level: 1, name: "Bankdrücken" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("2 Einheiten · zuletzt Mo., 12. Okt.")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Aktueller Stand" })).toHaveTextContent(
+      "Geschätztes Maximum105 kg+5 % seit Mo., 5. Okt.seit Mo., 5. Okt. (100 kg)",
+    );
+    const info = screen.getByRole("button", { name: "Wie wird das berechnet?" });
+    await userEvent.click(info);
+    expect(info).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/Epley-Formel/)).toBeVisible();
+
     const best = screen.getByRole("region", { name: "Bestwerte" });
     expect(best).toHaveTextContent("Geschätztes Maximum105 kgam Mo., 12. Okt.");
     expect(best).toHaveTextContent("Höchstes Gewicht82,5 kg");
+    expect(best).toHaveTextContent("Meiste Wiederholungen8 Wdh.");
+
     expect(
-      screen.getByRole("img", { name: /Diagramm: Geschätztes Maximum von 100 kg/ }),
+      screen.getByRole("img", { name: "Diagramm Gesch. Max.: 5. Okt. 100 kg, 12. Okt. 105 kg" }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: "Volumen" }));
+    expect(
+      screen.getByRole("img", { name: "Diagramm Volumen: 5. Okt. 1.920 kg, 12. Okt. 1.980 kg" }),
     ).toBeInTheDocument();
 
-    const rows = within(screen.getByRole("table", { name: "Einheiten" })).getAllByRole("row");
+    const rows = within(screen.getByRole("region", { name: "Einheiten" })).getAllByRole("link");
     // Neueste zuerst, mit Link zum Training.
-    expect(rows[1]).toHaveTextContent("Mo., 12. Okt.105 kg82,5 kg1.980 kg3");
-    expect(within(rows[1]!).getByRole("link")).toHaveAttribute(
-      "href",
-      "/workouts/6acd3920c0072ec254663e02",
+    expect(rows[0]).toHaveTextContent(
+      "Mo., 12. Okt.Bester Satz 80 kg × 9 · 3 Sätze105 kggesch. Max.",
     );
+    expect(rows[0]).toHaveAttribute("href", "/workouts/6acd3920c0072ec254663e02");
   });
 
   it("blendet abweichende Trainings auf Wunsch aus", async () => {
@@ -235,10 +283,14 @@ describe("Entwicklung (Coach)", () => {
     mockStats({ items: [bench], records: [bench] }, `/athletes/${athleteId}/exercise-stats`);
     renderApp(`/coach/athletes/${athleteId}`);
 
-    const records = await screen.findByRole("region", { name: "Rekorde" });
-    expect(within(records).getByRole("link", { name: /Bankdrücken/ })).toHaveAttribute(
+    const card = await screen.findByRole("region", { name: "Gewichtsanalyse" });
+    expect(await within(card).findByRole("link", { name: /Bankdrücken/ })).toHaveAttribute(
       "href",
       `/coach/athletes/${athleteId}/entwicklung/${bench.exerciseId}`,
+    );
+    expect(within(card).getByRole("link", { name: "Zur Übungsliste" })).toHaveAttribute(
+      "href",
+      `/coach/athletes/${athleteId}/entwicklung`,
     );
     expect(screen.getByRole("heading", { name: "Streak" })).toBeInTheDocument();
   });
@@ -252,8 +304,8 @@ describe("Entwicklung (Coach)", () => {
     );
     renderApp(`/coach/athletes/${athleteId}/entwicklung/${bench.exerciseId}`);
 
-    const table = await screen.findByRole("table", { name: "Einheiten" });
-    expect(within(table).getAllByRole("link")[0]).toHaveAttribute(
+    const sessions = await screen.findByRole("region", { name: "Einheiten" });
+    expect(within(sessions).getAllByRole("link")[0]).toHaveAttribute(
       "href",
       `/coach/athletes/${athleteId}/workouts/6acd3920c0072ec254663e02`,
     );

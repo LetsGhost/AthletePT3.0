@@ -38,6 +38,21 @@ describe("sessionMetrics", () => {
       maxReps: 8,
       maxDurationSeconds: null,
       setCount: 2,
+      bestSetWeightKg: 95,
+      bestSetReps: 8,
+    });
+  });
+
+  it("nimmt ohne geschätztes Maximum den schwersten Satz als besten", () => {
+    const metrics = sessionMetrics([
+      set({ weightKg: 10, reps: 20 }),
+      set({ weightKg: 12, reps: 15 }),
+      set({ weightKg: 12, reps: 16 }),
+    ]);
+    expect(metrics).toMatchObject({ bestSetWeightKg: 12, bestSetReps: 16 });
+    expect(sessionMetrics([set({ reps: 10 })])).toMatchObject({
+      bestSetWeightKg: null,
+      bestSetReps: null,
     });
   });
 

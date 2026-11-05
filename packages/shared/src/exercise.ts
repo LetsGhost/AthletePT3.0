@@ -17,27 +17,43 @@ export const bodyRegionLabels: Record<BodyRegion, string> = {
  * Feste Liste der Muskelgruppen. Schlüssel sind stabil (werden gespeichert), Bezeichnungen
  * dürfen sich ändern. Neue Gruppen nur ergänzen, nie umbenennen oder entfernen.
  */
+/**
+ * Grobe Körperbereiche für Filter (z. B. in der Übungsentwicklung). Schlüssel stabil halten,
+ * Reihenfolge = Anzeige-Reihenfolge.
+ */
+export const bodyGroupLabels = {
+  chest: "Brust",
+  back: "Rücken",
+  shoulders: "Schultern",
+  arms: "Arme",
+  legs: "Beine",
+  core: "Core",
+} as const;
+export type BodyGroup = keyof typeof bodyGroupLabels;
+export const bodyGroups = Object.keys(bodyGroupLabels) as [BodyGroup, ...BodyGroup[]];
+export const bodyGroupSchema = z.enum(bodyGroups);
+
 export const muscleGroupInfo = {
-  chest: { label: "Brust", region: "upper" },
-  front_delts: { label: "Vordere Schulter", region: "upper" },
-  side_delts: { label: "Seitliche Schulter", region: "upper" },
-  rear_delts: { label: "Hintere Schulter", region: "upper" },
-  lats: { label: "Latissimus", region: "upper" },
-  upper_back: { label: "Oberer Rücken", region: "upper" },
-  traps: { label: "Trapez / Nacken", region: "upper" },
-  biceps: { label: "Bizeps", region: "upper" },
-  triceps: { label: "Trizeps", region: "upper" },
-  forearms: { label: "Unterarme", region: "upper" },
-  abs: { label: "Bauch", region: "core" },
-  obliques: { label: "Seitliche Bauchmuskeln", region: "core" },
-  lower_back: { label: "Unterer Rücken", region: "core" },
-  glutes: { label: "Gesäß", region: "lower" },
-  quads: { label: "Quadrizeps", region: "lower" },
-  hamstrings: { label: "Beinbeuger", region: "lower" },
-  adductors: { label: "Adduktoren", region: "lower" },
-  abductors: { label: "Abduktoren", region: "lower" },
-  calves: { label: "Waden", region: "lower" },
-} as const satisfies Record<string, { label: string; region: BodyRegion }>;
+  chest: { label: "Brust", region: "upper", group: "chest" },
+  front_delts: { label: "Vordere Schulter", region: "upper", group: "shoulders" },
+  side_delts: { label: "Seitliche Schulter", region: "upper", group: "shoulders" },
+  rear_delts: { label: "Hintere Schulter", region: "upper", group: "shoulders" },
+  lats: { label: "Latissimus", region: "upper", group: "back" },
+  upper_back: { label: "Oberer Rücken", region: "upper", group: "back" },
+  traps: { label: "Trapez / Nacken", region: "upper", group: "back" },
+  biceps: { label: "Bizeps", region: "upper", group: "arms" },
+  triceps: { label: "Trizeps", region: "upper", group: "arms" },
+  forearms: { label: "Unterarme", region: "upper", group: "arms" },
+  abs: { label: "Bauch", region: "core", group: "core" },
+  obliques: { label: "Seitliche Bauchmuskeln", region: "core", group: "core" },
+  lower_back: { label: "Unterer Rücken", region: "core", group: "core" },
+  glutes: { label: "Gesäß", region: "lower", group: "legs" },
+  quads: { label: "Quadrizeps", region: "lower", group: "legs" },
+  hamstrings: { label: "Beinbeuger", region: "lower", group: "legs" },
+  adductors: { label: "Adduktoren", region: "lower", group: "legs" },
+  abductors: { label: "Abduktoren", region: "lower", group: "legs" },
+  calves: { label: "Waden", region: "lower", group: "legs" },
+} as const satisfies Record<string, { label: string; region: BodyRegion; group: BodyGroup }>;
 
 export type MuscleGroup = keyof typeof muscleGroupInfo;
 export const muscleGroups = Object.keys(muscleGroupInfo) as [MuscleGroup, ...MuscleGroup[]];

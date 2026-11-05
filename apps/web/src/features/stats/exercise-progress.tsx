@@ -1,23 +1,33 @@
 import {
-  STATS_SESSION_LIMIT,
   recordKindLabels,
   type ExerciseStatsDetail,
   type RecordKind,
   type StatsMetric,
 } from "@athletept/shared";
-import { useMemo } from "react";
+import { ChevronRight, Info } from "lucide-react";
+import { useId, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Switch } from "@/features/settings/settings-parts";
 import { DeviatingBadge } from "@/features/workouts/deviating-badge";
 import { formatWeekdayDate } from "@/features/workouts/format";
 import { cn } from "@/lib/cn";
-import { formatNumber } from "@/lib/format";
 
-import { formatPercent, formatRecordValue, metricLabels } from "./format";
+import { ChangeBadge } from "./change";
+import {
+  chartKinds,
+  chartLabels,
+  formatBestSet,
+  formatChartValue,
+  formatRecordValue,
+  formatShortDate,
+  mainCurrent,
+  metricLabels,
+  type ChartKind,
+} from "./format";
 import { ProgressChart } from "./progress-chart";
-import { ChangeBadge } from "./stats-overview";
 
 const tileKinds: Record<StatsMetric, RecordKind[]> = {
   estimated1rm: ["estimated1rm", "topWeightKg", "maxReps"],
@@ -26,11 +36,10 @@ const tileKinds: Record<StatsMetric, RecordKind[]> = {
   maxDurationSeconds: ["maxDurationSeconds"],
 };
 
-const shortLabels: Record<StatsMetric, string> = {
-  estimated1rm: "Gesch. Max.",
-  topWeightKg: "Höchstes",
-  maxReps: "Wdh.",
-  maxDurationSeconds: "Dauer",
+/** Kurzlabel unter dem Wert einer Einheit, wenn die Einheit allein nicht reicht. */
+const rowLabels: Partial<Record<StatsMetric, string>> = {
+  estimated1rm: "gesch. Max.",
+  topWeightKg: "höchstes",
 };
 
 interface ExerciseProgressProps {
@@ -41,15 +50,17 @@ interface ExerciseProgressProps {
   onHideDeviatingChange: (hide: boolean) => void;
 }
 
-/** Bestwerte, Verlauf der letzten Einheiten als Diagramm und als Tabelle. */
+/** Aktueller Stand, Bestwerte, Verlauf als Diagramm und die einzelnen Einheiten. */
 export function ExerciseProgress({
   data,
   logHref,
   hideDeviating,
   onHideDeviatingChange,
 }: ExerciseProgressProps) {
+  const [kind, setKind] = useState<ChartKind>(data.metric);
+  const [info, setInfo] = useState(false);
+  const infoId = useId();
   const estimated = data.metric === "estimated1rm";
-  const weighted = estimated || data.metric === "topWeightKg";
   const change = data.change;
   const hasDeviating = data.sessions.some((s) => s.deviating);
   // Stabil halten, sonst baut das Diagramm bei jedem Rendern neu auf.
@@ -57,51 +68,117 @@ export function ExerciseProgress({
     () => (hideDeviating ? data.sessions.filter((s) => !s.deviating) : data.sessions),
     [data.sessions, hideDeviating],
   );
-  const scope = hasDeviating
-    ? hideDeviating
-      ? " Ohne abweichende Trainings."
-      : " Inklusive abweichender Trainings."
-    : "";
-  const summary =
-    (change
-      ? `${metricLabels[data.metric]} von ${formatRecordValue(data.metric, change.from)} am ${formatWeekdayDate(change.fromDate)} auf ${formatRecordValue(data.metric, change.to)} (${formatPercent(change.percent)}).`
-      : `${metricLabels[data.metric]}: noch zu wenige Einheiten für einen Verlauf.`) + scope;
+  const kinds = chartKinds[data.metric];
+  const chartLabel = `Diagramm ${chartLabels[kind]}: ${visible
+    .filter((s) => s[kind] !== null)
+    .map((s) => `${formatShortDate(s.date)} ${formatChartValue(kind, s[kind]!)}`)
+    .join(", ")}`;
 
   return (
-    <div className="flex flex-col gap-4">
-      <section aria-label="Bestwerte" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        {tileKinds[data.metric].map((kind) => {
-          const record = data.best[kind];
-          return (
-            <div key={kind} className="bg-surface flex flex-col gap-1 rounded-card p-4">
-              <span className="text-muted text-sm">{recordKindLabels[kind]}</span>
-              <span className="text-2xl font-medium tabular-nums">
-                {record ? formatRecordValue(kind, record.value) : "–"}
-              </span>
-              {record && (
-                <span className="text-muted flex flex-wrap items-center gap-1.5 text-sm">
-                  am {formatWeekdayDate(record.date)}
-                  {record.deviating && <DeviatingBadge />}
-                </span>
-              )}
-            </div>
-          );
-        })}
+    <div className="flex flex-col gap-3.5">
+      <section
+        aria-label="Aktueller Stand"
+        className="bg-surface flex flex-col gap-1.5 rounded-tile p-4"
+      >
+        <span className="text-muted flex items-center gap-1.5 text-sm">
+          {metricLabels[data.metric]}
+          {estimated && (
+            <button
+              type="button"
+              aria-expanded={info}
+              aria-controls={infoId}
+              aria-label="Wie wird das berechnet?"
+              onClick={() => setInfo(!info)}
+              className="hover:text-text -my-2 inline-flex size-8 items-center justify-center rounded-lg"
+            >
+              <Info aria-hidden="true" className="size-4" />
+            </button>
+          )}
+        </span>
+        <span className="flex flex-wrap items-baseline gap-x-2.5">
+          <span className="text-4xl leading-tight font-bold tabular-nums">{mainCurrent(data)}</span>
+          <ChangeBadge summary={data} />
+        </span>
+        {change && (
+          <span className="text-muted text-xs">
+            seit {formatWeekdayDate(change.fromDate)} ({formatRecordValue(data.metric, change.from)}
+            ){hasDeviating && (hideDeviating ? " · ohne abweichende" : " · inkl. abweichender")}
+          </span>
+        )}
+        {estimated && (
+          <p
+            id={infoId}
+            hidden={!info}
+            className="bg-inset mt-1.5 rounded-card px-3 py-2.5 text-xs leading-relaxed"
+          >
+            Geschätzt aus Gewicht und Wiederholungen des besten Satzes (Epley-Formel, nur Sätze bis
+            12 Wdh.). So lassen sich Einheiten mit unterschiedlichen Wiederholungen vergleichen.
+          </p>
+        )}
       </section>
 
-      <section
-        aria-labelledby="progress-chart"
-        className="bg-surface flex flex-col gap-3 rounded-card p-4"
-      >
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="progress-chart" className="font-medium">
-            Verlauf der letzten {Math.min(STATS_SESSION_LIMIT, visible.length)} Einheiten
-          </h2>
-          <ChangeBadge summary={data} />
+      <section aria-labelledby="best-values" className="flex flex-col gap-2">
+        <h2 id="best-values" className="px-0.5 font-semibold">
+          Bestwerte
+        </h2>
+        <div className="grid grid-cols-2 gap-2">
+          {tileKinds[data.metric].map((recordKind) => {
+            const record = data.best[recordKind];
+            return (
+              <div
+                key={recordKind}
+                className="bg-surface flex flex-col gap-0.5 rounded-tile px-3.5 py-3 last:odd:col-span-2"
+              >
+                <span className="text-muted text-xs">{recordKindLabels[recordKind]}</span>
+                <span className="text-xl font-semibold tabular-nums">
+                  {record ? formatRecordValue(recordKind, record.value) : "–"}
+                </span>
+                {record && (
+                  <span className="text-muted flex flex-wrap items-center gap-1.5 text-xs">
+                    am {formatWeekdayDate(record.date)}
+                    {record.deviating && <DeviatingBadge />}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
+      </section>
+
+      <section aria-label="Verlauf" className="bg-surface flex flex-col gap-3 rounded-tile p-3.5">
+        {kinds.length > 1 && (
+          <SegmentedControl
+            label="Kennzahl"
+            options={kinds.map((k) => ({ value: k, label: chartLabels[k] }))}
+            value={kind}
+            onChange={setKind}
+            className="bg-inset [&>button]:flex-1 [&>button]:px-1 [&>button]:text-xs"
+          />
+        )}
+        {visible.length === 0 ? (
+          <div className="bg-inset flex flex-col items-center gap-2 rounded-card p-6 text-center">
+            <p className="text-sm">Alle Trainings sind als abweichend markiert</p>
+            <Button variant="secondary" size="sm" onClick={() => onHideDeviatingChange(false)}>
+              Einblenden
+            </Button>
+          </div>
+        ) : visible.length > 1 ? (
+          <ProgressChart sessions={visible} kind={kind} label={chartLabel} />
+        ) : (
+          <p className="text-muted py-4 text-center text-sm">
+            Ab zwei Einheiten erscheint hier der Verlauf.
+          </p>
+        )}
         {hasDeviating && (
-          <div className="flex items-center justify-between gap-3">
-            <span id="hide-deviating" className="text-sm font-medium">
+          <div className="border-border flex flex-wrap items-center gap-x-3 gap-y-2 border-t pt-2.5">
+            <span aria-hidden="true" className="text-muted flex items-center gap-1.5 text-xs">
+              <span className="bg-accent size-2.5 rounded-full" /> normal
+            </span>
+            <span aria-hidden="true" className="text-muted flex items-center gap-1.5 text-xs">
+              <span className="border-accent size-2.5 rotate-45 border-2" /> abweichend
+            </span>
+            <span className="flex-1" />
+            <span id="hide-deviating" className="text-muted text-xs">
               Abweichende ausblenden
             </span>
             <Switch
@@ -111,111 +188,51 @@ export function ExerciseProgress({
             />
           </div>
         )}
-        {visible.length === 0 ? (
-          <div className="bg-inset flex flex-col items-center gap-2 rounded-card p-6 text-center">
-            <p className="text-sm">Alle Trainings sind als abweichend markiert</p>
-            <Button variant="secondary" size="sm" onClick={() => onHideDeviatingChange(false)}>
-              Einblenden
-            </Button>
-          </div>
-        ) : (
-          <>
-            <p className="text-muted text-sm">
-              {summary}
-              {estimated && " Geschätzt aus Gewicht und Wiederholungen (Epley, bis 12 Wdh.)."}
-            </p>
-            {visible.length > 1 && (
-              <ProgressChart
-                sessions={visible}
-                metric={data.metric}
-                label={`Diagramm: ${summary} Die Werte stehen in der Tabelle darunter.`}
-              />
-            )}
-            {visible.some((s) => s.deviating) && (
-              <p aria-hidden="true" className="text-muted flex gap-4 text-xs">
-                <span className="flex items-center gap-1.5">
-                  <span className="bg-accent size-2.5 rounded-full" /> normal
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="border-accent size-2.5 rotate-45 border-2" /> abweichend
-                </span>
-              </p>
-            )}
-          </>
-        )}
       </section>
 
-      <section className="bg-surface overflow-x-auto rounded-card p-4">
-        <table className="w-full text-sm">
-          <caption className="mb-2 text-left font-medium">Einheiten</caption>
-          <thead className="text-muted text-left">
-            <tr>
-              <th scope="col" className="py-1 pr-3 font-normal">
-                Datum
-              </th>
-              <th scope="col" className="py-1 pr-3 font-normal">
-                {shortLabels[data.metric]}
-              </th>
-              {estimated && (
-                <th scope="col" className="py-1 pr-3 font-normal">
-                  Höchstes
-                </th>
-              )}
-              {weighted && (
-                <th scope="col" className="hidden py-1 pr-3 font-normal sm:table-cell">
-                  Volumen
-                </th>
-              )}
-              <th scope="col" className="py-1 font-normal">
-                Sätze
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...data.sessions].reverse().map((session) => {
-              const main = session[data.metric];
-              return (
-                <tr
-                  key={session.logId}
+      <section aria-labelledby="sessions" className="flex flex-col gap-2">
+        <h2 id="sessions" className="px-0.5 font-semibold">
+          Einheiten
+        </h2>
+        <ul className="bg-surface divide-border divide-y overflow-hidden rounded-tile">
+          {[...data.sessions].reverse().map((session) => {
+            const main = session[data.metric];
+            const bestSet = formatBestSet(session);
+            return (
+              <li key={session.logId}>
+                <Link
+                  to={logHref(session.logId)}
                   className={cn(
-                    "border-border border-t",
+                    "hover:bg-inset flex items-center gap-3 py-3 pr-3 pl-3.5 transition-colors",
                     hideDeviating && session.deviating && "opacity-50",
                   )}
                 >
-                  <th scope="row" className="py-1.5 pr-3 text-left font-normal whitespace-nowrap">
-                    <Link
-                      to={logHref(session.logId)}
-                      className="text-accent underline-offset-4 hover:underline"
-                    >
-                      {formatWeekdayDate(session.date)}
-                    </Link>
-                    {session.deviating && (
-                      <span className="ml-2 align-middle">
-                        <DeviatingBadge />
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-sm font-semibold">
+                        {formatWeekdayDate(session.date)}
                       </span>
+                      {session.deviating && <DeviatingBadge />}
+                    </span>
+                    <span className="text-muted text-xs">
+                      {bestSet && `Bester Satz ${bestSet} · `}
+                      {session.setCount} {session.setCount === 1 ? "Satz" : "Sätze"}
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end">
+                    <span className="font-semibold tabular-nums">
+                      {main !== null ? formatRecordValue(data.metric, main) : "–"}
+                    </span>
+                    {rowLabels[data.metric] && (
+                      <span className="text-muted text-[0.6875rem]">{rowLabels[data.metric]}</span>
                     )}
-                  </th>
-                  <td className="py-1.5 pr-3 whitespace-nowrap tabular-nums">
-                    {main !== null ? formatRecordValue(data.metric, main) : "–"}
-                  </td>
-                  {estimated && (
-                    <td className="py-1.5 pr-3 whitespace-nowrap tabular-nums">
-                      {session.topWeightKg !== null
-                        ? formatRecordValue("topWeightKg", session.topWeightKg)
-                        : "–"}
-                    </td>
-                  )}
-                  {weighted && (
-                    <td className="hidden py-1.5 pr-3 whitespace-nowrap tabular-nums sm:table-cell">
-                      {session.volumeKg !== null ? `${formatNumber(session.volumeKg)} kg` : "–"}
-                    </td>
-                  )}
-                  <td className="py-1.5 tabular-nums">{session.setCount}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  </span>
+                  <ChevronRight aria-hidden="true" className="text-muted size-4 shrink-0" />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       </section>
     </div>
   );

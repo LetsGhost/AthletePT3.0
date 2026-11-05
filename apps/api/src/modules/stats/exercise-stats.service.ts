@@ -1,6 +1,9 @@
 import {
   STATS_SESSION_LIMIT,
   STATS_TOP_COUNT,
+  STATS_TREND_COUNT,
+  muscleGroupInfo,
+  type BodyGroup,
   primaryMetric,
   sessionMetrics,
   type ExerciseBest,
@@ -19,6 +22,7 @@ import { Types } from "mongoose";
 import { NotFoundError } from "../../lib/errors";
 import { logger } from "../../lib/logger/logger";
 import { getAthleteOfCoach } from "../athletes/athlete-access";
+import { ExerciseModel } from "../exercises/exercise.model";
 import {
   WorkoutLogModel,
   type StoredExerciseStats,
@@ -39,7 +43,7 @@ import {
  * Bei jeder Änderung an der Berechnung der Kennzahlen (`computeWorkoutStats`, `sessionMetrics`)
  * hochsetzen. Beim Start der API werden dann alle Protokolle neu berechnet.
  */
-export const WORKOUT_STATS_VERSION = 2;
+export const WORKOUT_STATS_VERSION = 3;
 
 /**
  * Kennzahlen je Übung eines Trainings. Ausgelassene Übungen und solche ohne erledigten Arbeitssatz
@@ -130,6 +134,22 @@ interface ExerciseSessions {
   sessions: ExerciseSession[];
 }
 
+/** Körperbereich je Übung (erster Hauptmuskel). Gelöschte Übungen fehlen. */
+async function loadBodyGroups(exerciseIds: readonly string[]) {
+  const exercises = await ExerciseModel.find(
+    { _id: { $in: exerciseIds } },
+    { primaryMuscles: 1 },
+  ).lean();
+  return new Map<string, BodyGroup>(
+    exercises
+      .filter((e) => e.primaryMuscles.length > 0)
+      .map((e) => [
+        e._id.toString(),
+        muscleGroupInfo[e.primaryMuscles[0] as keyof typeof muscleGroupInfo].group,
+      ]),
+  );
+}
+
 async function loadLogs(athleteId: string, exerciseId?: string) {
   return WorkoutLogModel.find(
     {
@@ -195,6 +215,7 @@ function changeOf(
 /** Mit `excludeDeviating` zählen abweichende Einheiten nicht in Bestwerte und Veränderung. */
 function summarize(
   group: ExerciseSessions,
+  bodyGroups: ReadonlyMap<string, BodyGroup>,
   excludeDeviating = false,
 ): ExerciseStatsSummary & { window: ExerciseSession[] } {
   const metric = primaryMetric(group.sessions);
@@ -215,14 +236,21 @@ function summarize(
     lastDate: group.sessions.at(-1)!.date,
     best,
     change: changeOf(window.filter(counts), metric),
+    trend: window
+      .filter(counts)
+      .map((s) => s[metric])
+      .filter((v): v is number => v !== null)
+      .slice(-STATS_TREND_COUNT),
+    bodyGroup: bodyGroups.get(group.exerciseId) ?? null,
     window,
   };
 }
 
 async function listStats(athleteId: string): Promise<ExerciseStatsListResponse> {
   const groups = groupSessions(await loadLogs(athleteId));
+  const bodyGroups = await loadBodyGroups([...groups.keys()]);
   const items = [...groups.values()].map((group) => {
-    const { window: _window, ...summary } = summarize(group);
+    const { window: _window, ...summary } = summarize(group, bodyGroups);
     return summary;
   });
   items.sort(
@@ -242,7 +270,11 @@ async function exerciseStats(
 ): Promise<ExerciseStatsDetail> {
   const group = groupSessions(await loadLogs(athleteId, exerciseId)).get(exerciseId);
   if (!group) throw new NotFoundError("Zu dieser Übung gibt es noch keine Trainings");
-  const { window, ...summary } = summarize(group, excludeDeviating);
+  const { window, ...summary } = summarize(
+    group,
+    await loadBodyGroups([exerciseId]),
+    excludeDeviating,
+  );
   return { ...summary, sessions: window };
 }
 

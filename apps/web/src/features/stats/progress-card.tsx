@@ -1,62 +1,89 @@
-import type { ExerciseStatsListResponse } from "@athletept/shared";
+import {
+  STATS_TOP_COUNT,
+  STATS_TREND_COUNT,
+  type ExerciseStatsListResponse,
+} from "@athletept/shared";
 import type { UseQueryResult } from "@tanstack/react-query";
-import { ChevronDown, TrendingUp } from "lucide-react";
-import { useId, useState, type ReactNode } from "react";
+import { ChevronRight, TrendingUp } from "lucide-react";
+import type { ReactNode } from "react";
+import { Link } from "react-router";
 
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { QueryState, SkeletonList } from "@/components/ui/query-state";
-import { cn } from "@/lib/cn";
+import { QueryState } from "@/components/ui/query-state";
 
 import { useAthleteStats, useMyStats } from "./api";
-import { StatsOverview } from "./stats-overview";
+import { ChangeBadge, Sparkline } from "./change";
+import { mainCurrent } from "./format";
 
 interface WeightAnalysisCardProps {
   query: UseQueryResult<ExerciseStatsListResponse>;
   href: (exerciseId: string) => string;
+  /** Liste aller Übungen. */
+  listHref: string;
   empty: ReactNode;
-  /** Überschriften-Ebene der Abschnitte im Inhalt. */
-  level?: "h2" | "h3";
 }
 
-/** Rekorde und alle Übungen. Eingeklappt nur eine Vorschau, ein Klick zeigt alles. */
-export function WeightAnalysisCard({ query, href, empty, level = "h3" }: WeightAnalysisCardProps) {
-  const [expanded, setExpanded] = useState(false);
-  const contentId = useId();
-  const count = query.data?.items.length ?? 0;
-
+/** Die stärksten Übungen als Kacheln mit Verlauf, dazu der Weg zur vollständigen Liste. */
+export function WeightAnalysisCard({ query, href, listHref, empty }: WeightAnalysisCardProps) {
   return (
-    <Card>
-      <CardHeader title="Gewichtsanalyse" icon={TrendingUp} iconClassName="text-module-weight" />
-      <CardBody className="flex flex-col gap-3">
-        <QueryState query={query} loading={<SkeletonList rows={2} className="h-20" />}>
-          {(data) =>
-            data.items.length === 0 ? (
-              empty
-            ) : (
-              <div id={contentId}>
-                <StatsOverview data={data} href={href} level={level} preview={!expanded} />
-              </div>
-            )
-          }
-        </QueryState>
-        {count > 0 && (
-          <button
-            type="button"
-            aria-expanded={expanded}
-            aria-controls={contentId}
-            onClick={() => setExpanded(!expanded)}
-            className="text-accent hover:bg-inset flex min-h-11 items-center justify-center gap-1 rounded-card text-sm font-medium"
-          >
-            {expanded ? "Weniger anzeigen" : `Alle ${count} Übungen anzeigen`}
-            <ChevronDown
-              aria-hidden="true"
-              className={cn("size-4 transition-transform", expanded && "rotate-180")}
-            />
-          </button>
-        )}
-      </CardBody>
-    </Card>
+    <section
+      aria-labelledby="weight-analysis"
+      className="bg-surface flex flex-col gap-3 rounded-tile p-3.5 pb-2.5"
+    >
+      <div className="flex items-center gap-2.5">
+        <span className="bg-module-weight/15 flex size-9 shrink-0 items-center justify-center rounded-[0.625rem]">
+          <TrendingUp aria-hidden="true" className="text-module-weight size-[1.125rem]" />
+        </span>
+        <span className="flex flex-col">
+          <h2 id="weight-analysis" className="font-semibold">
+            Gewichtsanalyse
+          </h2>
+          {(query.data?.items.length ?? 0) > 0 && (
+            <span className="text-muted text-xs">
+              {query.data!.records.length > 0 ? "Geschätztes Maximum" : "Aktueller Stand"} · letzte{" "}
+              {STATS_TREND_COUNT} Einheiten
+            </span>
+          )}
+        </span>
+      </div>
+      <QueryState query={query} loading={<div className="skeleton h-48 rounded-card" />}>
+        {(data) => {
+          if (data.items.length === 0) return empty;
+          const tiles =
+            data.records.length > 0 ? data.records : data.items.slice(0, STATS_TOP_COUNT);
+          return (
+            <>
+              <ul className="grid grid-cols-2 gap-2">
+                {tiles.map((item) => (
+                  <li key={item.exerciseId} className="min-w-0">
+                    <Link
+                      to={href(item.exerciseId)}
+                      className="bg-inset hover:border-border-strong flex h-full flex-col gap-1.5 rounded-card border border-transparent p-3 transition-colors"
+                    >
+                      <span className="truncate text-sm">{item.exerciseName}</span>
+                      <span className="text-xl leading-tight font-semibold tabular-nums">
+                        {mainCurrent(item)}
+                      </span>
+                      <span className="flex items-center justify-between gap-1.5">
+                        <Sparkline summary={item} />
+                        <ChangeBadge summary={item} className="text-xs" />
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                to={listHref}
+                className="text-accent hover:bg-inset flex min-h-11 items-center justify-center gap-1 rounded-card text-sm font-medium"
+              >
+                {data.items.length === 1 ? "Zur Übungsliste" : `Alle ${data.items.length} Übungen`}
+                <ChevronRight aria-hidden="true" className="size-4" />
+              </Link>
+            </>
+          );
+        }}
+      </QueryState>
+    </section>
   );
 }
 
@@ -65,11 +92,12 @@ export function MyWeightAnalysisCard() {
     <WeightAnalysisCard
       query={useMyStats()}
       href={(exerciseId) => `/fortschritt/${exerciseId}`}
+      listHref="/fortschritt/uebungen"
       empty={
         <EmptyState
           icon={TrendingUp}
           title="Noch keine Daten"
-          description="Schließe dein erstes Training ab, dann siehst du hier Bestwerte und Verlauf."
+          description="Schließe dein erstes Training ab, dann siehst du hier deine Entwicklung je Übung."
         />
       }
     />
@@ -88,11 +116,12 @@ export function AthleteWeightAnalysisCard({
     <WeightAnalysisCard
       query={useAthleteStats(athleteId)}
       href={(exerciseId) => `/coach/athletes/${athleteId}/entwicklung/${exerciseId}`}
+      listHref={`/coach/athletes/${athleteId}/entwicklung`}
       empty={
         <EmptyState
           icon={TrendingUp}
           title="Noch keine Daten"
-          description={`Sobald ${athleteName} Trainings abschließt, siehst du hier Bestwerte und Verlauf.`}
+          description={`Sobald ${athleteName} Trainings abschließt, siehst du hier die Entwicklung je Übung.`}
         />
       }
     />

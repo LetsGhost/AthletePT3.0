@@ -173,11 +173,15 @@ describe("Übungsanalyse", () => {
         topWeightKg: { value: 105 },
       },
       change: { from: 116.7, to: 122.5, fromDate: addDays(today, -7), percent: 5 },
+      trend: [116.7, 122.5],
+      bodyGroup: "legs",
     });
     expect(stats.records.map((x) => x.exerciseId)).toEqual([squat.id]);
     expect(stats.items.find((x) => x.exerciseId === pullUp.id)).toMatchObject({
       metric: "maxReps",
       best: { maxReps: { value: 10 }, estimated1rm: null },
+      trend: [8, 10],
+      bodyGroup: "back",
     });
 
     const detail = await api()
@@ -185,10 +189,20 @@ describe("Übungsanalyse", () => {
       .set("Authorization", athlete.bearer);
     expect(detail.status).toBe(200);
     const body = detail.body as ExerciseStatsDetail;
-    expect(body.sessions.map((s) => [s.date, s.topWeightKg, s.volumeKg, s.setCount])).toEqual([
-      [addDays(today, -7), 100, 1000, 2],
-      [addDays(today, -3), 105, 525, 1],
+    expect(
+      body.sessions.map((s) => [
+        s.date,
+        s.topWeightKg,
+        s.volumeKg,
+        s.setCount,
+        s.bestSetWeightKg,
+        s.bestSetReps,
+      ]),
+    ).toEqual([
+      [addDays(today, -7), 100, 1000, 2, 100, 5],
+      [addDays(today, -3), 105, 525, 1, 105, 5],
     ]);
+    expect(body).toMatchObject({ trend: [116.7, 122.5], bodyGroup: "legs" });
   });
 
   it("zählt laufende Trainings und ausgelassene Übungen nicht", async () => {
