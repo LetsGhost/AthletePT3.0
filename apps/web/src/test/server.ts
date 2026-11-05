@@ -7,7 +7,7 @@ import type {
   ExerciseStatsDetail,
   ExerciseLogResponse,
   ExerciseStatsListResponse,
-  ExerciseStatsSummary,
+  ExerciseStatsListItem,
   Plan,
   PlanExerciseInfo,
   PlanListResponse,
@@ -284,8 +284,8 @@ export function buildWeekView(overrides: Partial<WeekView> = {}): WeekView {
 
 /** Bankdrücken: zwei Einheiten, geschätztes Maximum von 100 auf 105 kg. */
 export function buildExerciseStatsSummary(
-  overrides: Partial<ExerciseStatsSummary> = {},
-): ExerciseStatsSummary {
+  overrides: Partial<ExerciseStatsListItem> = {},
+): ExerciseStatsListItem {
   return {
     exerciseId: "6acd3920c0072ec254663c01",
     exerciseName: "Bankdrücken",
@@ -314,6 +314,8 @@ export function buildExerciseStatsSummary(
       maxDurationSeconds: null,
     },
     change: { from: 100, to: 105, fromDate: "2026-10-05", percent: 5 },
+    trend: [100, 105],
+    bodyGroup: "chest",
     ...overrides,
   };
 }
@@ -333,6 +335,8 @@ export function buildExerciseStatsDetail(
         maxReps: 8,
         maxDurationSeconds: null,
         setCount: 3,
+        bestSetWeightKg: 75,
+        bestSetReps: 8,
         deviating: false,
         notes: null,
       },
@@ -345,6 +349,8 @@ export function buildExerciseStatsDetail(
         maxReps: 8,
         maxDurationSeconds: null,
         setCount: 3,
+        bestSetWeightKg: 80,
+        bestSetReps: 9,
         deviating: false,
         notes: null,
       },

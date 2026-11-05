@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { QueryState, SkeletonList } from "@/components/ui/query-state";
 import { useMyExerciseStats } from "@/features/stats/api";
 import { ExerciseProgress } from "@/features/stats/exercise-progress";
+import { sessionsText } from "@/features/stats/format";
 import { ApiError } from "@/lib/http";
 
 export default function AthleteExerciseProgressPage() {
@@ -17,10 +18,10 @@ export default function AthleteExerciseProgressPage() {
   return (
     <>
       <Link
-        to="/fortschritt"
+        to="/fortschritt/uebungen"
         className="text-muted hover:text-text mb-4 inline-flex min-h-11 items-center gap-1 text-sm"
       >
-        <ArrowLeft aria-hidden="true" className="size-4" /> Fortschritt
+        <ArrowLeft aria-hidden="true" className="size-4" /> Übungen
       </Link>
       {stats.error instanceof ApiError && stats.error.status === 404 ? (
         <div className="bg-surface rounded-card">
@@ -35,7 +36,7 @@ export default function AthleteExerciseProgressPage() {
         <QueryState query={stats} loading={<SkeletonList rows={3} className="h-40" />}>
           {(data) => (
             <>
-              <PageHeader title={data.exerciseName} description="Dein Verlauf" />
+              <PageHeader title={data.exerciseName} description={sessionsText(data)} />
               <ExerciseProgress
                 data={data}
                 hideDeviating={hideDeviating}

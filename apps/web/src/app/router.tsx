@@ -86,6 +86,10 @@ export const routes: RouteObject[] = [
                   { path: "/entwicklung/*", element: renamedDevelopment },
                   { path: "/entwicklung", element: renamedDevelopment },
                   {
+                    path: "/fortschritt/uebungen",
+                    ...page(() => import("@/pages/athlete/exercise-stats-page")),
+                  },
+                  {
                     path: "/fortschritt/:exerciseId",
                     ...page(() => import("@/pages/athlete/exercise-progress-page")),
                   },
@@ -125,6 +129,10 @@ export const routes: RouteObject[] = [
                   {
                     path: "/coach/athletes/:id",
                     ...page(() => import("@/pages/coach/athlete-detail-page")),
+                  },
+                  {
+                    path: "/coach/athletes/:id/entwicklung",
+                    ...page(() => import("@/pages/coach/exercise-stats-page")),
                   },
                   {
                     path: "/coach/athletes/:id/entwicklung/:exerciseId",

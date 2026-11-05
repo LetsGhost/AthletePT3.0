@@ -1,10 +1,13 @@
 import { z } from "zod";
 
 import { objectIdSchema } from "./common";
+import { bodyGroupSchema } from "./exercise";
 import type { SetKind } from "./plan";
 
 /** So viele Einheiten zeigt der Verlauf einer Übung. */
 export const STATS_SESSION_LIMIT = 16;
+/** So viele Werte zeigt die Mini-Verlaufskurve einer Übung. */
+export const STATS_TREND_COUNT = 6;
 /** So viele Übungen stehen in den Rekorden. */
 export const STATS_TOP_COUNT = 4;
 /** Über so vielen Wiederholungen wird das geschätzte Maximum zu ungenau. */
@@ -67,6 +70,9 @@ export interface SessionMetrics {
   maxReps: number | null;
   maxDurationSeconds: number | null;
   setCount: number;
+  /** Bester Satz mit Gewicht: höchstes geschätztes Maximum, sonst das schwerste Gewicht. */
+  bestSetWeightKg: number | null;
+  bestSetReps: number | null;
 }
 
 const maxOf = (values: (number | null)[]) => {
@@ -79,6 +85,15 @@ export function sessionMetrics(sets: readonly StatsSetInput[]): SessionMetrics {
   const working = sets.filter((s) => s.done && s.kind === "working");
   const weighted = working.filter((s) => s.weightKg !== null && s.weightKg > 0);
   const volume = weighted.reduce((sum, s) => sum + (s.reps ?? 0) * s.weightKg!, 0);
+  const score = (s: StatsSetInput) => [
+    estimateOneRepMax(s.weightKg, s.reps) ?? -1,
+    s.weightKg!,
+    s.reps ?? 0,
+  ];
+  const [bestSet] = [...weighted].sort((x, y) => {
+    const [a, b] = [score(x), score(y)];
+    return b[0]! - a[0]! || b[1]! - a[1]! || b[2]! - a[2]!;
+  });
   return {
     topWeightKg: maxOf(weighted.map((s) => s.weightKg)),
     estimated1rm: maxOf(working.map((s) => estimateOneRepMax(s.weightKg, s.reps))),
@@ -86,6 +101,8 @@ export function sessionMetrics(sets: readonly StatsSetInput[]): SessionMetrics {
     maxReps: maxOf(working.map((s) => s.reps)),
     maxDurationSeconds: maxOf(working.map((s) => s.durationSeconds)),
     setCount: working.length,
+    bestSetWeightKg: bestSet?.weightKg ?? null,
+    bestSetReps: bestSet?.reps ?? null,
   };
 }
 
@@ -106,6 +123,9 @@ export const exerciseSessionSchema = z.object({
   maxReps: z.number().nullable(),
   maxDurationSeconds: z.number().nullable(),
   setCount: z.number().int(),
+  /** Gewicht und Wiederholungen des besten Satzes (siehe `sessionMetrics`). */
+  bestSetWeightKg: z.number().nullable(),
+  bestSetReps: z.number().nullable(),
   /** An anderem Gerät/Gym trainiert. */
   deviating: z.boolean(),
   /** Notiz zur Übung in diesem Training. */
@@ -143,13 +163,20 @@ export const exerciseStatsSummarySchema = z.object({
   lastDate: z.string(),
   best: exerciseBestSchema,
   change: exerciseChangeSchema.nullable(),
+  /** Letzte Werte der Hauptkennzahl (höchstens `STATS_TREND_COUNT`), älteste zuerst. Der letzte ist der aktuelle Stand. */
+  trend: z.array(z.number()),
+});
+
+export const exerciseStatsListItemSchema = exerciseStatsSummarySchema.extend({
+  /** Körperbereich des ersten Hauptmuskels, `null` ohne Katalogeintrag. */
+  bodyGroup: bodyGroupSchema.nullable(),
 });
 
 export const exerciseStatsListResponseSchema = z.object({
   /** Zuletzt trainierte zuerst. */
-  items: z.array(exerciseStatsSummarySchema),
+  items: z.array(exerciseStatsListItemSchema),
   /** Übungen mit dem höchsten geschätzten Maximum. */
-  records: z.array(exerciseStatsSummarySchema),
+  records: z.array(exerciseStatsListItemSchema),
 });
 
 export const exerciseStatsDetailSchema = exerciseStatsSummarySchema.extend({
@@ -159,7 +186,7 @@ export const exerciseStatsDetailSchema = exerciseStatsSummarySchema.extend({
 
 export const exerciseStatsDetailQuerySchema = z.object({
   /**
-   * `true`: Bestwerte und Veränderung ohne abweichende Trainings. Die Einheiten bleiben in
+   * `true`: Bestwerte ohne abweichende Trainings (Stand und Veränderung sind es immer). Die Einheiten bleiben in
    * `sessions` (mit `deviating`), damit sie gedimmt angezeigt werden können.
    */
   excludeDeviating: z
@@ -182,6 +209,7 @@ export type ExerciseRecord = z.infer<typeof exerciseRecordSchema>;
 export type ExerciseBest = z.infer<typeof exerciseBestSchema>;
 export type ExerciseChange = z.infer<typeof exerciseChangeSchema>;
 export type ExerciseStatsSummary = z.infer<typeof exerciseStatsSummarySchema>;
+export type ExerciseStatsListItem = z.infer<typeof exerciseStatsListItemSchema>;
 export type ExerciseStatsListResponse = z.infer<typeof exerciseStatsListResponseSchema>;
 export type ExerciseStatsDetail = z.infer<typeof exerciseStatsDetailSchema>;
 export type NewRecord = z.infer<typeof newRecordSchema>;
