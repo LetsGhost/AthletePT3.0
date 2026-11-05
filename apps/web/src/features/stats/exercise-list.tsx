@@ -4,11 +4,15 @@ import {
   type BodyGroup,
   type ExerciseStatsListResponse,
 } from "@athletept/shared";
-import { ChevronRight, Search } from "lucide-react";
-import { useState } from "react";
+import type { UseQueryResult } from "@tanstack/react-query";
+import { ArrowLeft, ChevronRight, Search, TrendingUp } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
+import { PageHeader } from "@/components/layout/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { inputClasses } from "@/components/ui/input-classes";
+import { QueryState, SkeletonList } from "@/components/ui/query-state";
 import { cn } from "@/lib/cn";
 
 import { ChangeBadge, Sparkline } from "./change";
@@ -20,6 +24,54 @@ const sorts = {
   name: "A–Z",
 } as const;
 type Sort = keyof typeof sorts;
+
+interface ExerciseStatsPageProps {
+  query: UseQueryResult<ExerciseStatsListResponse>;
+  backHref: string;
+  backLabel: string;
+  href: (exerciseId: string) => string;
+  /** Text, solange es noch keine Übung gibt. */
+  emptyText: string;
+  emptyAction?: ReactNode;
+}
+
+/** Ganze Seite „Übungen“ für Athlet und Coach. */
+export function ExerciseStatsPage({
+  query,
+  backHref,
+  backLabel,
+  href,
+  emptyText,
+  emptyAction,
+}: ExerciseStatsPageProps) {
+  return (
+    <>
+      <Link
+        to={backHref}
+        className="text-muted hover:text-text mb-4 inline-flex min-h-11 items-center gap-1 text-sm"
+      >
+        <ArrowLeft aria-hidden="true" className="size-4" /> {backLabel}
+      </Link>
+      <PageHeader title="Übungen" description="Aktueller Stand und Entwicklung je Übung" />
+      <QueryState query={query} loading={<SkeletonList rows={6} className="h-16" />}>
+        {(data) =>
+          data.items.length === 0 ? (
+            <div className="bg-surface rounded-tile">
+              <EmptyState
+                icon={TrendingUp}
+                title="Noch keine Übungen"
+                description={emptyText}
+                action={emptyAction}
+              />
+            </div>
+          ) : (
+            <ExerciseStatsList data={data} href={href} />
+          )
+        }
+      </QueryState>
+    </>
+  );
+}
 
 interface ExerciseStatsListProps {
   data: ExerciseStatsListResponse;

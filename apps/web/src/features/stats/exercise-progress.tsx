@@ -97,12 +97,13 @@ export function ExerciseProgress({
         </span>
         <span className="flex flex-wrap items-baseline gap-x-2.5">
           <span className="text-4xl leading-tight font-bold tabular-nums">{mainCurrent(data)}</span>
-          <ChangeBadge summary={data} />
+          {/* Das „seit …“ steht sichtbar darunter, deshalb hier nicht noch einmal vorlesen. */}
+          <ChangeBadge summary={data} hideSince />
         </span>
         {change && (
           <span className="text-muted text-xs">
             seit {formatWeekdayDate(change.fromDate)} ({formatRecordValue(data.metric, change.from)}
-            ){hasDeviating && (hideDeviating ? " · ohne abweichende" : " · inkl. abweichender")}
+            ){hasDeviating && " · ohne abweichende"}
           </span>
         )}
         {estimated && (

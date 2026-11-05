@@ -41,7 +41,7 @@ me.route({
   description:
     "Die letzten 16 Einheiten, älteste zuerst. Ohne Trainings: 404. Mit " +
     "`excludeDeviating=true` zählen abweichende Trainings (anderes Gerät/Gym) nicht in " +
-    "Bestwerte und Veränderung.",
+    "Bestwerte. Aktueller Stand (`trend`) und Veränderung kommen immer aus normalen Trainings.",
   auth: ["athlete"],
   apiKeyScope: "stats:read",
   params: z.object({ exerciseId: objectIdSchema }),

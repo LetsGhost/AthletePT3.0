@@ -12,9 +12,12 @@ const toneClasses = { up: "text-success", down: "text-warning", neutral: "text-m
 export function ChangeBadge({
   summary,
   className,
+  hideSince = false,
 }: {
   summary: ExerciseStatsSummary;
   className?: string;
+  /** Den Screenreader-Text „seit …“ weglassen, wenn er sichtbar daneben steht. */
+  hideSince?: boolean;
 }) {
   const { change } = summary;
   if (!change) return null;
@@ -30,7 +33,7 @@ export function ChangeBadge({
     >
       <Icon aria-hidden="true" className="size-[1.1em]" />
       {formatPercent(change.percent)}
-      <span className="sr-only"> seit {formatWeekdayDate(change.fromDate)}</span>
+      {!hideSince && <span className="sr-only"> seit {formatWeekdayDate(change.fromDate)}</span>}
     </span>
   );
 }

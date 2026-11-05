@@ -7,7 +7,7 @@ import type {
   ExerciseStatsDetail,
   ExerciseLogResponse,
   ExerciseStatsListResponse,
-  ExerciseStatsSummary,
+  ExerciseStatsListItem,
   Plan,
   PlanExerciseInfo,
   PlanListResponse,
@@ -284,8 +284,8 @@ export function buildWeekView(overrides: Partial<WeekView> = {}): WeekView {
 
 /** Bankdrücken: zwei Einheiten, geschätztes Maximum von 100 auf 105 kg. */
 export function buildExerciseStatsSummary(
-  overrides: Partial<ExerciseStatsSummary> = {},
-): ExerciseStatsSummary {
+  overrides: Partial<ExerciseStatsListItem> = {},
+): ExerciseStatsListItem {
   return {
     exerciseId: "6acd3920c0072ec254663c01",
     exerciseName: "Bankdrücken",

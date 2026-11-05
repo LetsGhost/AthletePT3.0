@@ -165,15 +165,18 @@ export const exerciseStatsSummarySchema = z.object({
   change: exerciseChangeSchema.nullable(),
   /** Letzte Werte der Hauptkennzahl (höchstens `STATS_TREND_COUNT`), älteste zuerst. Der letzte ist der aktuelle Stand. */
   trend: z.array(z.number()),
+});
+
+export const exerciseStatsListItemSchema = exerciseStatsSummarySchema.extend({
   /** Körperbereich des ersten Hauptmuskels, `null` ohne Katalogeintrag. */
   bodyGroup: bodyGroupSchema.nullable(),
 });
 
 export const exerciseStatsListResponseSchema = z.object({
   /** Zuletzt trainierte zuerst. */
-  items: z.array(exerciseStatsSummarySchema),
+  items: z.array(exerciseStatsListItemSchema),
   /** Übungen mit dem höchsten geschätzten Maximum. */
-  records: z.array(exerciseStatsSummarySchema),
+  records: z.array(exerciseStatsListItemSchema),
 });
 
 export const exerciseStatsDetailSchema = exerciseStatsSummarySchema.extend({
@@ -183,7 +186,7 @@ export const exerciseStatsDetailSchema = exerciseStatsSummarySchema.extend({
 
 export const exerciseStatsDetailQuerySchema = z.object({
   /**
-   * `true`: Bestwerte und Veränderung ohne abweichende Trainings. Die Einheiten bleiben in
+   * `true`: Bestwerte ohne abweichende Trainings (Stand und Veränderung sind es immer). Die Einheiten bleiben in
    * `sessions` (mit `deviating`), damit sie gedimmt angezeigt werden können.
    */
   excludeDeviating: z
@@ -206,6 +209,7 @@ export type ExerciseRecord = z.infer<typeof exerciseRecordSchema>;
 export type ExerciseBest = z.infer<typeof exerciseBestSchema>;
 export type ExerciseChange = z.infer<typeof exerciseChangeSchema>;
 export type ExerciseStatsSummary = z.infer<typeof exerciseStatsSummarySchema>;
+export type ExerciseStatsListItem = z.infer<typeof exerciseStatsListItemSchema>;
 export type ExerciseStatsListResponse = z.infer<typeof exerciseStatsListResponseSchema>;
 export type ExerciseStatsDetail = z.infer<typeof exerciseStatsDetailSchema>;
 export type NewRecord = z.infer<typeof newRecordSchema>;

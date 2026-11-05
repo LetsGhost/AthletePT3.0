@@ -54,7 +54,9 @@ describe("Fortschritt (Athlet)", () => {
 
     const card = await screen.findByRole("region", { name: "Gewichtsanalyse" });
     const tiles = await within(card).findAllByRole("listitem");
-    expect(tiles).toHaveLength(1);
+    // Rekorde zuerst, mit den übrigen Übungen aufgefüllt.
+    expect(tiles).toHaveLength(2);
+    expect(tiles[1]).toHaveTextContent("Klimmzüge10 Wdh.");
     const tile = within(tiles[0]!).getByRole("link");
     expect(tile).toHaveAttribute("href", `/fortschritt/${bench.exerciseId}`);
     expect(tile).toHaveTextContent("Bankdrücken105 kg+5 % seit Mo., 5. Okt.");
@@ -133,7 +135,7 @@ describe("Fortschritt (Athlet)", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("2 Einheiten · zuletzt Mo., 12. Okt.")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Aktueller Stand" })).toHaveTextContent(
-      "Geschätztes Maximum105 kg+5 % seit Mo., 5. Okt.seit Mo., 5. Okt. (100 kg)",
+      "Geschätztes Maximum105 kg+5 %seit Mo., 5. Okt. (100 kg)",
     );
     const info = screen.getByRole("button", { name: "Wie wird das berechnet?" });
     await userEvent.click(info);
@@ -308,6 +310,22 @@ describe("Entwicklung (Coach)", () => {
     expect(within(sessions).getAllByRole("link")[0]).toHaveAttribute(
       "href",
       `/coach/athletes/${athleteId}/workouts/6acd3920c0072ec254663e02`,
+    );
+  });
+
+  it("zeigt die Übungsliste des Athleten mit Links zur Entwicklung", async () => {
+    signIn("coach");
+    mockStats({ items: [bench], records: [bench] }, `/athletes/${athleteId}/exercise-stats`);
+    renderApp(`/coach/athletes/${athleteId}/entwicklung`);
+
+    const list = await screen.findByRole("list", { name: "Übungen" });
+    expect(within(list).getByRole("link", { name: /Bankdrücken/ })).toHaveAttribute(
+      "href",
+      `/coach/athletes/${athleteId}/entwicklung/${bench.exerciseId}`,
+    );
+    expect(screen.getByRole("link", { name: "Zum Athleten" })).toHaveAttribute(
+      "href",
+      `/coach/athletes/${athleteId}`,
     );
   });
 });

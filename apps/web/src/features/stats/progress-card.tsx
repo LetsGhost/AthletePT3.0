@@ -1,8 +1,4 @@
-import {
-  STATS_TOP_COUNT,
-  STATS_TREND_COUNT,
-  type ExerciseStatsListResponse,
-} from "@athletept/shared";
+import { STATS_TOP_COUNT, type ExerciseStatsListResponse } from "@athletept/shared";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { ChevronRight, TrendingUp } from "lucide-react";
 import type { ReactNode } from "react";
@@ -34,23 +30,20 @@ export function WeightAnalysisCard({ query, href, listHref, empty }: WeightAnaly
         <span className="bg-module-weight/15 flex size-9 shrink-0 items-center justify-center rounded-[0.625rem]">
           <TrendingUp aria-hidden="true" className="text-module-weight size-[1.125rem]" />
         </span>
-        <span className="flex flex-col">
-          <h2 id="weight-analysis" className="font-semibold">
-            Gewichtsanalyse
-          </h2>
-          {(query.data?.items.length ?? 0) > 0 && (
-            <span className="text-muted text-xs">
-              {query.data!.records.length > 0 ? "Geschätztes Maximum" : "Aktueller Stand"} · letzte{" "}
-              {STATS_TREND_COUNT} Einheiten
-            </span>
-          )}
-        </span>
+        <h2 id="weight-analysis" className="font-semibold">
+          Gewichtsanalyse
+        </h2>
       </div>
       <QueryState query={query} loading={<div className="skeleton h-48 rounded-card" />}>
         {(data) => {
           if (data.items.length === 0) return empty;
-          const tiles =
-            data.records.length > 0 ? data.records : data.items.slice(0, STATS_TOP_COUNT);
+          // Stärkste Übungen (geschätztes Maximum) zuerst, mit den übrigen auf 4 aufgefüllt.
+          const tiles = [
+            ...data.records,
+            ...data.items.filter(
+              (item) => !data.records.some((r) => r.exerciseId === item.exerciseId),
+            ),
+          ].slice(0, STATS_TOP_COUNT);
           return (
             <>
               <ul className="grid grid-cols-2 gap-2">

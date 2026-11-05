@@ -202,7 +202,7 @@ describe("Übungsanalyse", () => {
       [addDays(today, -7), 100, 1000, 2, 100, 5],
       [addDays(today, -3), 105, 525, 1, 105, 5],
     ]);
-    expect(body).toMatchObject({ trend: [116.7, 122.5], bodyGroup: "legs" });
+    expect(body).toMatchObject({ trend: [116.7, 122.5] });
   });
 
   it("zählt laufende Trainings und ausgelassene Übungen nicht", async () => {
@@ -317,6 +317,13 @@ describe("Übungsanalyse", () => {
       [140, true, "Andere Maschine"],
     ]);
     expect(all.best.topWeightKg).toMatchObject({ value: 140, deviating: true });
+    // Aktueller Stand und Veränderung nur aus normalen Einheiten, auch in der Liste.
+    expect(all).toMatchObject({ trend: [116.7], change: null });
+    const listed = (await myStats(athlete.bearer)).items.find((x) => x.exerciseId === squat.id);
+    expect(listed).toMatchObject({
+      trend: [116.7],
+      change: null,
+    });
 
     const filtered = await api()
       .get(`${path}?excludeDeviating=true`)

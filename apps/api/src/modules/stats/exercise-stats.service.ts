@@ -212,16 +212,21 @@ function changeOf(
   };
 }
 
-/** Mit `excludeDeviating` zählen abweichende Einheiten nicht in Bestwerte und Veränderung. */
+/**
+ * Mit `excludeDeviating` zählen abweichende Einheiten nicht in die Bestwerte. Aktueller Stand
+ * (`trend`) und Veränderung kommen immer aus normalen Einheiten, damit ein Fremdgerät sie nicht
+ * verfälscht; nur ohne normale Einheit aus allen, die zählen.
+ */
 function summarize(
   group: ExerciseSessions,
-  bodyGroups: ReadonlyMap<string, BodyGroup>,
   excludeDeviating = false,
 ): ExerciseStatsSummary & { window: ExerciseSession[] } {
   const metric = primaryMetric(group.sessions);
   const window = group.sessions.slice(-STATS_SESSION_LIMIT);
   const counts = (s: ExerciseSession) => !excludeDeviating || !s.deviating;
   const counted = group.sessions.filter(counts);
+  const normal = window.filter((s) => !s.deviating);
+  const recent = normal.length > 0 ? normal : window.filter(counts);
   const best: ExerciseBest = {
     estimated1rm: bestOf(counted, "estimated1rm"),
     topWeightKg: bestOf(counted, "topWeightKg"),
@@ -235,13 +240,11 @@ function summarize(
     sessionCount: group.sessions.length,
     lastDate: group.sessions.at(-1)!.date,
     best,
-    change: changeOf(window.filter(counts), metric),
-    trend: window
-      .filter(counts)
+    change: changeOf(recent, metric),
+    trend: recent
       .map((s) => s[metric])
       .filter((v): v is number => v !== null)
       .slice(-STATS_TREND_COUNT),
-    bodyGroup: bodyGroups.get(group.exerciseId) ?? null,
     window,
   };
 }
@@ -250,8 +253,8 @@ async function listStats(athleteId: string): Promise<ExerciseStatsListResponse> 
   const groups = groupSessions(await loadLogs(athleteId));
   const bodyGroups = await loadBodyGroups([...groups.keys()]);
   const items = [...groups.values()].map((group) => {
-    const { window: _window, ...summary } = summarize(group, bodyGroups);
-    return summary;
+    const { window: _window, ...summary } = summarize(group);
+    return { ...summary, bodyGroup: bodyGroups.get(group.exerciseId) ?? null };
   });
   items.sort(
     (a, b) => b.lastDate.localeCompare(a.lastDate) || a.exerciseName.localeCompare(b.exerciseName),
@@ -270,11 +273,7 @@ async function exerciseStats(
 ): Promise<ExerciseStatsDetail> {
   const group = groupSessions(await loadLogs(athleteId, exerciseId)).get(exerciseId);
   if (!group) throw new NotFoundError("Zu dieser Übung gibt es noch keine Trainings");
-  const { window, ...summary } = summarize(
-    group,
-    await loadBodyGroups([exerciseId]),
-    excludeDeviating,
-  );
+  const { window, ...summary } = summarize(group, excludeDeviating);
   return { ...summary, sessions: window };
 }
 

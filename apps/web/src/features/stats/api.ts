@@ -31,7 +31,7 @@ export function useMyStats() {
   });
 }
 
-/** `excludeDeviating`: Bestwerte und Veränderung ohne abweichende Trainings. */
+/** `excludeDeviating`: Bestwerte ohne abweichende Trainings. */
 export function useMyExerciseStats(exerciseId: string, excludeDeviating = false) {
   return useQuery({
     queryKey: statsKeys.myExercise(exerciseId, excludeDeviating),
