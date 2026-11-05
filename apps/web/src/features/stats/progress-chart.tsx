@@ -67,12 +67,20 @@ export function ProgressChart({ sessions, metric, label }: ProgressChartProps) {
     const muted = token("--text-muted");
     const border = token("--border");
     const secondary = token("--module-records");
+    const surface = token("--surface");
+    // Abweichende Trainings: hohle Raute statt gefülltem Punkt (Form, nicht nur Farbe).
+    const points = (color: string) => ({
+      backgroundColor: color,
+      pointBackgroundColor: sessions.map((s) => (s.deviating ? surface : color)),
+      pointStyle: sessions.map((s) => (s.deviating ? "rectRot" : "circle")),
+      pointBorderWidth: sessions.map((s) => (s.deviating ? 2 : 1)),
+    });
     const datasets = [
       {
         label: metricLabels[metric],
         data: sessions.map((s) => s[metric]),
         borderColor: accent,
-        backgroundColor: accent,
+        ...points(accent),
         pointRadius: 4,
         pointHoverRadius: 6,
         borderWidth: 2,
@@ -85,7 +93,7 @@ export function ProgressChart({ sessions, metric, label }: ProgressChartProps) {
         label: "Höchstes Gewicht",
         data: sessions.map((s) => s.topWeightKg),
         borderColor: secondary,
-        backgroundColor: secondary,
+        ...points(secondary),
         pointRadius: 3,
         pointHoverRadius: 5,
         borderWidth: 2,
@@ -126,6 +134,15 @@ export function ProgressChart({ sessions, metric, label }: ProgressChartProps) {
             callbacks: {
               label: (item) =>
                 `${item.dataset.label}: ${formatRecordValue(unitKind, Number(item.parsed.y))}`,
+              footer: ([item]) => {
+                const session = item && sessions[item.dataIndex];
+                if (!session?.deviating) return [];
+                const note = session.notes?.trim();
+                return [
+                  "Abweichend",
+                  ...(note ? [note.length > 60 ? `${note.slice(0, 59)}…` : note] : []),
+                ];
+              },
             },
           },
         },

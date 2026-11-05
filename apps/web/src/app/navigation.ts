@@ -2,10 +2,12 @@ import type { UserRole } from "@athletept/shared";
 import {
   ClipboardList,
   Dumbbell,
+  Globe,
   History,
   House,
   KeyRound,
   TrendingUp,
+  Trophy,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -36,17 +38,19 @@ export const navigation: Record<UserRole, NavItem[]> = {
     { to: "/dashboard", label: "Übersicht", icon: House },
     { to: "/plan", label: "Training", icon: Dumbbell },
     { to: "/workouts", label: "Verlauf", icon: History },
-    { to: "/entwicklung", label: "Entwicklung", icon: TrendingUp },
+    { to: "/fortschritt", label: "Fortschritt", icon: TrendingUp },
   ],
   coach: [
     { to: "/coach/athletes", label: "Athleten", icon: Users },
     { to: "/coach/exercises", label: "Übungen", icon: Dumbbell },
     { to: "/coach/templates", label: "Vorlagen", icon: ClipboardList },
+    { to: "/coach/challenges", label: "Challenges", icon: Trophy },
   ],
   sysadmin: [
     { to: "/admin/coaches", label: "Coaches", icon: Users },
     { to: "/admin/exercises", label: "Übungskatalog", icon: Dumbbell },
     { to: "/admin/api-keys", label: "API-Zugänge", icon: KeyRound },
+    { to: "/admin/system-challenges", label: "System-Challenges", icon: Globe },
   ],
 };
 

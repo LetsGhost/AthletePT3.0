@@ -24,6 +24,8 @@ export interface DraftExercise {
   /** Nur bei spontan hinzugefügten Übungen: Name, Pause und Vorgabe kommen aus dem Entwurf. */
   custom?: CustomWorkoutExercise;
   skipped: boolean;
+  /** An anderem Gerät/Gym trainiert. */
+  deviating: boolean;
   notes: string;
   sets: DraftSet[];
 }
@@ -51,6 +53,7 @@ export function draftFromLog(log: WorkoutLog): WorkoutDraft {
         custom: { name: x.exerciseName, restSeconds: x.restSeconds, targets: x.targets },
       }),
       skipped: x.skipped,
+      deviating: x.deviating,
       notes: x.notes ?? "",
       sets: x.sets.map(toDraftSet),
     })),
@@ -121,6 +124,7 @@ export function createCustomExercise({
       targets: Array.from({ length: setCount }, () => ({ ...target })),
     },
     skipped: false,
+    deviating: false,
     notes: "",
     sets: Array.from({ length: setCount }, () =>
       toDraftSet({ weightKg, reps, durationSeconds: null, done: false }),
@@ -140,6 +144,7 @@ export function customExerciseView(id: string, custom: CustomWorkoutExercise): W
     planNotes: null,
     targets: custom.targets,
     skipped: false,
+    deviating: false,
     notes: null,
     sets: [],
     previous: null,
@@ -183,6 +188,7 @@ export function draftToRequest(
       id: exercise.id,
       ...(exercise.custom && { custom: exercise.custom }),
       skipped: exercise.skipped,
+      deviating: exercise.deviating,
       notes: exercise.notes,
       sets: exercise.sets.map((set, s) => {
         const weight = check(set.weight, { integer: false, max: 1000 });

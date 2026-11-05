@@ -2,7 +2,10 @@
  * Inhalte des „Was ist neu“-Dialogs. Neueste Version OBEN einfügen.
  * Anleitung: README.md in diesem Ordner.
  */
+import { badgeTiers } from "@athletept/shared";
 import {
+  Award,
+  Bell,
   CalendarCheck,
   CalendarDays,
   Globe,
@@ -12,10 +15,13 @@ import {
   ListPlus,
   Plus,
   Replace,
+  Shuffle,
+  Swords,
   Timer,
   Trophy,
 } from "lucide-react";
 
+import { BadgeImage } from "@/features/challenges/badge-visuals";
 import upperBody from "@/features/plans/images/upper-body.svg";
 
 import {
@@ -65,6 +71,165 @@ function protocolPreview(name: string) {
 }
 
 export const releaseNotes: WhatsNewRelease[] = [
+  {
+    id: "3.4",
+    version: "3.4",
+    date: "2026-10-28",
+    items: [
+      {
+        title: "Challenges sind da",
+        text: "Unter Fortschritt (früher Entwicklung) siehst du, wie du in deinen Challenges dastehst. Gezählt wird automatisch aus deinen Trainings.",
+        icon: Trophy,
+        roles: ["athlete"],
+        preview: (
+          <PreviewStack>
+            <PreviewText size="lg">Challenges</PreviewText>
+            <PreviewCard>
+              <PreviewRow>
+                <PreviewText grow>Team-Volumen Oktober</PreviewText>
+                <PreviewText size="sm" muted>
+                  31,4 t
+                </PreviewText>
+              </PreviewRow>
+              <PreviewProgress value={0.78} />
+              <PreviewText size="sm" tone="records">
+                Platz 2 von 6 · Preis: Gratis-Session
+              </PreviewText>
+            </PreviewCard>
+          </PreviewStack>
+        ),
+      },
+      {
+        title: "Fordere jemanden heraus",
+        text: "Fordere jemanden über seine E-Mail-Adresse zum Duell heraus, für 1, 2 oder 4 Wochen. Wer in der gewählten Wertung vorne liegt, gewinnt. Aufgeben und Revanche inklusive.",
+        icon: Swords,
+        roles: ["athlete"],
+        preview: (
+          <PreviewCard tone="accent">
+            <PreviewText size="sm" muted>
+              Meiste Trainingstage · noch 6 Tage
+            </PreviewText>
+            <PreviewRow>
+              <PreviewText grow>Du</PreviewText>
+              <PreviewText size="xl">4 : 3</PreviewText>
+              <PreviewText grow align="right">
+                Nordlicht
+              </PreviewText>
+            </PreviewRow>
+            <PreviewText size="sm" tone="accent">
+              Du führst mit 1 Trainingstag
+            </PreviewText>
+          </PreviewCard>
+        ),
+      },
+      {
+        title: "Globale Challenges",
+        text: "Unter Fortschritt → Challenges → Entdecken trittst du System-Challenges bei. In der weltweiten Rangliste erscheinst du nur mit deinem Spitznamen.",
+        icon: Globe,
+        roles: ["athlete"],
+        preview: (
+          <PreviewStack>
+            <PreviewRow variant="box">
+              <PreviewText size="sm" muted>
+                1
+              </PreviewText>
+              <PreviewText grow>IronLena</PreviewText>
+              <PreviewText>22</PreviewText>
+            </PreviewRow>
+            <PreviewRow variant="highlight">
+              <PreviewText size="sm" muted>
+                87
+              </PreviewText>
+              <PreviewText grow>Max_M (du)</PreviewText>
+              <PreviewText>14</PreviewText>
+            </PreviewRow>
+            <PreviewButton>Beitreten</PreviewButton>
+          </PreviewStack>
+        ),
+      },
+      {
+        title: "Abzeichen sammeln",
+        text: "Serien, Tonnage, Duellsiege und System-Challenges bringen dir Bronze, Silber oder Gold. Keine Punkte, kein Level, nur echte Leistung.",
+        icon: Award,
+        tone: "records",
+        roles: ["athlete"],
+        preview: (
+          <PreviewGrid columns={3}>
+            {(["flame", "volume"] as const).flatMap((icon) =>
+              badgeTiers.map((tier) => (
+                <span key={`${icon}-${tier}`} className="flex justify-center">
+                  <BadgeImage icon={icon} tier={tier} />
+                </span>
+              )),
+            )}
+          </PreviewGrid>
+        ),
+      },
+      {
+        title: "Benachrichtigungen",
+        text: "Die Glocke oben zeigt dir Einladungen, Ergebnisse und wer dich überholt hat.",
+        icon: Bell,
+        roles: ["athlete"],
+      },
+      {
+        title: "Anderes Gerät, anderes Gym",
+        text: "Markier eine Übung im Training als abweichend. Sie zählt weiter mit, „Letztes Mal“ überspringt sie aber und neue Bestwerte misst du nur an normalen Trainings.",
+        icon: Shuffle,
+        roles: ["athlete"],
+        preview: (
+          <PreviewCard>
+            <PreviewText>Beinpresse</PreviewText>
+            <PreviewRow variant="highlight">
+              <PreviewText grow>Abweichend (anderes Gerät/Gym)</PreviewText>
+              <PreviewCheck />
+            </PreviewRow>
+            <PreviewInput label="Notiz" value="Hotel-Gym, andere Maschine" />
+          </PreviewCard>
+        ),
+      },
+      {
+        title: "Abweichende ausblenden",
+        text: "In der Statistik einer Übung blendest du abweichende Trainings mit einem Schalter aus. Bestwerte und Verlauf rechnen dann ohne sie.",
+        icon: Shuffle,
+        roles: ["athlete"],
+      },
+      {
+        title: "Challenges für dein Team",
+        text: "Leg unter Challenges eine Challenge für dein Team an: mit Trainingsdaten oder einer freien Vorgabe wie „100 Klimmzüge am Tag“.",
+        icon: Trophy,
+        roles: ["coach"],
+        preview: (
+          <PreviewStack>
+            <PreviewGrid columns={3}>
+              <PreviewButton variant="outline">Ziel</PreviewButton>
+              <PreviewButton>Team-Ziel</PreviewButton>
+              <PreviewButton variant="outline">Rangliste</PreviewButton>
+            </PreviewGrid>
+            <PreviewInput label="Ziel fürs ganze Team" value="500 t" focused />
+            <PreviewInput label="Preis (optional)" value="Shaker für alle" />
+          </PreviewStack>
+        ),
+      },
+      {
+        title: "Duelle deiner Athleten",
+        text: "Auf der Challenges-Seite siehst du, gegen wen deine Athleten antreten und wie es steht, auch gegen Athleten anderer Coaches.",
+        icon: Swords,
+        roles: ["coach"],
+      },
+      {
+        title: "Abweichende Übungen erkennen",
+        text: "Hat dein Athlet an einem anderen Gerät oder Gym trainiert, ist die Übung als „Abweichend“ markiert. In der Übungsstatistik kannst du sie ausblenden.",
+        icon: Shuffle,
+        roles: ["coach"],
+      },
+      {
+        title: "System-Challenges planen",
+        text: "Leg wöchentliche, monatliche oder einmalige Challenges für alle Athleten an, mit Bronze, Silber und Gold. Die Runden starten automatisch.",
+        icon: Globe,
+        roles: ["sysadmin"],
+      },
+    ],
+  },
   {
     id: "3.3",
     version: "3.3",

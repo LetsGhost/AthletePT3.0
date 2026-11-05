@@ -1,6 +1,7 @@
 import {
   activityQuerySchema,
   activityResponseSchema,
+  exerciseStatsDetailQuerySchema,
   exerciseStatsDetailSchema,
   exerciseStatsListResponseSchema,
   objectIdSchema,
@@ -37,13 +38,18 @@ me.route({
   method: "get",
   path: "/exercise-stats/:exerciseId",
   summary: "Eigener Verlauf einer Übung",
-  description: "Die letzten 16 Einheiten, älteste zuerst. Ohne Trainings: 404.",
+  description:
+    "Die letzten 16 Einheiten, älteste zuerst. Ohne Trainings: 404. Mit " +
+    "`excludeDeviating=true` zählen abweichende Trainings (anderes Gerät/Gym) nicht in " +
+    "Bestwerte und Veränderung.",
   auth: ["athlete"],
   apiKeyScope: "stats:read",
   params: z.object({ exerciseId: objectIdSchema }),
+  query: exerciseStatsDetailQuerySchema,
   response: exerciseStatsDetailSchema,
   errors: [404],
-  handler: ({ auth, params }) => statsService.getMyExerciseStats(auth.userId, params.exerciseId),
+  handler: ({ auth, params, query }) =>
+    statsService.getMyExerciseStats(auth.userId, params.exerciseId, query.excludeDeviating),
 });
 
 me.route({
@@ -82,10 +88,16 @@ athletes.route({
   auth: ["coach"],
   apiKeyScope: "stats:read",
   params: athleteParams.extend({ exerciseId: objectIdSchema }),
+  query: exerciseStatsDetailQuerySchema,
   response: exerciseStatsDetailSchema,
   errors: [404],
-  handler: ({ auth, params }) =>
-    statsService.getAthleteExerciseStats(auth.userId, params.athleteId, params.exerciseId),
+  handler: ({ auth, params, query }) =>
+    statsService.getAthleteExerciseStats(
+      auth.userId,
+      params.athleteId,
+      params.exerciseId,
+      query.excludeDeviating,
+    ),
 });
 
 athletes.route({

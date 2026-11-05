@@ -12,6 +12,7 @@ import { formatDuration } from "@/features/plans/format";
 import { formatRecordValue } from "@/features/stats/format";
 import { formatNumber } from "@/lib/format";
 
+import { DeviatingBadge } from "./deviating-badge";
 import { formatPerformed } from "./format";
 
 /** Pro Übung zählt der anschaulichste Bestwert: Gewicht vor Maximum vor Wdh. vor Dauer. */
@@ -41,9 +42,12 @@ function describe(record: NewRecord) {
   return "Längste Dauer";
 }
 
+const recordExercise = (record: NewRecord, exercises: readonly WorkoutExercise[]) =>
+  exercises.find((x) => x.exerciseId === record.exerciseId && !x.skipped);
+
 /** Erledigter Arbeitssatz, mit dem der Bestwert aufgestellt wurde. */
 function recordSet(record: NewRecord, exercises: readonly WorkoutExercise[]) {
-  const exercise = exercises.find((x) => x.exerciseId === record.exerciseId && !x.skipped);
+  const exercise = recordExercise(record, exercises);
   const sets = exercise?.sets.filter((s) => s.done && s.kind === "working") ?? [];
   const score = setScore[record.kind];
   return sets.reduce<WorkoutSet | null>(
@@ -96,14 +100,15 @@ export function NewRecords({ records, exercises }: NewRecordsProps) {
           return (
             <li key={record.exerciseId}>
               <Link
-                to={`/entwicklung/${record.exerciseId}`}
+                to={`/fortschritt/${record.exerciseId}`}
                 className="bg-inset hover:border-border-strong flex items-center gap-3 rounded-card border border-transparent px-3 py-2.5"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{record.exerciseName}</span>
                   <span className="text-muted block text-sm">{describe(record)}</span>
                 </span>
-                <span className="shrink-0 text-right tabular-nums">
+                <span className="flex shrink-0 flex-col items-end text-right tabular-nums">
+                  {recordExercise(record, exercises)?.deviating && <DeviatingBadge />}
                   <span className="block font-semibold">
                     {set ? formatPerformed(set) : formatRecordValue(record.kind, record.value)}
                   </span>

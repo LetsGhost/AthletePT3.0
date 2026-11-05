@@ -34,6 +34,7 @@ import {
   useUpdateAthlete,
 } from "@/features/athletes/api";
 import { AthleteForm } from "@/features/athletes/athlete-form";
+import { AthleteChallengesCard } from "@/features/challenges/athlete-challenges-card";
 import { ProfileSummary } from "@/features/athletes/profile-summary";
 import { PlansCard } from "@/features/plans/plans-card";
 import { AthleteWeightAnalysisCard } from "@/features/stats/progress-card";
@@ -269,6 +270,7 @@ export default function AthleteDetailPage() {
               <AthleteWeekCard athleteId={data.id} athleteName={data.name} />
               <AthleteWorkoutsCard athleteId={data.id} athleteName={data.name} />
               <AthleteStreakCard athleteId={data.id} />
+              <AthleteChallengesCard athleteId={data.id} />
               <AthleteWeightAnalysisCard athleteId={data.id} athleteName={data.name} />
               <PlansCard athleteId={data.id} athleteName={data.name} />
               <ProfileCard athlete={data} />

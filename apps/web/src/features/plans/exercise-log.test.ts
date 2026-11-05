@@ -25,6 +25,7 @@ const entry = (sets: WorkoutSet[], targets: PlanSet[]): ExerciseLogEntry => ({
   date: "2026-10-15",
   sets,
   targets,
+  deviating: false,
   notes: null,
 });
 

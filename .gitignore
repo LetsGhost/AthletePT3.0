@@ -16,3 +16,6 @@ deploy/*.env
 deploy/certbot/
 deploy/sports-data/
 deploy/out/
+
+# Lokale Ausgaben von Tools
+brag-output/

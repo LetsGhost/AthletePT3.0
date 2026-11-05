@@ -34,6 +34,8 @@ export interface StoredWorkoutExercise {
   planNotes: string | null;
   targets: StoredSet[];
   skipped: boolean;
+  /** An anderem Gerät/Gym trainiert. Fehlt bei älteren Protokollen (= `false`). */
+  deviating?: boolean;
   notes: string | null;
   sets: StoredWorkoutSet[];
 }
@@ -51,6 +53,8 @@ export interface StoredExerciseStats {
   maxReps: number | null;
   maxDurationSeconds: number | null;
   setCount: number;
+  deviating: boolean;
+  notes: string | null;
 }
 
 export interface StoredWorkoutLog {
@@ -111,6 +115,7 @@ const exerciseSchema = new Schema({
   planNotes: nullableString,
   targets: { type: [targetSchema], default: [] },
   skipped: { type: Boolean, default: false },
+  deviating: { type: Boolean, default: false },
   notes: nullableString,
   sets: { type: [setSchema], default: [] },
 });
@@ -125,6 +130,8 @@ const exerciseStatsSchema = new Schema(
     maxReps: nullableNumber,
     maxDurationSeconds: nullableNumber,
     setCount: { type: Number, required: true },
+    deviating: { type: Boolean, default: false },
+    notes: nullableString,
   },
   { _id: false },
 );

@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useMatches } from "react-router";
 
 import { navigation, type NavItem, type RouteHandle } from "@/app/navigation";
 import { useSession } from "@/features/auth/session";
+import { NotificationBell } from "@/features/notifications/notification-bell";
 import { WhatsNew } from "@/features/whats-new/whats-new-dialog";
 import { cn } from "@/lib/cn";
 
@@ -92,6 +93,7 @@ export function AppShell() {
           {items.map((item) => (
             <SidebarLink key={item.to} item={item} />
           ))}
+          <NotificationBell withLabel />
         </nav>
         <AccountMenu showName />
       </aside>
@@ -99,7 +101,10 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="bg-bg/90 sticky top-0 z-30 flex h-16 items-center justify-between px-4 backdrop-blur lg:hidden">
           <Logo />
-          <AccountMenu />
+          <div className="flex items-center gap-1">
+            <NotificationBell />
+            <AccountMenu />
+          </div>
         </header>
 
         <main

@@ -64,7 +64,7 @@ export function MyWeightAnalysisCard() {
   return (
     <WeightAnalysisCard
       query={useMyStats()}
-      href={(exerciseId) => `/entwicklung/${exerciseId}`}
+      href={(exerciseId) => `/fortschritt/${exerciseId}`}
       empty={
         <EmptyState
           icon={TrendingUp}

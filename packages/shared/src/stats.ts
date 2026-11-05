@@ -106,12 +106,17 @@ export const exerciseSessionSchema = z.object({
   maxReps: z.number().nullable(),
   maxDurationSeconds: z.number().nullable(),
   setCount: z.number().int(),
+  /** An anderem Gerät/Gym trainiert. */
+  deviating: z.boolean(),
+  /** Notiz zur Übung in diesem Training. */
+  notes: z.string().nullable(),
 });
 
 export const exerciseRecordSchema = z.object({
   value: z.number(),
   date: z.string(),
   logId: objectIdSchema,
+  deviating: z.boolean(),
 });
 
 export const exerciseBestSchema = z.object({
@@ -150,6 +155,17 @@ export const exerciseStatsListResponseSchema = z.object({
 export const exerciseStatsDetailSchema = exerciseStatsSummarySchema.extend({
   /** Letzte Einheiten, älteste zuerst. */
   sessions: z.array(exerciseSessionSchema),
+});
+
+export const exerciseStatsDetailQuerySchema = z.object({
+  /**
+   * `true`: Bestwerte und Veränderung ohne abweichende Trainings. Die Einheiten bleiben in
+   * `sessions` (mit `deviating`), damit sie gedimmt angezeigt werden können.
+   */
+  excludeDeviating: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
 });
 
 /** Neuer Bestwert beim Abschließen eines Trainings. */

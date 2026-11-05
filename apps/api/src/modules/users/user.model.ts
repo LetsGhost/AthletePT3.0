@@ -35,6 +35,10 @@ const userSchema = new Schema(
       ),
       default: null,
     },
+    /** Nur bei Athleten: Spitzname für globale Ranglisten und Duelle mit anderen Teams. */
+    nickname: { type: String, default: null },
+    /** Kleingeschrieben, für die Eindeutigkeit ohne Rücksicht auf Groß-/Kleinschreibung. */
+    nicknameLower: { type: String, default: null },
     /** Nur bei Athleten: Einwilligung in die Verarbeitung von Gesundheitsdaten (Art. 9 DSGVO). */
     healthDataConsent: {
       type: new Schema(
@@ -48,6 +52,11 @@ const userSchema = new Schema(
     },
   },
   { timestamps: true },
+);
+
+userSchema.index(
+  { nicknameLower: 1 },
+  { unique: true, partialFilterExpression: { nicknameLower: { $type: "string" } } },
 );
 
 export type UserFields = InferSchemaType<typeof userSchema>;

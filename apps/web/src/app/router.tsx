@@ -22,7 +22,10 @@ const page = (load: () => Promise<{ default: ComponentType }>) => ({
 /** Seiten mit breitem Inhalt (z. B. Plan-Editor mit Seitenspalte). */
 const wide = { handle: { wide: true } satisfies RouteHandle };
 
-const renamedProgress = <RenamedPath from="/progress" to="/entwicklung" />;
+const renamedProgress = <RenamedPath from="/progress" to="/fortschritt" />;
+const renamedDevelopment = <RenamedPath from="/entwicklung" to="/fortschritt" />;
+// Coach-Seiten heißen weiter „entwicklung“, nur der Bereich des Athleten wurde umbenannt.
+const renamedCoachProgress = <RenamedPath from="/progress" to="/entwicklung" />;
 
 export const routes: RouteObject[] = [
   {
@@ -75,14 +78,30 @@ export const routes: RouteObject[] = [
                   { path: "/exercises", ...page(() => import("@/pages/athlete/exercises-page")) },
                   { path: "/workouts", ...page(() => import("@/pages/athlete/workouts-page")) },
                   {
-                    path: "/entwicklung",
+                    path: "/fortschritt",
                     ...page(() => import("@/pages/athlete/progress-page")),
                   },
                   { path: "/progress/*", element: renamedProgress },
                   { path: "/progress", element: renamedProgress },
+                  { path: "/entwicklung/*", element: renamedDevelopment },
+                  { path: "/entwicklung", element: renamedDevelopment },
                   {
-                    path: "/entwicklung/:exerciseId",
+                    path: "/fortschritt/:exerciseId",
                     ...page(() => import("@/pages/athlete/exercise-progress-page")),
+                  },
+                  { path: "/challenges", ...page(() => import("@/pages/athlete/challenges-page")) },
+                  {
+                    path: "/challenges/duell",
+                    ...page(() => import("@/pages/athlete/new-duel-page")),
+                  },
+                  { path: "/abzeichen", ...page(() => import("@/pages/athlete/badges-page")) },
+                  {
+                    path: "/benachrichtigungen",
+                    ...page(() => import("@/pages/athlete/notifications-page")),
+                  },
+                  {
+                    path: "/challenges/:challengeId",
+                    ...page(() => import("@/pages/athlete/challenge-page")),
                   },
                   {
                     path: "/workouts/:logId",
@@ -111,7 +130,7 @@ export const routes: RouteObject[] = [
                     path: "/coach/athletes/:id/entwicklung/:exerciseId",
                     ...page(() => import("@/pages/coach/exercise-progress-page")),
                   },
-                  { path: "/coach/athletes/:id/progress/*", element: renamedProgress },
+                  { path: "/coach/athletes/:id/progress/*", element: renamedCoachProgress },
                   {
                     path: "/coach/athletes/:id/workouts/:logId",
                     ...page(() => import("@/pages/coach/workout-page")),
@@ -124,6 +143,19 @@ export const routes: RouteObject[] = [
                   {
                     path: "/coach/templates",
                     ...page(() => import("@/pages/coach/templates-page")),
+                  },
+                  {
+                    path: "/coach/challenges",
+                    ...page(() => import("@/pages/coach/challenges-page")),
+                  },
+                  {
+                    path: "/coach/challenges/new",
+                    ...page(() => import("@/pages/coach/new-challenge-page")),
+                    ...wide,
+                  },
+                  {
+                    path: "/coach/challenges/:challengeId",
+                    ...page(() => import("@/pages/coach/challenge-page")),
                   },
                   {
                     path: "/coach/templates/:id",
@@ -142,6 +174,15 @@ export const routes: RouteObject[] = [
                     ...page(() => import("@/pages/admin/exercises-page")),
                   },
                   { path: "/admin/api-keys", ...page(() => import("@/pages/admin/api-keys-page")) },
+                  {
+                    path: "/admin/system-challenges",
+                    ...page(() => import("@/pages/admin/system-challenges-page")),
+                  },
+                  {
+                    path: "/admin/system-challenges/new",
+                    ...page(() => import("@/pages/admin/new-system-challenge-page")),
+                    ...wide,
+                  },
                 ],
               },
               { path: "*", ...page(() => import("@/pages/not-found-page")) },
