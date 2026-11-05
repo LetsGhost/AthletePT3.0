@@ -19,7 +19,7 @@ jobs:
         with:
           path: ~/.cache/mongodb-binaries
           key: mongodb-binaries-${{ runner.os }}-7.0
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
