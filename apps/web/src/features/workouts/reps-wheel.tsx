@@ -37,7 +37,8 @@ export function RepsWheelField({
 }: RepsWheelFieldProps) {
   const [pick, setPick] = useState<Pick | null>(null);
   const hold = useRef<{ timer: number; x: number; y: number } | null>(null);
-  const drag = useRef<{ y: number; p: number } | null>(null);
+  /** `last`: zuletzt gezogene Position, denn `pick` kann beim Loslassen noch nicht neu gerendert sein. */
+  const drag = useRef<{ y: number; p: number; last: number } | null>(null);
   const moved = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const wheelRef = useRef<HTMLDivElement>(null);
@@ -56,11 +57,12 @@ export function RepsWheelField({
     hold.current = null;
     const cur = Number.parseInt(value, 10);
     const p = clamp(Number.isNaN(cur) ? fallback : cur);
-    drag.current = { y, p };
+    drag.current = { y, p, last: p };
     moved.current = true;
     inputRef.current?.blur();
     setPick({ p, orig: value, dragging: true });
-    write(p);
+    // Nur ein leeres Feld sofort füllen, sonst würden Werte über 100 still gekürzt.
+    if (value === "") write(p);
   }
 
   function close(keep: boolean) {
@@ -79,27 +81,40 @@ export function RepsWheelField({
     if (!d) return;
     const dy = e.clientY - d.y;
     if (Math.abs(dy) > 4) moved.current = true;
-    setP(d.p - dy / ROW, true);
+    d.last = clamp(d.p - dy / ROW);
+    setP(d.last, true);
   });
 
   const onDragEnd = useEffectEvent(() => {
-    if (!drag.current || !pick) return;
+    const d = drag.current;
+    if (!d) return;
     drag.current = null;
-    setP(Math.round(pick.p));
+    // Ohne Bewegung nichts schreiben (Werte über 100 bleiben so erhalten).
+    if (d.last === d.p) setPick((q) => q && { ...q, dragging: false });
+    else setP(Math.round(d.last));
+  });
+
+  const onWheelTurn = useEffectEvent((e: WheelEvent) => {
+    e.preventDefault();
+    if (pick) setP(Math.round(pick.p) + (e.deltaY > 0 ? 1 : -1));
   });
 
   const isOpen = pick !== null;
   useEffect(() => {
-    if (!isOpen) return;
-    wheelRef.current?.focus({ preventScroll: true });
-    // Während des Ziehens darf die Seite nicht mitscrollen.
+    const wheel = wheelRef.current;
+    if (!isOpen || !wheel) return;
+    wheel.focus({ preventScroll: true });
+    // Während des Ziehens darf die Seite nicht mitscrollen (React-onWheel ist passiv).
     const noScroll = (e: TouchEvent) => drag.current && e.preventDefault();
+    const turn = (e: WheelEvent) => onWheelTurn(e);
     const end = () => onDragEnd();
+    wheel.addEventListener("wheel", turn, { passive: false });
     window.addEventListener("pointermove", onDragMove);
     window.addEventListener("pointerup", end);
     window.addEventListener("pointercancel", end);
     window.addEventListener("touchmove", noScroll, { passive: false });
     return () => {
+      wheel.removeEventListener("wheel", turn);
       window.removeEventListener("pointermove", onDragMove);
       window.removeEventListener("pointerup", end);
       window.removeEventListener("pointercancel", end);
@@ -138,7 +153,7 @@ export function RepsWheelField({
         <>
           <div
             aria-hidden="true"
-            className="bg-overlay fixed inset-0 z-30"
+            className="bg-overlay fixed inset-0 z-40"
             onClick={() => close(true)}
           />
           <div
@@ -151,15 +166,14 @@ export function RepsWheelField({
             aria-valuemax={MAX}
             aria-valuetext={`${center} Wiederholungen`}
             className={cn(
-              "animate-wheel-in bg-surface border-border-strong absolute -inset-x-1.5 z-40 h-55",
+              "animate-wheel-in bg-surface border-border-strong absolute -inset-x-1.5 z-50 h-55",
               "cursor-grab touch-none overflow-hidden rounded-tile border shadow-2xl select-none",
             )}
             style={{ top: -CENTER_TOP }}
             onPointerDown={(e) => {
               moved.current = false;
-              drag.current = { y: e.clientY, p: pick.p };
+              drag.current = { y: e.clientY, p: pick.p, last: pick.p };
             }}
-            onWheel={(e) => setP(center + (e.deltaY > 0 ? 1 : -1))}
             onKeyDown={(e) => {
               const step = { ArrowDown: 1, ArrowUp: -1 }[e.key];
               if (step) {

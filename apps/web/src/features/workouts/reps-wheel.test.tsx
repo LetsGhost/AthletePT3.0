@@ -26,6 +26,37 @@ describe("RepsWheelField", () => {
     expect(input).toHaveValue("10");
   });
 
+  it("kürzt Werte über 100 beim Öffnen nicht", () => {
+    render(<Harness initial="150" />);
+    const input = screen.getByRole("textbox", { name: "Wdh" });
+    hold(input);
+    fireEvent.pointerUp(window);
+    fireEvent.click(screen.getByRole("spinbutton").previousElementSibling!);
+    expect(input).toHaveValue("150");
+  });
+
+  it("übernimmt beim Loslassen die zuletzt gezogene Position", () => {
+    render(<Harness initial="8" />);
+    const input = screen.getByRole("textbox", { name: "Wdh" });
+    hold(input, 200);
+    // Ohne Rendern dazwischen, wie bei einem schnellen Wisch.
+    act(() => {
+      window.dispatchEvent(new PointerEvent("pointermove", { clientY: 200 - 44 }));
+      window.dispatchEvent(new PointerEvent("pointermove", { clientY: 200 - 3 * 44 }));
+      window.dispatchEvent(new PointerEvent("pointerup"));
+    });
+    expect(input).toHaveValue("11");
+  });
+
+  it("Mausrad dreht das Rad und scrollt die Seite nicht", () => {
+    render(<Harness initial="8" />);
+    hold(screen.getByRole("textbox", { name: "Wdh" }));
+    fireEvent.pointerUp(window);
+    const wheel = screen.getByRole("spinbutton");
+    expect(fireEvent.wheel(wheel, { deltaY: 50 })).toBe(false);
+    expect(wheel).toHaveAttribute("aria-valuenow", "9");
+  });
+
   it("öffnet nicht bei kurzem Tippen oder Wischen", () => {
     render(<Harness initial="8" />);
     const input = screen.getByRole("textbox", { name: "Wdh" });
