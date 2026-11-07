@@ -9,6 +9,7 @@ import {
   CalendarCheck,
   CalendarDays,
   Globe,
+  Hand,
   History,
   Inbox,
   LayoutGrid,
@@ -110,6 +111,30 @@ export const releaseNotes: WhatsNewRelease[] = [
     version: "3.5",
     date: "2026-11-05",
     items: [
+      {
+        title: "Wiederholungen per Zahlenrad",
+        text: "Halte im Training das Wdh.-Feld gedrückt und zieh nach oben oder unten. So stellst du deine Wiederholungen ohne Tastatur ein.",
+        icon: Hand,
+        roles: ["athlete"],
+        preview: (
+          <PreviewStack>
+            <PreviewRow>
+              <PreviewText grow muted>
+                9
+              </PreviewText>
+            </PreviewRow>
+            <PreviewRow variant="highlight">
+              <PreviewText grow>10 Wdh.</PreviewText>
+              <PreviewCheck />
+            </PreviewRow>
+            <PreviewRow>
+              <PreviewText grow muted>
+                11
+              </PreviewText>
+            </PreviewRow>
+          </PreviewStack>
+        ),
+      },
       {
         title: "Challenge: Planerfüllung",
         text: "Belohne Zuverlässigkeit statt Menge: Deine Athleten sammeln Prozent für jede geplante Einheit, die sie erledigen, z. B. „90 % des Plans in 2 Wochen“.",
