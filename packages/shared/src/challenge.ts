@@ -24,6 +24,7 @@ export const challengeMetrics = [
   "volume",
   "sets",
   "e1rm",
+  "plan_adherence",
   "manual",
 ] as const;
 export const challengeMetricSchema = z.enum(challengeMetrics);
@@ -34,6 +35,7 @@ export const challengeMetricLabels: Record<ChallengeMetric, string> = {
   volume: "Bewegte kg",
   sets: "Arbeitssätze",
   e1rm: "Bestes e1RM",
+  plan_adherence: "Planerfüllung",
   manual: "Freie Vorgabe",
 };
 
@@ -46,6 +48,7 @@ export const challengeMetricGroup: Record<ChallengeMetric, ChallengeMetricGroup>
   volume: "volume",
   sets: "volume",
   e1rm: "performance",
+  plan_adherence: "consistency",
   manual: "manual",
 };
 export const challengeMetricGroupLabels: Record<ChallengeMetricGroup, string> = {
@@ -186,6 +189,11 @@ export const createCoachChallengeRequestSchema = z
     }
     if (value.scoring !== "ranking" && value.goalValue === null) {
       issue("goalValue", "Bitte ein Ziel angeben");
+    }
+    if (value.metric === "plan_adherence") {
+      // Prozente je Athlet lassen sich nicht sinnvoll zu einem Team-Ziel addieren.
+      if (value.scoring === "team_goal") issue("scoring", "Nicht bei Planerfüllung");
+      if (value.goalValue !== null && value.goalValue > 100) issue("goalValue", "Höchstens 100 %");
     }
     if (
       value.metric === "manual" &&

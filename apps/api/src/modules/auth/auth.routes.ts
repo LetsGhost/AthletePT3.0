@@ -2,6 +2,7 @@ import {
   acceptInvitationRequestSchema,
   authResponseSchema,
   changePasswordRequestSchema,
+  deleteAccountRequestSchema,
   invitationInfoSchema,
   loginRequestSchema,
   passwordResetConfirmSchema,
@@ -139,6 +140,23 @@ auth.route({
       body.newPassword,
       readRefreshCookie(req),
     );
+  },
+});
+
+auth.route({
+  method: "post",
+  path: "/delete-account",
+  summary: "Eigenes Konto löschen",
+  description:
+    "Nur Athleten. Prüft das Passwort und löscht das Konto samt aller Daten sofort und endgültig.",
+  auth: ["athlete"],
+  body: deleteAccountRequestSchema,
+  status: 204,
+  errors: [403],
+  middleware: [credentialsLimiter],
+  handler: async ({ res, auth, body }) => {
+    await authService.deleteOwnAccount(auth.userId, body.password);
+    clearRefreshCookie(res);
   },
 });
 

@@ -52,6 +52,11 @@ export interface StoredChallenge {
   tiers?: number[] | null;
   /** Ergebnis an die Teilnehmer gemeldet (siehe Challenge-Job). */
   resultNotifiedAt: Date | null;
+  /**
+   * Planerfüllung: geplante Einheiten je Athlet, beim Ende festgeschrieben, damit ein späterer
+   * Planwechsel das Ergebnis nicht mehr ändert. Bis dahin fehlt das Feld.
+   */
+  plannedSessions?: Record<string, number> | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -109,6 +114,7 @@ const challengeSchema = new Schema(
     templateId: { type: Schema.Types.ObjectId, ref: "SystemTemplate", default: null },
     // Ohne Default: Mongoose würde sonst ein leeres Array anlegen.
     tiers: { type: [Number], default: undefined },
+    plannedSessions: { type: Map, of: Number, default: undefined },
   },
   { timestamps: true },
 );

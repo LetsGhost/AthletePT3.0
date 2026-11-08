@@ -47,8 +47,8 @@ interface MetricGroupOption {
 const metricGroups: MetricGroupOption[] = [
   {
     group: "consistency",
-    description: "Trainingstage oder erledigte Trainings im Zeitraum.",
-    metrics: ["workouts", "training_days"],
+    description: "Trainingstage, erledigte Trainings oder wie viel vom Plan geschafft wurde.",
+    metrics: ["workouts", "training_days", "plan_adherence"],
   },
   {
     group: "volume",
@@ -80,6 +80,7 @@ const goalUnit: Record<ChallengeMetric, string> = {
   volume: "kg",
   sets: "Sätze",
   e1rm: "kg",
+  plan_adherence: "%",
   manual: "Tage",
 };
 
@@ -89,6 +90,7 @@ const titleSuggestion: Record<ChallengeMetric, string> = {
   volume: "Volumen-Challenge",
   sets: "Satz-Challenge",
   e1rm: "Rekord-Challenge",
+  plan_adherence: "Plantreue-Challenge",
   manual: "",
 };
 
@@ -143,6 +145,12 @@ function stepError(step: number, draft: Draft, today: string): string | null {
     case 1:
       if (draft.scoring !== "ranking" && positive(draft.goal) === null) {
         return "Bitte gib ein Ziel größer als 0 an.";
+      }
+      if (draft.metric === "plan_adherence") {
+        if (draft.scoring === "team_goal") return "Bei Planerfüllung gibt es kein Team-Ziel.";
+        if (draft.scoring === "goal" && (positive(draft.goal) ?? 0) > 100) {
+          return "Das Ziel ist höchstens 100 %.";
+        }
       }
       return null;
     case 2:
@@ -385,7 +393,10 @@ function ScoringStep({ draft, update }: StepProps) {
         description="Ein Ziel kann jeder schaffen, eine Rangliste kürt die Besten."
       />
       <div role="radiogroup" aria-label="Wertung" className="grid gap-2.5 sm:grid-cols-3">
-        {(["goal", "team_goal", "ranking"] as const).map((scoring) => (
+        {(metric === "plan_adherence"
+          ? (["goal", "ranking"] as const)
+          : (["goal", "team_goal", "ranking"] as const)
+        ).map((scoring) => (
           <ChoiceCard
             key={scoring}
             selected={draft.scoring === scoring}
@@ -410,7 +421,9 @@ function ScoringStep({ draft, update }: StepProps) {
               ? "Tage, an denen das Tagesziel erreicht bzw. abgehakt wird."
               : metric === "e1rm"
                 ? "Geschätztes Maximum, das erreicht werden soll."
-                : undefined
+                : metric === "plan_adherence"
+                  ? "Anteil der geplanten Einheiten im Zeitraum, z. B. 90."
+                  : undefined
           }
           className="max-w-xs"
         />

@@ -19,6 +19,7 @@ import {
 } from "./draft";
 import { DeviatingBadge } from "./deviating-badge";
 import { formatPerformedSets, formatWeekdayDate } from "./format";
+import { RepsWheelField } from "./reps-wheel";
 
 const rowGrid = "grid grid-cols-[2rem_minmax(0,1fr)_4.25rem_3.75rem_2.75rem] items-center gap-2";
 
@@ -114,20 +115,34 @@ function SetRow({
         placeholder="kg"
         onChange={(e) => onChange({ ...set, weight: e.target.value })}
       />
-      <input
-        type="text"
-        inputMode="numeric"
-        autoComplete="off"
-        aria-label={`${exerciseName}, ${label.name}: ${timed ? "Dauer in Sekunden" : "Wiederholungen"}`}
-        aria-invalid={amountError ? true : undefined}
-        title={amountError}
-        className={cn(inputClasses, "px-2 text-center tabular-nums")}
-        value={timed ? set.duration : set.reps}
-        placeholder={timed ? "s" : "Wdh."}
-        onChange={(e) =>
-          onChange(timed ? { ...set, duration: e.target.value } : { ...set, reps: e.target.value })
-        }
-      />
+      {timed ? (
+        <input
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          aria-label={`${exerciseName}, ${label.name}: Dauer in Sekunden`}
+          aria-invalid={amountError ? true : undefined}
+          title={amountError}
+          className={cn(inputClasses, "px-2 text-center tabular-nums")}
+          value={set.duration}
+          placeholder="s"
+          onChange={(e) => onChange({ ...set, duration: e.target.value })}
+        />
+      ) : (
+        <RepsWheelField
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          aria-label={`${exerciseName}, ${label.name}: Wiederholungen`}
+          aria-invalid={amountError ? true : undefined}
+          title={amountError}
+          className={cn(inputClasses, "px-2 text-center tabular-nums")}
+          value={set.reps}
+          fallback={target?.repsMax ?? target?.repsMin ?? 8}
+          placeholder="Wdh."
+          onValueChange={(reps) => onChange({ ...set, reps })}
+        />
+      )}
       <label
         className={cn(
           "flex size-11 cursor-pointer items-center justify-center rounded-card border",

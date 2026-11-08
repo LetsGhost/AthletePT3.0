@@ -1,8 +1,7 @@
-import type { ExerciseSession, StatsMetric } from "@athletept/shared";
+import type { ExerciseSession } from "@athletept/shared";
 import {
   CategoryScale,
   Chart,
-  Legend,
   LinearScale,
   LineController,
   LineElement,
@@ -13,17 +12,15 @@ import { useEffect, useRef, useState } from "react";
 
 import { formatWeekdayDate } from "@/features/workouts/format";
 
-import { formatRecordValue, metricLabels } from "./format";
+import {
+  chartLabels,
+  formatBestSet,
+  formatChartValue,
+  formatShortDate,
+  type ChartKind,
+} from "./format";
 
-Chart.register(
-  LineController,
-  LineElement,
-  PointElement,
-  LinearScale,
-  CategoryScale,
-  Tooltip,
-  Legend,
-);
+Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip);
 
 /** Aktuelles Theme als Zähler, damit das Diagramm bei einem Wechsel neue Farben bekommt. */
 function useThemeKey() {
@@ -47,16 +44,13 @@ function token(name: string) {
 
 interface ProgressChartProps {
   sessions: readonly ExerciseSession[];
-  metric: StatsMetric;
-  /** Beschreibung für Screenreader; die Werte stehen zusätzlich in einer Tabelle. */
+  kind: ChartKind;
+  /** Beschreibung für Screenreader; die Werte stehen zusätzlich in der Liste der Einheiten. */
   label: string;
 }
 
-/**
- * Verlauf der Hauptkennzahl (bei Übungen mit Gewicht zusätzlich das höchste Gewicht). Das Canvas
- * ist für Screenreader ein Bild mit Zusammenfassung, die Daten stehen in der Tabelle daneben.
- */
-export function ProgressChart({ sessions, metric, label }: ProgressChartProps) {
+/** Verlauf einer Kennzahl. Das Canvas ist für Screenreader ein Bild mit Zusammenfassung. */
+export function ProgressChart({ sessions, kind, label }: ProgressChartProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const theme = useThemeKey();
 
@@ -66,45 +60,29 @@ export function ProgressChart({ sessions, metric, label }: ProgressChartProps) {
     const accent = token("--accent");
     const muted = token("--text-muted");
     const border = token("--border");
-    const secondary = token("--module-records");
     const surface = token("--surface");
-    // Abweichende Trainings: hohle Raute statt gefülltem Punkt (Form, nicht nur Farbe).
-    const points = (color: string) => ({
-      backgroundColor: color,
-      pointBackgroundColor: sessions.map((s) => (s.deviating ? surface : color)),
-      pointStyle: sessions.map((s) => (s.deviating ? "rectRot" : "circle")),
-      pointBorderWidth: sessions.map((s) => (s.deviating ? 2 : 1)),
-    });
-    const datasets = [
-      {
-        label: metricLabels[metric],
-        data: sessions.map((s) => s[metric]),
-        borderColor: accent,
-        ...points(accent),
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        borderWidth: 2,
-        tension: 0.25,
-        spanGaps: true,
-      },
-    ];
-    if (metric === "estimated1rm") {
-      datasets.push({
-        label: "Höchstes Gewicht",
-        data: sessions.map((s) => s.topWeightKg),
-        borderColor: secondary,
-        ...points(secondary),
-        pointRadius: 3,
-        pointHoverRadius: 5,
-        borderWidth: 2,
-        tension: 0.25,
-        spanGaps: true,
-      });
-    }
-    const unitKind = metric === "estimated1rm" ? "topWeightKg" : metric;
     const chart = new Chart(context, {
       type: "line",
-      data: { labels: sessions.map((s) => formatWeekdayDate(s.date)), datasets },
+      data: {
+        labels: sessions.map((s) => formatShortDate(s.date)),
+        datasets: [
+          {
+            label: chartLabels[kind],
+            data: sessions.map((s) => s[kind]),
+            borderColor: accent,
+            backgroundColor: accent,
+            // Abweichende Trainings: hohle Raute statt gefülltem Punkt (Form, nicht nur Farbe).
+            pointBackgroundColor: sessions.map((s) => (s.deviating ? surface : accent)),
+            pointStyle: sessions.map((s) => (s.deviating ? "rectRot" : "circle")),
+            pointBorderWidth: sessions.map((s) => (s.deviating ? 2 : 1)),
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            borderWidth: 2.2,
+            tension: 0.25,
+            spanGaps: true,
+          },
+        ],
+      },
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -120,27 +98,29 @@ export function ProgressChart({ sessions, metric, label }: ProgressChartProps) {
           y: {
             ticks: {
               color: muted,
-              callback: (value) => formatRecordValue(unitKind, Number(value)),
+              maxTicksLimit: 4,
+              callback: (value) => formatChartValue(kind, Number(value)),
             },
             grid: { color: border },
+            border: { display: false },
           },
         },
         plugins: {
-          legend: {
-            display: datasets.length > 1,
-            labels: { color: muted, boxWidth: 12, boxHeight: 12 },
-          },
           tooltip: {
             callbacks: {
-              label: (item) =>
-                `${item.dataset.label}: ${formatRecordValue(unitKind, Number(item.parsed.y))}`,
+              title: ([item]) => (item ? formatWeekdayDate(sessions[item.dataIndex]!.date) : ""),
+              label: (item) => formatChartValue(kind, Number(item.parsed.y)),
               footer: ([item]) => {
                 const session = item && sessions[item.dataIndex];
-                if (!session?.deviating) return [];
+                if (!session) return [];
+                const bestSet = formatBestSet(session);
                 const note = session.notes?.trim();
                 return [
-                  "Abweichend",
-                  ...(note ? [note.length > 60 ? `${note.slice(0, 59)}…` : note] : []),
+                  ...(bestSet ? [`Bester Satz ${bestSet}`] : []),
+                  ...(session.deviating ? ["Abweichend"] : []),
+                  ...(session.deviating && note
+                    ? [note.length > 60 ? `${note.slice(0, 59)}…` : note]
+                    : []),
                 ];
               },
             },
@@ -149,10 +129,10 @@ export function ProgressChart({ sessions, metric, label }: ProgressChartProps) {
       },
     });
     return () => chart.destroy();
-  }, [sessions, metric, theme]);
+  }, [sessions, kind, theme]);
 
   return (
-    <div className="relative h-64 w-full">
+    <div className="relative h-52 w-full">
       <canvas ref={canvas} role="img" aria-label={label} />
     </div>
   );

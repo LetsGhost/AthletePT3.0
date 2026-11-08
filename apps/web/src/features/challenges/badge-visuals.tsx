@@ -9,6 +9,7 @@ const files: Record<Badge["icon"], string> = {
   calendar: "monats-konstanz",
   volume: "tonnage",
   sunrise: "fruehaufsteher",
+  plan: "planerfuellung",
   duel: "duellant",
   coach: "team-player",
   system_consistency: "system-konstanz",

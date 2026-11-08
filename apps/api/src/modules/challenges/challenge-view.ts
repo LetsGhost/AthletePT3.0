@@ -12,11 +12,13 @@ import {
 } from "@athletept/shared";
 import type { Types } from "mongoose";
 
+import { TrainingPlanModel } from "../plans/plan.model";
 import { UserModel } from "../users/user.model";
 import { WorkoutLogModel, type StoredWorkoutLog } from "../workouts/workout-log.model";
 import {
   computeDailyValues,
   computeStandings,
+  plannedSessions,
   type ScoreDefinition,
   type ScoreEntry,
   type ScoreLog,
@@ -103,14 +105,20 @@ function isScored(challenge: StoredChallenge, today: string) {
   return duel === null || duel === "active" || duel === "finished";
 }
 
-type LogForScore = Pick<StoredWorkoutLog, "_id" | "athleteId" | "date" | "completedAt" | "stats">;
+type LogForScore = Pick<
+  StoredWorkoutLog,
+  "_id" | "athleteId" | "date" | "completedAt" | "stats" | "dayId"
+> & { exercises: Pick<StoredWorkoutLog["exercises"][number], "skipped">[] };
 
 function toScoreLog(log: LogForScore): ScoreLog {
+  const total = log.exercises.length;
   return {
     id: log._id.toString(),
     athleteId: log.athleteId.toString(),
     date: log.date,
     completedAt: log.completedAt,
+    dayId: log.dayId.toString(),
+    doneShare: total ? log.exercises.filter((e) => !e.skipped).length / total : 1,
     stats: log.stats.map((s) => ({
       exerciseId: s.exerciseId.toString(),
       volumeKg: s.volumeKg,
@@ -132,6 +140,32 @@ function toScoreEntry(entry: StoredChallengeEntry): ScoreEntry {
 export interface ScoreData {
   logs: ScoreLog[];
   entries: ScoreEntry[];
+  /** Geplante Einheiten je Athlet, nur bei der Planerfüllung gefüllt. */
+  planned: Map<string, number>;
+}
+
+/**
+ * Geplante Einheiten je Teilnehmer im ganzen Zeitraum der Challenge. Nach dem Ende gilt der
+ * festgeschriebene Stand (siehe Challenge-Job).
+ * shortcut: solange sie läuft, zählt der heute aktive Plan, ein Planwechsel ändert also auch den
+ * Stand vergangener Tage; bei Bedarf über die Planversionen (`planRevision`) je Woche rechnen.
+ */
+async function loadPlanned(challenge: StoredChallenge) {
+  if (challenge.plannedSessions) return new Map(Object.entries(challenge.plannedSessions));
+  const plans = await TrainingPlanModel.find(
+    { athleteId: { $in: challenge.participantIds }, status: "active" },
+    { athleteId: 1, "days.weekday": 1 },
+  ).lean<{ athleteId: Types.ObjectId; days: { weekday: number | null }[] }[]>();
+  return new Map(
+    plans.map((p) => [
+      p.athleteId.toString(),
+      plannedSessions(
+        p.days.map((d) => d.weekday ?? null),
+        challenge.startDate,
+        challenge.endDate,
+      ),
+    ]),
+  );
 }
 
 /** Trainings bzw. Einträge, aus denen sich der Stand einer Challenge ergibt. */
@@ -142,7 +176,7 @@ export async function loadScoreData(challenge: StoredChallenge, today: string): 
     challenge.participantIds.length === 0 ||
     !isScored(challenge, today)
   ) {
-    return { logs: [], entries: [] };
+    return { logs: [], entries: [], planned: new Map() };
   }
   const range = { $gte: challenge.startDate, $lte: lastDate };
   if (challenge.metric === "manual") {
@@ -150,13 +184,16 @@ export async function loadScoreData(challenge: StoredChallenge, today: string): 
       challengeId: challenge._id,
       date: range,
     }).lean<StoredChallengeEntry[]>();
-    return { logs: [], entries: entries.map(toScoreEntry) };
+    return { logs: [], entries: entries.map(toScoreEntry), planned: new Map() };
   }
-  const logs = await WorkoutLogModel.find(
-    { athleteId: { $in: challenge.participantIds }, status: "completed", date: range },
-    { athleteId: 1, date: 1, completedAt: 1, stats: 1 },
-  ).lean<LogForScore[]>();
-  return { logs: logs.map(toScoreLog), entries: [] };
+  const [logs, planned] = await Promise.all([
+    WorkoutLogModel.find(
+      { athleteId: { $in: challenge.participantIds }, status: "completed", date: range },
+      { athleteId: 1, date: 1, completedAt: 1, stats: 1, dayId: 1, "exercises.skipped": 1 },
+    ).lean<LogForScore[]>(),
+    challenge.metric === "plan_adherence" ? loadPlanned(challenge) : new Map<string, number>(),
+  ]);
+  return { logs: logs.map(toScoreLog), entries: [], planned };
 }
 
 function definitionOf(challenge: StoredChallenge, today: string): ScoreDefinition {
@@ -183,6 +220,7 @@ export function score(challenge: StoredChallenge, today: string, data: ScoreData
     challenge.participantIds.map((id) => id.toString()),
     data.logs,
     data.entries,
+    data.planned,
   );
   const quitter = challenge.gaveUpById?.toString();
   if (!quitter) return result;

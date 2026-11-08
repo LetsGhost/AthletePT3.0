@@ -1,12 +1,14 @@
 import type {
   ExerciseChange,
+  ExerciseSession,
   ExerciseStatsSummary,
   RecordKind,
   StatsMetric,
 } from "@athletept/shared";
 
 import { formatDuration } from "@/features/plans/format";
-import { formatNumber } from "@/lib/format";
+import { formatWeekdayDate } from "@/features/workouts/format";
+import { formatNumber, parseIsoDate } from "@/lib/format";
 
 /** „97,5 kg“, „12 Wdh.“, „1 min“. */
 export function formatRecordValue(kind: RecordKind, value: number) {
@@ -34,10 +36,10 @@ export function changeTone(change: ExerciseChange | null) {
   return change.percent > 0 ? ("up" as const) : ("down" as const);
 }
 
-/** Bestwert der Hauptkennzahl, z. B. „116,7 kg“. */
-export function mainBest(summary: ExerciseStatsSummary) {
-  const record = summary.best[summary.metric];
-  return record ? formatRecordValue(summary.metric, record.value) : "–";
+/** Aktueller Stand der Hauptkennzahl (letzte Einheit), z. B. „116,7 kg“. */
+export function mainCurrent(summary: ExerciseStatsSummary) {
+  const value = summary.trend.at(-1) ?? summary.best[summary.metric]?.value;
+  return value === undefined ? "–" : formatRecordValue(summary.metric, value);
 }
 
 /** „58 min“, „9 h 40 min“, „2 h“. */
@@ -63,4 +65,46 @@ export function shiftMonth(month: string, months: number) {
   const [year, number] = month.split("-").map(Number);
   const index = year! * 12 + (number! - 1) + months;
   return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}`;
+}
+
+/** Kennzahlen, die das Diagramm einer Übung zeigen kann. */
+export type ChartKind = StatsMetric | "volumeKg";
+
+export const chartLabels: Record<ChartKind, string> = {
+  estimated1rm: "Gesch. Max.",
+  topWeightKg: "Höchstes Gewicht",
+  maxReps: "Wiederholungen",
+  maxDurationSeconds: "Dauer",
+  volumeKg: "Volumen",
+};
+
+/** Umschaltbare Kennzahlen je Hauptkennzahl (ohne Gewicht nur die eine). */
+export const chartKinds: Record<StatsMetric, ChartKind[]> = {
+  estimated1rm: ["estimated1rm", "topWeightKg", "volumeKg"],
+  topWeightKg: ["topWeightKg", "volumeKg"],
+  maxReps: ["maxReps"],
+  maxDurationSeconds: ["maxDurationSeconds"],
+};
+
+export function formatChartValue(kind: ChartKind, value: number) {
+  return kind === "volumeKg" ? `${formatNumber(value)} kg` : formatRecordValue(kind, value);
+}
+
+/** „97,5 kg × 10“, `null` ohne Satz mit Gewicht. */
+export function formatBestSet(session: Pick<ExerciseSession, "bestSetWeightKg" | "bestSetReps">) {
+  if (session.bestSetWeightKg === null) return null;
+  const weight = `${formatNumber(session.bestSetWeightKg)} kg`;
+  return session.bestSetReps === null ? weight : `${weight} × ${session.bestSetReps}`;
+}
+
+const shortDate = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "short" });
+
+/** „13. Okt.“ */
+export function formatShortDate(date: string) {
+  return shortDate.format(parseIsoDate(date));
+}
+
+/** „6 Einheiten · zuletzt Fr., 30. Okt.“ */
+export function sessionsText(summary: Pick<ExerciseStatsSummary, "sessionCount" | "lastDate">) {
+  return `${summary.sessionCount} ${summary.sessionCount === 1 ? "Einheit" : "Einheiten"} · zuletzt ${formatWeekdayDate(summary.lastDate)}`;
 }

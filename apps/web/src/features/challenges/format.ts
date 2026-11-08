@@ -53,6 +53,7 @@ const units: Record<Exclude<ChallengeMetric, "volume" | "e1rm">, [string, string
   workouts: ["Training", "Trainings"],
   training_days: ["Trainingstag", "Trainingstage"],
   sets: ["Satz", "Sätze"],
+  plan_adherence: ["%", "%"],
   manual: ["Tag", "Tage"],
 };
 

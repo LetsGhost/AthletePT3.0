@@ -114,6 +114,7 @@
   --animate-pop-in: pop-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1) both;
   --animate-fade-in: fade-in 0.25s ease-out both;
   --animate-slide-in: slide-in 0.3s ease-out both;
+  --animate-wheel-in: wheel-in 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
 
   @keyframes pop-in {
     from {
@@ -123,6 +124,13 @@
   }
   @keyframes fade-in {
     from {
+      opacity: 0;
+    }
+  }
+  /* Zahlenrad im Training klappt auf dem Feld auf */
+  @keyframes wheel-in {
+    from {
+      transform: scaleY(0.25);
       opacity: 0;
     }
   }

@@ -171,6 +171,9 @@ async function challengeBadges(athleteId: string): Promise<Badge[]> {
     results.filter((r) => r.challenge.kind === kind && r.finished && r.mine?.achieved).length;
   const duelWins = wins("duel");
   const coachWins = wins("coach");
+  const planWins = results.filter(
+    (r) => r.challenge.metric === "plan_adherence" && r.finished && r.mine?.achieved,
+  ).length;
 
   const system = results
     .filter((r) => r.challenge.kind === "system" && r.challenge.tiers?.length && r.mine)
@@ -179,6 +182,19 @@ async function challengeBadges(athleteId: string): Promise<Badge[]> {
 
   return [
     ...system,
+    badge({
+      id: "plan",
+      group: "series",
+      name: "Planerfüllung",
+      description: "Planerfüllungs-Challenges geschafft oder gewonnen.",
+      icon: "plan",
+      challengeKind: null,
+      challengeId: null,
+      value: planWins,
+      thresholds: [1, 3, 6],
+      labels: ["1", "3", "6"],
+      valueText: `${planWins} geschafft`,
+    }),
     badge({
       id: "duelist",
       group: "challenges",
