@@ -12,3 +12,11 @@ Zweite Domain (Sport-Analytics-Backend, SPORTS_DOMAIN in .env), Proxy laeuft ber
    docker compose -f docker-compose.sports.yml up -d --build
 3. Hier: docker compose -f docker-compose.certbot.yml run --rm certbot-sports
 4. Hier: docker compose -f docker-compose.proxy.yml up -d   (nimmt die neue Vorlage auf)
+
+Dritte Domain (statische Website athlete-analytics, ANALYTICS_DOMAIN in .env), Proxy laeuft bereits:
+1. DNS: A-Record athlete-analytics.athlete-pt.de auf die Server-IP
+2. Hier: Website-Dateien (index.html usw.) nach ./analytics-site kopieren, dann
+   docker compose -f docker-compose.analytics.yml up -d
+3. Hier: docker compose -f docker-compose.certbot.yml run --rm certbot-analytics
+4. Hier: docker compose -f docker-compose.proxy.yml up -d   (nimmt die neue Vorlage auf)
+Neue Version der Website: Dateien in ./analytics-site ersetzen, kein Neustart noetig.

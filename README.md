@@ -123,7 +123,7 @@ docker load -i athletept-images-<tag>.tar.gz     # nur bei -Save
 cp .env.example .env                              # ausfüllen: Images, DOMAIN, CERTBOT_EMAIL, MONGO_PASSWORD, ...
 cp mongo.env.example mongo.env                    # Root-Passwort für MongoDB
 docker network create athletept-proxy
-docker network create athletept-sports           # Netz von Proxy und Sport-Analytics-Backend
+docker network create athletept-sports           # Netz von Proxy, Sport-Analytics-Backend und athlete-analytics
 docker compose -f docker-compose.app.yml up -d
 docker compose -f docker-compose.certbot.yml run --rm --service-ports certbot-init   # Port 80 muss frei sein
 docker compose -f docker-compose.proxy.yml up -d
